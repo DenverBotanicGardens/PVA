@@ -1,0 +1,80 @@
+
+#transitions <- fert
+#add <- NULL
+#TF <- FALSE
+
+
+
+
+projection.matrix2014 <- function (transitions, stage = NULL, fate = NULL, fertility = NULL, 
+    sort = NULL, add = NULL, TF = FALSE) 
+{
+
+    if (missing(stage)) {
+        stage <- "stage"
+    }
+    if (missing(fate)) {
+        fate <- "fate"
+    }
+    nl <- as.list(1:ncol(transitions))
+    names(nl) <- names(transitions)
+    stage <- eval(substitute(stage), nl, parent.frame())
+    fate <- eval(substitute(fate), nl, parent.frame())
+    if (is.null(transitions[, stage])) {
+        stop("No stage column matching ", stage)
+    }
+    if (is.null(transitions[, fate])) {
+        stop("No fate column matching ", fate)
+    }
+    if (missing(sort)) {
+        sort <- levels(transitions[, stage])
+    }
+    if (missing(fertility)) {
+        fertility <- intersect(sort, names(transitions))
+    }
+    fertility <- eval(substitute(fertility), nl, parent.frame())
+
+mult.matrix <- matrix(c(0.4,0.4,0.4,0.4, 		# transition to seedling remains the same - delt with below
+					0.54,0.54,0.54,0.54, 	# transition to vegetiatve increased by 1/.56 to reach total
+					0.74,0.74,0.74,0.74, 	# transition to reproductive increased by 1/.56 to reach total 
+					2.50,1.86,1.35,1.56, 	# transtion to dormant reduced by .56 (1/1.79)
+					0.64,0.64,0.64,0.64), byrow = TRUE, nrow = 5,	# transition to dead remains the same Change dormant to dormant to even less
+				dimnames = (list(rownames(transtable[[as.character(i)]]),colnames(transtable[[as.character(i)]]) ) ))
+		
+
+    tf <- table(transitions[, fate], transitions[, stage]) %/% mult.matrix	# from 2014_multivisits to 2014_PVA_asmi_estimatemissedAGG
+    T_matrix <- try(prop.table(tf, 2)[sort, sort], silent = TRUE)
+    if (class(T_matrix) == "try-error") {
+        warning(paste("Error sorting matrix.\n  Make sure that levels in stage and fate columns\n  match stages listed in sort option above.\n Printing unsorted matrix instead!\n"), 
+            call. = FALSE)
+        sort <- TRUE
+        T_matrix <- prop.table(tf, 2)	# turns into a proportion of the total per column (stage)
+    }
+    T_matrix[is.nan(T_matrix)] <- 0
+    if (length(add) > 0) {
+        for (i in seq(1, length(add), 3)) {
+            T_matrix[add[i + 0], add[i + 1]] <- as.numeric(add[i + 
+                2])
+        }
+    }
+    n <- length(fertility)
+    F_matrix <- T_matrix * 0
+    if (n == 0) {
+        warning("Missing a fertility column with individual fertility rates\n", 
+            call. = FALSE)
+    }
+    else {
+        for (i in 1:n) {
+            fert <- tapply(transitions[, fertility[i]], transitions[, 
+                stage], mean, na.rm = TRUE)[sort]
+            F_matrix[i, ] <- fert
+        }
+    }
+    F_matrix[is.na(F_matrix)] <- 0
+    if (TF) {
+        list(T = T_matrix, F = F_matrix)
+    }
+    else {
+        T_matrix + F_matrix
+    }
+}
