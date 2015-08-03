@@ -35,6 +35,7 @@ setwd(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astrag
 names(asmi)
 unique(asmi$plotlocation)
 
+# Test mapping haplotype or diversity plots
 asmiplots <- read.csv("AsMiPlots.csv")
 asmiplots$Tag__
 Veg.Repro <- ddply(PS, .(Plot), summarise,
@@ -55,6 +56,7 @@ ggplot(asmiplots, aes(map_id = Tag__)) +
 	expand_limits(x = asmiplots$Long, y = asmiplots$Lat) +
 	coord_map()
 
+# There is an extra row of NAs in the 2014 data
 asmi[is.na(asmi$AsMi_site_id),]	#10225
 asmi <- asmi[complete.cases(asmi[,1:3]),]
 
@@ -64,19 +66,30 @@ unique(asmi$AsMi_plot_id)
 unique(asmi$flower); unique(asmi$fruit); unique(asmi$browsing); unique(asmi$status)
 unique(asmi$AsMi_plot_id); unique(asmi$direction); 
 
+# some typos in the data that can be fixed for consistency
 asmi$direction[asmi$direction == 'w'] <- 'W'
 asmi$direction[asmi$direction == 'E '] <- 'E'
 asmi$browsing[asmi$browsing == 'mammal'] <- 'Mammal'
 unique(asmi$fence)		
-table(asmi$AsMi_site_id, asmi$AsMi_plot_id)
+table(asmi$AsMi_plot_id, asmi$AsMi_site_id)
 
+# 217 individuals that are in Cebolla Creek
 length(asmi$fence[asmi$AsMi_site_id == 1 | asmi$AsMi_site_id == 2])  # 217 in 2014
+length(asmi$fence[asmi$AsMi_site_id != 1 & asmi$AsMi_site_id != 2])  # 10003 in 2014
+
+
+# Cebolla should be analysed seperately
+cebolla <- subset(asmi, AsMi_site_id == 1 | AsMi_site_id == 2)
+unique(cebolla$AsMi_plot_id)
+head(cebolla)
+
+# removed all plots from Cebolla Creek. 
 asmi <- subset(asmi, AsMi_site_id != 1 & AsMi_site_id != 2 &
 		AsMi_plot_id != 598)	# Should keep Beaver and Cebolla seperate, 
 						# remove plot 598
 
-
 ASMIF4 <- asmi[order(asmi$AsMi_site_id, asmi$AsMi_tag_id, asmi$year),] 
+cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
 str(asmi)
 str(ASMIF4)
 
@@ -85,9 +98,10 @@ table(ASMIF4$year, ASMIF4$AsMi_site_id)
 
 
 #### Set the order of the classes
-stages <- c("seedling", "vegetative", "reproductive", "dormant","dead") 
+stages <- c("seed", "seedling", "vegetative", "reproductive", "dormant","dead") 
 	#Orders the status by the stage levels
-  ASMIF4$status <- ordered(ASMIF4$status, levels = stages)	
+  ASMIF4$status <- ordered(ASMIF4$status, levels = stages)
+  cebolla$status <- ordered(cebolla$status, levels = stages)
 
 ## check the data for errors
 table(ASMIF4$status)
@@ -110,6 +124,11 @@ ASMIF4$browsed[ASMIF4$browsing!="None"]<-TRUE
 table(ASMIF4$browsed)
 table(ASMIF4$browsing)
 
+# Same for cebolla plots
+cebolla$browsed[cebolla$browsing=="None"]<-FALSE  	
+cebolla$browsed[cebolla$browsing!="None"]<-TRUE
+table(cebolla$browsed)
+table(cebolla$browsing)
 
 ################################################
 # AsMi_tag_id is unique per plant over all sites
@@ -117,6 +136,7 @@ table(ASMIF4$browsing)
 # remove dead fate from stages because can't start dead!
 #################### Merge year to year ########
 ASMIF42 <- subset(merge(ASMIF4, ASMIF4, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1) 	
+cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 names(ASMIF42)
 head(ASMIF42)
 asmimerge <- ASMIF42	# to use for correlations year to year
@@ -139,10 +159,13 @@ colnames(ASMIF42) <- c("site", "tag", "year", "length", "fruits",
 	"browse", "fenced", "stage", "fate")
 ## re-number
 rownames(ASMIF42) <- 1:nrow(ASMIF42)
-ASMIF42$stage <- ordered(ASMIF42$stage, levels = stages[-5])
+# Get rid of stage 'dead'
+ASMIF42$stage <- ordered(ASMIF42$stage, levels = stages[-6])
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
   table(Fate = ASMIF42$fate, Stage = ASMIF42$stage)  
+
+
 
 table(Year = ASMIF42$year, Stage = ASMIF42$stage)
 table(Year = ASMIF42$year, Fate = ASMIF42$fate)
