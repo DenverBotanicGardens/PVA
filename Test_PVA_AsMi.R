@@ -189,7 +189,6 @@ for(s in unique(am$site)){
     #Fertility columns
     by.site$seedling <- by.site$fruits/sum(by.site$fruits, na.rm = TRUE) * seeds.from.plants * recruit.rate
     by.site$seed <- by.site$fruits * seed.survival
-
     
     # fruits should probably be swapped with a measured amount that survive. 
     # Using just fruit assumes they all survive and produce individuals the next year
@@ -210,3 +209,12 @@ stable.stage(mean(promat$'26'))
 exp(stoch.growth.rate(promat$'26')$sim)
 stoch.growth.rate(promat$'15')
 
+
+
+### Test the StepPVA_Function
+x <- ASMIF42$year
+y <- ASMIF42$site
+z <- ASMIF42$fate
+a <- ASMIF42$stage
+df <- ASMIF42
+dormancy <- 1

@@ -31,7 +31,7 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   years <- sort(unique(x))
   
   # Create a list to hold output 
-  names <- c("Site", "fenced", "notfenced") 
+  names <- c("pro.matrix","fenced.pro.matirx","notfenced.pro.matrix","Site", "fenced", "notfenced") 
   SiteMatrix <- vector("list", length(names))
   names(SiteMatrix) <- names
   
@@ -81,12 +81,13 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
     fenced.pro.matrix[[as.character(i)]] <- projection.matrix(fencedfert, add = c(4,4, death.to.dormants))
     notfenced.pro.matrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(4,4, death.to.dormants))
   }
+ 
   
-  pro.matrix <<- pro.matrix
-  fenced.pro.matrix <<- fenced.pro.matrix
-  notfenced.pro.matrix <<- notfenced.pro.matrix
-  
-  
+  SiteMatrix$pro.matrix <- pro.matrix
+  SiteMatrix$fenced.pro.matrix <- fenced.pro.matrix
+  SiteMatrix$notfenced.pro.matrix <- notfenced.pro.matrix
+    
+  # Projection matrices divdied by Site
   
   Site.matrix <- vector("list", length(years))
   fenced.Site.matrix <- vector("list", length(years))
@@ -98,6 +99,9 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   names(fenced.promatrix) <- years
   notfenced.promatrix <- vector("list", length(years))
   names(notfenced.promatrix) <- years
+  
+  #Set variables
+  sites <- unique(y)
   
   ## Fencing by site
   for(j in sites){
@@ -145,9 +149,10 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
     notfenced.Site.matrix[[as.character(j)]] <- notfenced.promatrix
   }
   
-  SiteMatrix[1] <- Site.matrix
-  SiteMatrix[2] <- fenced.Site.matrix
-  SiteMatrix[3] <- notfenced.Site.matrix
+  # add each year list of matrices to each by site and for only fenced and only not fenced
+  SiteMatrix$Site <- Site.matrix
+  SiteMatrix$fenced <- fenced.Site.matrix
+  SiteMatrix$notfenced <- notfenced.Site.matrix
   
   # The list returned from the function
   SiteMatrix
@@ -156,7 +161,7 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
 }
 
 
-save(StagePVA, file = "StagePVAFunction.R")
+# save(StagePVA, file = "StagePVAFunction.R")
 
 #############################################################################################
 ############################### Stage PVA Function ##########################################
