@@ -7,9 +7,6 @@ output: pdf_document
 
 AsMiPVA
 
-Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
-
-
 ```{r}
 library(reshape2)
 library(ggplot2)
@@ -17,7 +14,7 @@ library(ggplot2)
 
 
 ```{r}
-asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_110615.csv"))
+asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_110615.csv"), na.strings = "na")
 
 head(asmi.raw)
 table(asmi.raw$year, asmi.raw$AsMi_site_id)
@@ -26,6 +23,89 @@ str(asmi.raw)
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 
 ```
+
+
+
+Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
+```{r}
+#alive <- lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year)),function(x){
+#  nrow(x[x$length>0,])
+#})
+
+asmi.raw <- asmi.raw[asmi.raw$status != "",]
+
+#AGG
+alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
+                  data = asmi.raw, function(x) length(x[x>0]))
+
+#AGG and dormant
+aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id + fence,
+                     data = asmi.raw, function(x) length(x[x != "dead"]))
+
+ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
+#  geom_point()+
+  stat_smooth(size=2)+
+  theme_bw()+
+  scale_color_manual("Sites\n",labels = c("Cebolla Mid", 
+                                          "Cebolla South",
+                                          "5","15","19","26"),
+                     values = c("cyan", "darkblue",
+                                "olivedrab","olivedrab1",
+                                "mediumseagreen","mistyrose3"))
+
+tbl1a.1 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
+tbl1a.1[tbl1a.1$year == 2015,]
+
+tbl1a.2 <- summarySE(aggdorm, measurevar="status", groupvars=c("AsMi_site_id", "year"))
+
+sites <- unique(tbl1a.1$AsMi_site_id)
+tbl1.1 <- lapply(sites, function(x){
+  paste(round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"length"],2)," (",
+        round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"se"],2), ")", sep="")
+})
+
+tbl1.2 <- lapply(sites, function(x){
+  paste(round(tbl1a.2[tbl1a.2$AsMi_site_id == x,"status"],2)," (",
+        round(tbl1a.2[tbl1a.2$AsMi_site_id == x,"se"],2), ")", sep="")
+})
+
+tbl1a <- lapply(1:6, function(x){
+  data.frame(tbl1.1[[x]],tbl1.2[[x]])
+  })
+
+#Cebolla Mid, Site 1
+tbl1a[[1]]
+
+#Cebolla North, Site 2
+tbl1a[[2]]
+
+#South Beaver Creek, Site 5
+tbl1a[[3]]
+#South Beaver Creek, Site 15
+tbl1a[[4]]
+#South Beaver Creek, Site 19
+tbl1a[[5]]
+#South Beaver Creek, Site 26
+tbl1a[[6]]
+
+# Percent and average reproductive
+tbl1b.2 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
+tbl1b.1 <- lapply(sites, function(x){
+  paste(round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"length"],2)," (",
+        round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"se"],2), ")", sep="")
+})
+
+
+```
+
+Figure 
+```{r}
+
+
+
+```
+
+
 
 
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
@@ -95,7 +175,12 @@ sumYrsAlive <- lapply(yrsalive, function(x){
 
 tail(sumYrsAlive[[5]])
 
-smya <- do.call()
+smya <- do.call(rbind, sumYrsAlive)
+
+ggplot(smya, aes(YrsD, Yearsalive))+
+  geom_point()+
+  stat_smooth()
+
 ```
 
 
