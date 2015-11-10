@@ -87,13 +87,60 @@ tbl1a[[4]]
 tbl1a[[5]]
 #South Beaver Creek, Site 26
 tbl1a[[6]]
+```
 
+Percent and total preproductive
+```{r}
 # Percent and average reproductive
-tbl1b.2 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
-tbl1b.1 <- lapply(sites, function(x){
-  paste(round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"length"],2)," (",
-        round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"se"],2), ")", sep="")
+
+#precent reproductive
+prep <- lapply(split(asmi.raw,list(asmi.raw$AsMi_plot_id,
+                                     asmi.raw$year,
+                                     asmi.raw$AsMi_site_id)),
+               function(x){
+                 nrow(x[x$length > 0,])/sum(x$flower[x$length > 0],na.rm = TRUE)
+                 })
+
+prep <- do.call(rbind,prep)
+nms <- strsplit(row.names(prep), "[.]")
+dfnms <- data.frame(do.call(rbind, nms))
+
+prep1 <- data.frame(Plot = dfnms[,1],Year = dfnms[,2],Site = dfnms[,3],PerRep = prep)
+prep1$PerRep[!is.finite(prep1$PerRep)] <- 0
+head(prep1)
+prep<-prep1
+w <- which(sapply(prep, class) == "factor")
+prep[w] <- lapply(prep[w], function(x) as.numeric(as.character(x)))
+tbl1b.1 <- summarySE(prep, measurevar="PerRep", groupvars=c("Site","Year"))
+head(tbl1b.1)
+
+#sites above
+#percent reproductive 
+tbl1.3 <- lapply(sites, function(x){
+  paste(round(tbl1b.1[tbl1b.1$Site == x,"PerRep"],2)," (",
+        round(tbl1b.1[tbl1b.1$Site == x,"se"],2), ")", sep="")
 })
+
+tbl1.3[[3]]
+
+#total reproductive
+totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id + fence,
+                    data = asmi.raw.1, function(x) sum(x, na.rm = TRUE))
+
+head(totrep)
+tbl1b.2 <- summarySE(totrep, measurevar="flower",groupvars=c("AsMi_site_id","year"))
+
+tbl1.4 <- lapply(sites, function(x){
+  paste(round(tbl1b.2[tbl1b.2$AsMi_site_id == x,"flower"],2)," (",
+        round(tbl1b.2[tbl1b.2$AsMi_site_id == x,"se"],2), ")", sep="")
+})
+
+tbl1b <- lapply(1:6, function(x){
+  data.frame(tbl1.3[[x]], tbl1.4[[x]])
+  })
+
+tbl1.3[[2]]
+tbl1.4[[2]]
 
 
 ```
