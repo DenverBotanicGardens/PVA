@@ -10,6 +10,7 @@ AsMiPVA
 ```{r}
 library(reshape2)
 library(ggplot2)
+library(psych)
 ```
 
 
@@ -46,7 +47,7 @@ ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
 #  geom_point()+
   stat_smooth(size=2)+
   theme_bw()+
-  scale_color_manual("Sites\n",labels = c("Cebolla Mid", 
+  scale_color_manual("Sites/n",labels = c("Cebolla Mid", 
                                           "Cebolla South",
                                           "5","15","19","26"),
                      values = c("cyan", "darkblue",
@@ -115,7 +116,8 @@ tbl1.3[[3]]
 
 #total reproductive
 totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id + fence,
-                    data = asmi.raw.1, function(x) sum(x, na.rm = TRUE))
+                    data = asmi.raw[asmi$length > 0,], 
+                    function(x) sum(x, na.rm = TRUE))
 
 head(totrep)
 tbl1b.2 <- summarySE(totrep, measurevar="flower",groupvars=c("AsMi_site_id","year"))
@@ -129,11 +131,52 @@ tbl1b <- lapply(1:6, function(x){
   data.frame(tbl1.3[[x]], tbl1.4[[x]])
   })
 
-tbl1.3[[2]]
-tbl1.4[[2]]
+#Cebolla Mid, 1
+tbl1b[[1]]
+
+#Cebolla North, 2
+tbl1b[[2]]
+
+#South Beaver Creek, 5
+tbl1b[[3]]
+
+#South Beaver Creek, 15
+tbl1b[[4]]
+
+#South Beaver Creek, 19
+tbl1b[[5]]
+
+#South Beaver Creek, 26
+tbl1b[[6]]
 
 
 ```
+
+Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995 – 2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
+
+Plot Summary (weather data is prev. Aug through currrent Jul)   
+Total.Plants are AGG and dormant    
+Total.Alive is AGG   
+X..Flowered must be percent flowered and    
+X..Flowered.1 is number flowered
+```{r}
+ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015_dev.csv"))
+
+head(ps.asmi)
+
+ps.cor <- subset(merge(ps.asmi, ps.asmi, by = c("Site","Plot")), Year.x == Year.y - 1)
+head(ps.cor)
+
+cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
+
+
+cor.plot(cor(ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
+                                           names(ps.cor), value = TRUE))]),
+         numbers = TRUE)
+```
+
+
+
 
 Figure 
 ```{r}
