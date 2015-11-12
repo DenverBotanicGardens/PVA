@@ -354,10 +354,10 @@ Narrow down to
 [7] "fence.x"        "status.x"       "status.y"     
 ```{r}
 cols <- c("AsMi_site_id.x","AsMi_tag_id","year.x","length.x",
-          "fruit.x","browsed.x","fence.x","status.x","status.y")
+          "fruit.x","browsed.x","fence.x","status.x","status.y","AsMi_plot_id.x")
 asmi.2 <- asmi.2[, names(asmi.2) %in% unique(grep(paste(cols,collapse="|"),
                                                   names(asmi.2), value = TRUE))]
-colnames(asmi.2) <- c( "tag","year","length","fruits","stage",
+colnames(asmi.2) <- c( "tag","year","length","fruits","stage","plot",
                        "site","fenced","browse","fate")
 ## re-number
 rownames(asmi.2) <- 1:nrow(asmi.2)
@@ -365,7 +365,51 @@ rownames(asmi.2) <- 1:nrow(asmi.2)
 asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-6])
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
-  table(Fate = asmi.2$fate, Stage = asmi.2$stage)  
+table(Fate = asmi.2$fate, Stage = asmi.2$stage)
+table(asmi.2$site, asmi.2$year)
+table(asmi.2$plot, asmi.2$year)
+table(asmi.2$stage)
+
+```
+
+bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions      
+
+```{r}
+boottrans <- lapply(unique(asmi.2$site), function(x){
+  data.frame(cbind(Site = x,
+                   Boot = boot.transitions(asmi.2[asmi.2$site == x & asmi.2$fenced == "n",], 
+                                           1000,
+                                           fertility = "fruits")$lambda))
+  })
+
+bt <- do.call(rbind, boottrans)
+head(bt)
+ggplot(bt, aes(as.factor(Site), Boot, colour = as.factor(Site)))+
+  geom_boxplot()
+```
+
+Dormancy    
+repeat lengths   
+```{r}
+dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
+max(dorms)
+ggplot(data.frame(Dormant = dorms), aes(Dormant))+
+  geom_histogram()+
+  theme_bw()+
+  ylab("Frequency")+
+  xlab("Consecutive years dormant")
+
+
+median(dorms) #1
+length(dorms[dorms==1]) #692
+length(dorms) #1066
+length(dorms[dorms > 5]) #16
+```
+
+
+Dormancy can be set to 0-1   
+```{r}
+load(path.expand("P:/hackathon/GitPVA/StagePVAFunction.R"))
 
 
 ```

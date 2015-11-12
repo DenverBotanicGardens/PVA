@@ -31,14 +31,21 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   years <- sort(unique(x))
   
   # Create a list to hold output 
-  names <- c("pro.matrix","fenced.pro.matirx","notfenced.pro.matrix","Site", "fenced", "notfenced") 
+  names <- c("plot.matrix","fenced.plot.matrix","notfenced.plot.matrix",
+             "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",
+             "Site", "fenced", "notfenced") 
   SiteMatrix <- vector("list", length(names))
   names(SiteMatrix) <- names
   
-  library(popbio)
+  require(popbio)
   
   # Individuals that are new at the current census are considered seedlings, some are reproductive
   # These measure the fertility (fruit output) of seedlings
+  # "Seedlings" that are reproductive came from seed at an earlier time, won't be reproductive 
+  # if they were a seedling that year - should add to seed stage somehow....
+  
+  ## 1
+  # overall
   seedlingsfert <- c()
   fencedseedlingsfert <- c()
   notfencedseedlingsfert <- c()
@@ -51,11 +58,10 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   notfenced.pro.matrix <- vector("list", length(years))
   names(notfenced.pro.matrix) <- years
   
-  
   ## Fencing
   for(i in years){
     
-    # Not split by site
+    # Not split by site, overall
     fert <- subset(df, x == i)
     fencedfert <- subset(df, x == i & df$fenced == "y")
     notfencedfert <- subset(df, x == i & df$fenced == "n")		
@@ -64,29 +70,34 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
     # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
     # fruit production per individual as a percent of the total production that year. Time t
     # this times the number of seedlings that survived the next year
-    
+  
     seedlings <- nrow(subset(df, x == i+1 & a == "seedling"))
     fencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & df$fenced == "y"))
     notfencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & df$fenced == "n"))
     
+    # Adding a fertility column to seedlings. 
+    # instead could Do something like if seedling and length > 10cm then call it vegetative/repro and add to 
+    #  seed count???
     fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
     fencedfert$seedling <- fencedseedlings * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
     notfencedfert$seedling <- notfencedseedlings * (notfencedfert$fruits / sum(notfencedfert$fruits, na.rm = T))
   
     # Add some survival to dormant individuals other than 100% since we only note dormat indivdiuals when they are
-    #seen above ground again so 100% survive 
-    death.to.dormants <- projection.matrix(by.site)[5,5]*dormancy
+    #seen above ground again so 100% survive # the column sums to 1, want some to transition to dead, 
+    # lowering dormant to dormant
+    death.to.dormants <- projection.matrix(fert)[5,5]*dormancy 
     
     pro.matrix[[as.character(i)]] <- projection.matrix(fert, add = c(4,4, death.to.dormants))
     fenced.pro.matrix[[as.character(i)]] <- projection.matrix(fencedfert, add = c(4,4, death.to.dormants))
     notfenced.pro.matrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(4,4, death.to.dormants))
   }
  
-  
   SiteMatrix$pro.matrix <- pro.matrix
   SiteMatrix$fenced.pro.matrix <- fenced.pro.matrix
   SiteMatrix$notfenced.pro.matrix <- notfenced.pro.matrix
-    
+
+  
+  ## 2
   # Projection matrices divdied by Site
   
   Site.matrix <- vector("list", length(years))
@@ -112,6 +123,7 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
       fencedfert <- subset(df, x == i & y == j & df$fenced == "y")
       fencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j & df$fenced == "y"))
       
+      # no fencing in site 15 creates errors. Fencing removed from all in 2015
       if(nrow(fencedfert) == 0){ 
         fencedfert$seedling <- 0 * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
         fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
@@ -153,6 +165,76 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   SiteMatrix$Site <- Site.matrix
   SiteMatrix$fenced <- fenced.Site.matrix
   SiteMatrix$notfenced <- notfenced.Site.matrix
+  
+  ## 3
+  # Projection matrices divdied by Plot
+  
+  Site.matrix <- vector("list", length(years))
+  fenced.Site.matrix <- vector("list", length(years))
+  notfenced.Site.matrix <- vector("list", length(years))
+  
+  promatrix <- vector("list", length(years))
+  names(promatrix) <- years
+  fenced.promatrix <- vector("list", length(years))
+  names(fenced.promatrix) <- years
+  notfenced.promatrix <- vector("list", length(years))
+  names(notfenced.promatrix) <- years
+  
+  #Set variables
+  sites <- unique(y)
+  
+  ## Fencing by site
+  for(j in sites){
+    for(i in years){
+      
+      # y is Site
+      # x is Year
+      fencedfert <- subset(df, x == i & y == j & df$fenced == "y")
+      fencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j & df$fenced == "y"))
+      
+      if(nrow(fencedfert) == 0){ 
+        fencedfert$seedling <- 0 * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
+        fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
+        fenced.promatrix[[as.character(i)]] <- projection.matrix(fencedfert)
+        print("No fencing")
+      } else {
+        fencedfert$seedling <- fencedseedlings * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
+        fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
+        fenced.promatrix[[as.character(i)]] <- projection.matrix(fencedfert)}  # end if else
+      
+      fert <- subset(df, x == i & y == j)
+      notfencedfert <- subset(df, x == i & y == j & df$fenced == "n")
+      
+      # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
+      # fruit production per individual as a percent of the total production that year. Time t
+      # this times the number of seedlings that survived the next year
+      
+      seedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j))
+      notfencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j & df$fenced == "n"))
+      
+      fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
+      fert$seedling[is.nan(fert$seedling)] <- 0
+      fert$seedling[is.na(fert$seedling)] <- 0
+      notfencedfert$seedling <- notfencedseedlings * (notfencedfert$fruits / sum(notfencedfert$fruits, na.rm = T))
+      notfencedfert$seedling[is.nan(notfencedfert$seedling)] <- 0
+      notfencedfert$seedling[is.na(notfencedfert$seedling)] <- 0		 
+      
+      
+      
+      promatrix[[as.character(i)]] <- projection.matrix(fert, add = c(4,4, death.to.dormants))
+      notfenced.promatrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(4,4, death.to.dormants))
+    }
+    Site.matrix[[as.character(j)]] <- promatrix
+    fenced.Site.matrix[[as.character(j)]] <- fenced.promatrix
+    notfenced.Site.matrix[[as.character(j)]] <- notfenced.promatrix
+  }
+  
+  # add each year list of matrices to each by site and for only fenced and only not fenced
+  SiteMatrix$Site <- Site.matrix
+  SiteMatrix$fenced <- fenced.Site.matrix
+  SiteMatrix$notfenced <- notfenced.Site.matrix
+  
+  
   
   # The list returned from the function
   SiteMatrix
