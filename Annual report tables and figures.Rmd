@@ -411,12 +411,77 @@ Dormancy can be set to 0-1
 ```{r}
 load(path.expand("P:/hackathon/GitPVA/StagePVAFunction.R"))
 
+asmi.pva <- StagePVA(asmi.2)
 
 ```
 
-Figure 
-```{r}
 
+By plot
+```{r}
+site <- sapply(unique(asmi.2$site), function(x){
+  as.character(unique(asmi.2$plot[asmi.2$site == x]))
+  }, simplify = FALSE)
+names(site)<-unique(asmi.2$site)
+site
+
+asmi.pva$plot.matrix[site$'15'[1]]
+
+
+
+```
+
+### Function for lambda and 
+requires library(popbio)
+x is the list of matrices, i.e. notfenced.Site.matrix$"26", 
+					or fenced.Site.matrix$"19"[2:17])
+y is the start year
+z is the start of the last transition
+```{r}
+lmdSD <- function(x,y,z){
+
+	yrs <- 1995:z
+	st <- match(c(y,z),yrs)
+	
+	lambdaAll <- c()
+	for(i in c(y:z)){
+		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
+	}	
+	StandDev <- sqrt(var(c(lambdaAll)))	#Standard Deviation
+	cbind(lmda = lambda(mean(x[st[1]:st[2]])),SD = StandDev)
+}	
+```
+
+
+```{r}
+lmdSD(asmi.pva$pro.matrix, 1996, 2014)
+#         lmda        SD
+#[1,] 0.916556 0.1715709
+```
+
+# pattern is:
+All pre-fence  1996-2004         All post-fence                            Open plots
+`asmi.pva$pro.matrix`                 
+`asmi.pva$fenced.pro.matrix`     `asmi.pva$fenced.pro.matrix` 2005-2013
+`asmi.pva$notfenced.pro.matrix`  `asmi.pva$notfenced.pro.matrix` 2005-2013 `asmi.pva$notfenced` 1996-2013
+      
+      
+Site 5  1996-2004 (which is through 2005 but starting transition of 2004)
+`asmi.pva$Site$"5"`  
+`asmi.pva$fenced
+
+```{r}
+tbl4 <- 
+  lapply(unique(asmi.2$site), function(x){
+    lapply()
+  })
+
+```
+
+
+Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
+
+```{r}
+asmi.pva$notfenced.pro.matrix$'2012'
 
 
 ```
