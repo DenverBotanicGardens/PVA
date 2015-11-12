@@ -31,7 +31,7 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   years <- sort(unique(x))
   
   # Create a list to hold output 
-  names <- c("plot.matrix","fenced.plot.matrix","notfenced.plot.matrix",
+  names <- c("plot.matrix",
              "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",
              "Site", "fenced", "notfenced") 
   SiteMatrix <- vector("list", length(names))
@@ -169,83 +169,46 @@ StagePVA <- function(x,y,z,a,df,dormancy = 1){
   ## 3
   # Projection matrices divdied by Plot
   
-  Site.matrix <- vector("list", length(years))
-  fenced.Site.matrix <- vector("list", length(years))
-  notfenced.Site.matrix <- vector("list", length(years))
-  
-  promatrix <- vector("list", length(years))
-  names(promatrix) <- years
-  fenced.promatrix <- vector("list", length(years))
-  names(fenced.promatrix) <- years
-  notfenced.promatrix <- vector("list", length(years))
-  names(notfenced.promatrix) <- years
+  plot.matrix <- vector("list", length(years))
+  names(plot.matrix) <- years
+  plotpromatrix <- vector("list", length(years))
+  names(plotpromatrix) <- years
   
   #Set variables
-  sites <- unique(y)
+  Plots <- unique(df$plot)
   
-  ## Fencing by site
-  for(j in sites){
+  # sample size might be too small per plot
+  ## Plot
+  for(j in Plots){
     for(i in years){
-      
-      # y is Site
+
       # x is Year
-      fencedfert <- subset(df, x == i & y == j & df$fenced == "y")
-      fencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j & df$fenced == "y"))
-      
-      if(nrow(fencedfert) == 0){ 
-        fencedfert$seedling <- 0 * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
-        fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
-        fenced.promatrix[[as.character(i)]] <- projection.matrix(fencedfert)
-        print("No fencing")
-      } else {
-        fencedfert$seedling <- fencedseedlings * (fencedfert$fruits / sum(fencedfert$fruits, na.rm = T))
-        fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
-        fenced.promatrix[[as.character(i)]] <- projection.matrix(fencedfert)}  # end if else
-      
-      fert <- subset(df, x == i & y == j)
-      notfencedfert <- subset(df, x == i & y == j & df$fenced == "n")
+      fertplot <- subset(df, x == i & df$plot == j)
       
       # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
       # fruit production per individual as a percent of the total production that year. Time t
       # this times the number of seedlings that survived the next year
       
-      seedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j))
-      notfencedseedlings <- nrow(subset(df, x == i+1 & a == "seedling" & y == j & df$fenced == "n"))
-      
+      seedlings <- nrow(subset(df, x == i+1 & a == "seedling" & df$plot == j))
       fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
       fert$seedling[is.nan(fert$seedling)] <- 0
       fert$seedling[is.na(fert$seedling)] <- 0
-      notfencedfert$seedling <- notfencedseedlings * (notfencedfert$fruits / sum(notfencedfert$fruits, na.rm = T))
-      notfencedfert$seedling[is.nan(notfencedfert$seedling)] <- 0
-      notfencedfert$seedling[is.na(notfencedfert$seedling)] <- 0		 
       
+      death.to.dormants <- projection.matrix(fertplot)[5,5]*dormancy 
       
+      plotpromatrix[[as.character(i)]] <- projection.matrix(fert, add = c(4,4, death.to.dormants))
       
-      promatrix[[as.character(i)]] <- projection.matrix(fert, add = c(4,4, death.to.dormants))
-      notfenced.promatrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(4,4, death.to.dormants))
     }
-    Site.matrix[[as.character(j)]] <- promatrix
-    fenced.Site.matrix[[as.character(j)]] <- fenced.promatrix
-    notfenced.Site.matrix[[as.character(j)]] <- notfenced.promatrix
+    
+    plot.matrix[[as.character(j)]] <- plotpromatrix
   }
   
   # add each year list of matrices to each by site and for only fenced and only not fenced
-  SiteMatrix$Site <- Site.matrix
-  SiteMatrix$fenced <- fenced.Site.matrix
-  SiteMatrix$notfenced <- notfenced.Site.matrix
-  
-  
+  SiteMatrix$plot.matrix <- plot.matrix
   
   # The list returned from the function
   SiteMatrix
-  
-  
 }
 
 
 # save(StagePVA, file = "StagePVAFunction.R")
-
-#############################################################################################
-############################### Stage PVA Function ##########################################
-####################################### End #################################################
-#############################################################################################
