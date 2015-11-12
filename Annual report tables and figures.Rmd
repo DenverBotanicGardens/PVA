@@ -11,17 +11,24 @@ AsMiPVA
 library(reshape2)
 library(ggplot2)
 library(psych)
+library(popbio)
 ```
 
 
 ```{r}
-asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_110615.csv"), na.strings = "na")
+asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_111115.csv"), na.strings = "na")
 
 head(asmi.raw)
 table(asmi.raw$year, asmi.raw$AsMi_site_id)
+table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
 str(asmi.raw)
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
+
+asmi.raw[asmi.raw$status == "",]
+asmi.raw <- asmi.raw[asmi.raw$status != "",]
+
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
 ```
 
@@ -32,8 +39,6 @@ Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek
 #alive <- lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year)),function(x){
 #  nrow(x[x$length>0,])
 #})
-
-asmi.raw <- asmi.raw[asmi.raw$status != "",]
 
 #AGG
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
@@ -160,23 +165,210 @@ Total.Alive is AGG
 X..Flowered must be percent flowered and    
 X..Flowered.1 is number flowered
 ```{r}
-ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015_dev.csv"))
+ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015.csv"))
 
 head(ps.asmi)
 
-ps.cor <- subset(merge(ps.asmi, ps.asmi, by = c("Site","Plot")), Year.x == Year.y - 1)
+ps.asmi.t <- ps.asmi
+
+#log transform
+logtrans <- c("X..Flowered.1","Total.Alive","X..Dormant","Total.Fruit",
+              "X..Flowered")
+intersect(names(ps.asmi.t),logtrans) #Check that names are right
+ps.asmi.t[,logtrans] <- lapply(ps.asmi.t[,logtrans], 
+                                     function(x) log(x + 1)) #NA in num flowered
+ps.asmi.t$X..Flowered.1[is.na(ps.asmi.t$X..Flowered.1)] <- 0
+
+#arcsine square root transformed  asin(sqrt(x/100))
+ps.asmi.t["X..Browsed"] <- lapply(ps.asmi.t["X..Browsed"],
+                                  function(x) asin(sqrt(x/100)))
+
+
+ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
+                       by = c("Site","Plot")), Year.x == Year.y - 1)
+head(ps.cor[,c("Year.x","Year.y")])
+
 head(ps.cor)
+cor.plot(cor(ps.cor[,names(ps.cor) %in% 
+                      unique(grep(paste(cors,collapse="|"),
+                                  names(ps.cor), value=TRUE))]),
+         numbers = TRUE)
+
+cor(ps.cor[,names(ps.cor) %in% 
+                      unique(grep(paste(cors,collapse="|"),
+                                  names(ps.cor), value=TRUE))])
+
+#If errors:
+#dev.off()
+cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
+cor(ps.cor[,names(ps.cor) %in% 
+             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))])
+
+cor.plot(cor(ps.cor[,names(ps.cor) %in% 
+                      unique(grep(paste(cors,collapse="|"),
+                                  names(ps.cor), value=TRUE))]),
+         numbers = TRUE)
+
+```
+
+
+```{r}
+cortests <- lapply(ps.cor[,names(ps.cor) %in% 
+                            unique(grep(paste(cors,collapse="|"),
+                                        names(ps.cor), value=TRUE))],
+                   function(x){
+                     sapply(ps.cor[,names(ps.cor) %in% 
+                                     unique(grep(paste(cors,collapse="|"),
+                                                 names(ps.cor), value=TRUE))],
+                            function(y){
+                              ct <- cor.test(x,y)
+                              cbind(ct$p.value,ct$estimate)
+                              })
+                     })
+
+
+t(cortests[[1]]) # Total.Alive.x to all
+tst <- lapply(cortests, function(x) data.frame(t(x)))
+df.c <- do.call(rbind,tst)
+
+cortests[[2]] # X..Browsed.x to all
+
+head(df.c)
+nrow(df.c)
+
+df.c[df.c$X1 > 0.001,]
+
+```
+
+
+
+```{r}
+#get rid of the number of reproductive individuals, only percent reproductive
+ps.cor <- ps.cor[,grep("Flowered.1.", names(ps.cor), invert=TRUE)]
 
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
-
 
 cor.plot(cor(ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
                                            names(ps.cor), value = TRUE))]),
          numbers = TRUE)
 ```
 
+Table 3: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
+```{r}
+fruit <- aggregate(fruit ~ AsMi_plot_id + year + AsMi_site_id + fence, 
+                  data = asmi.raw, function(x) sum(x,na.rm = TRUE))
+head(fruit)
 
 
+tbl3.1 <- summarySE(fruit, measurevar="fruit",groupvars=c("AsMi_site_id","year"))
+
+sites <- unique(tbl3.1$AsMi_site_id)
+tbl3 <- lapply(sites, function(x){
+  paste(round(tbl3.1[tbl3.1$AsMi_site_id == x,"fruit"],2)," (",
+        round(tbl3.1[tbl3.1$AsMi_site_id == x,"se"],1), ")", sep="")
+})
+
+#Cebolla Creek
+data.frame(tbl3[[1]],tbl3[[2]])
+#South Beaver Creek
+data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]])
+
+```
+
+
+Table 4: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
+
+```{r}
+table(asmi.raw$Browsing...Status)
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
+
+table(asmi.raw$browsing)
+table(asmi.raw$Browsing...Status) #lots of missing -1 and one row with nothing
+nrow(asmi.raw)
+table(asmi.raw$AsMi_site_id,asmi.raw$year)
+
+cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
+table(cebolla$AsMi_site_id,cebolla$year)
+
+sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
+table(sbc$AsMi_site_id,sbc$year)
+
+#remove plot 598 from SBC, it was added so late.. or do all plots on their own instead of by sites? 
+sbc <- sbc[sbc$AsMi_plot_id != 598,]
+
+asmi.1 <- sbc[order(sbc$AsMi_site_id, sbc$AsMi_tag_id, sbc$year),]
+cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
+
+asmi.1$status <- factor(asmi.1$status)
+table(asmi.1$status)
+```
+
+Set order of classes
+```{r}
+stages <- c("seed", "seedling", "vegetative", "reproductive", "dormant","dead") 
+asmi.1$status <- ordered(asmi.1$status, levels = stages)
+cebolla$status <- ordered(cebolla$status, levels = stages)
+
+
+```
+
+check errors
+```{r}
+table(asmi.1$status)
+table(asmi.1$year,asmi.1$status)
+table(asmi.1$year, asmi.1$AsMi_site_id)
+table(asmi.1$length) # looks like tag numbers got recorded as length
+
+asmi.1[asmi.1$length > 100,]
+
+# One length that was recorded crazy
+asmi.1$length[asmi.1$length == 921] <- NA
+
+asmi.1$browsed[asmi.1$browsing==0]<-FALSE  	
+asmi.1$browsed[asmi.1$browsing==1]<-TRUE
+table(asmi.1$browsed)
+table(asmi.1$browsing)
+
+# Same for cebolla plots
+cebolla$browsed[cebolla$browsing==0]<-FALSE    
+cebolla$browsed[cebolla$browsing==1]<-TRUE
+table(cebolla$browsed)
+table(cebolla$browsing)
+```
+
+Merge year to year, year.x is year t, year.y is year t+1   
+remove dead from stages, just fate   
+```{r}
+asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
+cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
+names(asmi.2)
+head(asmi.2[,grep("year", names(asmi.2), )])
+```
+
+Want    
+Narrow down to      
+[1] "AsMi_site_id.x" "AsMi_tag_id"    "year.x"             
+[4] "length.x"       "fruit.x"        "browsed.x"           
+[7] "fence.x"        "status.x"       "status.y"     
+```{r}
+cols <- c("AsMi_site_id.x","AsMi_tag_id","year.x","length.x",
+          "fruit.x","browsed.x","fence.x","status.x","status.y")
+asmi.2 <- asmi.2[, names(asmi.2) %in% unique(grep(paste(cols,collapse="|"),
+                                                  names(asmi.2), value = TRUE))]
+colnames(asmi.2) <- c( "tag","year","length","fruits","stage",
+                       "site","fenced","browse","fate")
+## re-number
+rownames(asmi.2) <- 1:nrow(asmi.2)
+# Get rid of stage 'dead'
+asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-6])
+# check transitions
+#fate down and stage across the top; These are the raw numbers combined for all years 
+  table(Fate = asmi.2$fate, Stage = asmi.2$stage)  
+
+
+```
 
 Figure 
 ```{r}
