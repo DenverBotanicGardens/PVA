@@ -30,9 +30,9 @@ StagePVA <- function(df,dormancy = 1){
   years <- sort(unique(df$year))
   
   # Create a list to hold output 
-  names <- c("plot.matrix",
-             "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",
-             "Site", "fenced", "notfenced") 
+  names <- c("plot.matrix",   #Stage PVA per plot
+             "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",    #Stage PVA overall
+             "Site", "fenced", "notfenced") #Stage PVA per site: fenced vs. not fenced plots split per site
   SiteMatrix <- vector("list", length(names))
   names(SiteMatrix) <- names
   
