@@ -496,10 +496,10 @@ asmi.pva$notfenced.pro.matrix   | asmi.pva$notfenced.pro.matrix  | asmi.pva$notf
       
 Sites 5,19,26,  1996-2004       
 (which is through 2005 but starting transition of 2004)     
-------------------------|-----------------------------|---------------------
-asmi.pva$Site$"5"       |                             |
-asmi.pva$fenced$"5"     |      asmi.pva$fenced$"5"    |           
-asmi.pva$notfenced$"5"  |      asmi.pva$notfenced$"5" |  asmi.pva$notfenced$"5"      
+------------------------|------------------------|---------------------          
+asmi.pva$Site$"5"       |                        |       
+asmi.pva$fenced$"5"     | asmi.pva$fenced$"5"    |                
+asmi.pva$notfenced$"5"  | asmi.pva$notfenced$"5" |  asmi.pva$notfenced$"5"             
 
 Site 15
 `asmi.pva$Site$"15"` ...        
