@@ -465,8 +465,8 @@ paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2014)[1],2)," (",
 
 # Table 4
 pattern is:
-All pre-fence  1996-2004        |All post-fence 2005-2013         |Open plots 1996-2013    
-----------------------------------------------------------------------------------------
+All pre-fence  1996-2004        |All post-fence 2005-2013         |Open plots 1996-2013       
+--------------------------------|---------------------------------|----------------------    
 `asmi.pva$pro.matrix`           |                                 |  
 `asmi.pva$fenced.pro.matrix`    |`asmi.pva$fenced.pro.matrix`     |           
 `asmi.pva$notfenced.pro.matrix` |`asmi.pva$notfenced.pro.matrix`  | `asmi.pva$notfenced`         
