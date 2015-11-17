@@ -495,7 +495,9 @@ asmi.pva$notfenced.pro.matrix   | asmi.pva$notfenced.pro.matrix  | asmi.pva$notf
       
       
 Sites 5,19,26,  1996-2004       
-(which is through 2005 but starting transition of 2004)     
+(which is through 2005 but starting transition of 2004)   
+
+1996-2005               |   2005-2014            |   1996-2014
 ------------------------|------------------------|---------------------          
 asmi.pva$Site$"5"       |                        |       
 asmi.pva$fenced$"5"     | asmi.pva$fenced$"5"    |                
@@ -520,8 +522,11 @@ tbl4.96.04 <-
 paste(round(lmdSD(asmi.pva$Site$'5',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$Site$'5',1996,2004)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$Site$'5',1996,2004)[1],2)," (",
-            round(lmdSD(asmi.pva$Site$'5',1996,2004)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$fenced$'5',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'5',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[2],2),")", sep="")
 
 ```
 
