@@ -25,9 +25,11 @@ table(asmi.raw$Browsing...Status)
 str(asmi.raw)
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 
+# one blank row at the end of the csv download
 asmi.raw[asmi.raw$status == "",]
 asmi.raw <- asmi.raw[asmi.raw$status != "",]
 
+#reset factors of browsing to eliminate " "
 asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
 ```
@@ -49,8 +51,8 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id + fence,
                      data = asmi.raw, function(x) length(x[x != "dead"]))
 
 ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
-#  geom_point()+
-  stat_smooth(size=2)+
+  geom_point()+
+  stat_smooth(size=1)+
   theme_bw()+
   scale_color_manual("Sites/n",labels = c("Cebolla Mid", 
                                           "Cebolla South",
@@ -236,6 +238,7 @@ cortests[[2]] # X..Browsed.x to all
 head(df.c)
 nrow(df.c)
 
+#All significant
 df.c[df.c$X1 > 0.001,]
 
 ```
@@ -455,25 +458,40 @@ lmdSD <- function(x,y,z){
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, 2014)
 #         lmda        SD
-#[1,] 0.916556 0.1715709
+#[1,] 0.916556 0.1715709  
+paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2014)[1],2)," (",
+      round(lmdSD(asmi.pva$pro.matrix, 1996, 2014)[2],2), ")", sep ="")
 ```
 
-# pattern is:
-All pre-fence  1996-2004         All post-fence                            Open plots
-`asmi.pva$pro.matrix`                 
-`asmi.pva$fenced.pro.matrix`     `asmi.pva$fenced.pro.matrix` 2005-2013
-`asmi.pva$notfenced.pro.matrix`  `asmi.pva$notfenced.pro.matrix` 2005-2013 `asmi.pva$notfenced` 1996-2013
+# Table 4
+pattern is:
+All pre-fence  1996-2004        |All post-fence 2005-2013         |Open plots 1996-2013    
+----------------------------------------------------------------------------------------
+`asmi.pva$pro.matrix`           |                                 |  
+`asmi.pva$fenced.pro.matrix`    |`asmi.pva$fenced.pro.matrix`     |           
+`asmi.pva$notfenced.pro.matrix` |`asmi.pva$notfenced.pro.matrix`  | `asmi.pva$notfenced`         
       
       
-Site 5  1996-2004 (which is through 2005 but starting transition of 2004)
-`asmi.pva$Site$"5"`  
-`asmi.pva$fenced
+Sites 5,19,26,  1996-2004       
+(which is through 2005 but starting transition of 2004)     
+`asmi.pva$Site$"5"`       
+`asmi.pva$fenced$"5"'            `asmi.pva$fenced$"5"`           
+`asmi.pva$notfenced$"5"          `asmi.pva$notfenced$"5"            `asmi.pva$notfenced$"5"      
+
+Site 15
+`asmi.pva$Site$"15"` ...        
 
 ```{r}
-tbl4 <- 
-  lapply(unique(asmi.2$site), function(x){
-    lapply()
+matord <- c("asmi.pva$Site", "asmi.pva$fenced","asmi.pva$notfenced")
+tbl4.96.04 <- 
+  lapply(as.character(unique(asmi.2$site)), function(x){
+    lapply(matord, function(y){
+      paste(round(lmdSD(paste(y,"[",x,"]",sep=""))[1],2)," (",
+            round(lmdSD())
+    })
   })
+
+tbl4.96.04[1]
 
 ```
 
