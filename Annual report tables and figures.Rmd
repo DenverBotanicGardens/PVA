@@ -310,7 +310,11 @@ table(asmi.1$status)
 
 Set order of classes
 ```{r}
-stages <- c("seed", "seedling", "vegetative", "reproductive", "dormant","dead") 
+# Later work in seeds
+# stages <- c("seed", "seedling", "vegetative", "reproductive", "dormant","dead") 
+
+stages <- c("seedling", "vegetative", "reproductive", "dormant","dead") 
+
 asmi.1$status <- ordered(asmi.1$status, levels = stages)
 cebolla$status <- ordered(cebolla$status, levels = stages)
 
@@ -324,6 +328,7 @@ table(asmi.1$year,asmi.1$status)
 table(asmi.1$year, asmi.1$AsMi_site_id)
 table(asmi.1$length) # looks like tag numbers got recorded as length
 
+asmi.1[is.na(asmi.1$length),]
 asmi.1[asmi.1$length > 100,]
 
 # One length that was recorded crazy
@@ -365,17 +370,18 @@ colnames(asmi.2) <- c( "tag","year","length","fruits","stage","plot",
 ## re-number
 rownames(asmi.2) <- 1:nrow(asmi.2)
 # Get rid of stage 'dead'
-asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-6])
+asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-length(stages)])
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
 table(Fate = asmi.2$fate, Stage = asmi.2$stage)
 table(asmi.2$site, asmi.2$year)
 table(asmi.2$plot, asmi.2$year)
 table(asmi.2$stage)
-
 ```
 
-bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions      
+bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions   
+
+Doesn't make sense... shouldn't be so high...
 
 ```{r}
 boottrans <- lapply(unique(asmi.2$site), function(x){
@@ -403,10 +409,11 @@ ggplot(data.frame(Dormant = dorms), aes(Dormant))+
   xlab("Consecutive years dormant")
 
 
-median(dorms) #1
-length(dorms[dorms==1]) #692
-length(dorms) #1066
-length(dorms[dorms > 5]) #16
+median(dorms) #2
+length(dorms[dorms==1]) #296
+length(dorms) #725
+length(dorms[dorms > 5]) #237
+length(dorms[dorms > 15]) #20
 ```
 
 
@@ -459,17 +466,32 @@ lmdSD <- function(x,y,z){
 lmdSD(asmi.pva$pro.matrix, 1996, 2014)
 #         lmda        SD
 #[1,] 0.916556 0.1715709  
-paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2014)[1],2)," (",
-      round(lmdSD(asmi.pva$pro.matrix, 1996, 2014)[2],2), ")", sep ="")
+paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[1],2)," (",
+      round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[2],2), ")", sep ="")
+
+mats.list <- list(asmi.pva$pro.matrix,asmi.pva$fenced.pro.matrix,asmi.pva$notfenced.pro.matrix)
+tbl4.all <- sapply(mats.list, function(x){
+   paste(round(lmdSD(x, 1996, 2004)[1],2)," (",
+         round(lmdSD(x, 1996, 2004)[2],2),")", sep="")
+    })
+
+tbl4.allpost <- sapply(mats.list[-1], function(x){
+  paste(round(lmdSD(x, 2005,2013)[1],2)," (",
+        round(lmdSD(x, 2005,2013)[2],2),")", sep="")
+})
+
+tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[1],2)," (",
+                      round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[2],2),")", sep="")
 ```
 
 # Table 4
-pattern is:
-All pre-fence  1996-2004        |All post-fence 2005-2013         |Open plots 1996-2013       
---------------------------------|---------------------------------|----------------------    
-`asmi.pva$pro.matrix`           |                                 |  
-`asmi.pva$fenced.pro.matrix`    |`asmi.pva$fenced.pro.matrix`     |           
-`asmi.pva$notfenced.pro.matrix` |`asmi.pva$notfenced.pro.matrix`  | `asmi.pva$notfenced`         
+pattern is:          
+
+All pre-fence  1996-2004        |All post-fence 2005-2013       |Open plots 1996-2013       
+--------------------------------|--------------------------------|----------------------    
+asmi.pva$pro.matrix             |                                |  
+asmi.pva$fenced.pro.matrix      | asmi.pva$fenced.pro.matrix     |           
+asmi.pva$notfenced.pro.matrix   | asmi.pva$notfenced.pro.matrix  | asmi.pva$notfenced         
       
       
 Sites 5,19,26,  1996-2004       
@@ -482,16 +504,23 @@ Site 15
 `asmi.pva$Site$"15"` ...        
 
 ```{r}
-matord <- c("asmi.pva$Site", "asmi.pva$fenced","asmi.pva$notfenced")
+matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
+
+# yarggg, won't work!!
 tbl4.96.04 <- 
   lapply(as.character(unique(asmi.2$site)), function(x){
-    lapply(matord, function(y){
-      paste(round(lmdSD(paste(y,"[",x,"]",sep=""))[1],2)," (",
-            round(lmdSD())
+    lapply(matord.list, function(y){
+      paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
+            round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")
     })
   })
 
-tbl4.96.04[1]
+#site 5
+paste(round(lmdSD(asmi.pva$Site$'5',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'5',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$Site$'5',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'5',1996,2004)[2],2),")", sep="")
 
 ```
 
