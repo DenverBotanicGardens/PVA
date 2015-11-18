@@ -528,17 +528,67 @@ paste(round(lmdSD(asmi.pva$fenced$'5',1996,2004)[1],2)," (",
 paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[2],2),")", sep="")
 
+paste(round(lmdSD(asmi.pva$fenced$'5',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'5',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'5',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'5',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'5',1996,2013)[2],2),")", sep="")
+
+#Site 15
+paste(round(lmdSD(asmi.pva$Site$'15',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'15',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$Site$'15',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'15',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$Site$'15',1996,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'15',1996,2013)[2],2),")", sep="")
+
+#site 19
+paste(round(lmdSD(asmi.pva$Site$'19',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'19',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$fenced$'19',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'19',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'19',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'19',1996,2004)[2],2),")", sep="")
+
+
+paste(round(lmdSD(asmi.pva$fenced$'19',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'19',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'19',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'19',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'19',1996,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'19',1996,2013)[2],2),")", sep="")
+
+#site 26
+paste(round(lmdSD(asmi.pva$Site$'26',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'26',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$fenced$'26',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'26',1996,2004)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'26',1996,2004)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'26',1996,2004)[2],2),")", sep="")
+
+
+paste(round(lmdSD(asmi.pva$fenced$'26',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'26',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'26',2005,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'26',2005,2013)[2],2),")", sep="")
+
+paste(round(lmdSD(asmi.pva$notfenced$'26',1996,2013)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'26',1996,2013)[2],2),")", sep="")
+
+
 ```
-
-
-Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
-
-```{r}
-asmi.pva$notfenced.pro.matrix$'2012'
-
-
-```
-
 
 
 
@@ -580,6 +630,136 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
     return(datac)
 }
 ```
+
+
+###Environmental Data from PRISM:   
+<http://prism.oregonstate.edu/explorer/>   
+
+
+```{r}
+asmi.climate <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/prism_data_csv.csv"),skip=6)
+head(asmi.climate)
+
+asmi.climate$Year <- substr(asmi.climate$Date,1,4)
+asmi.climate$Month <- substr(asmi.climate$Date,6,7)
+
+asmi.c <- asmi.climate[,c(1,3,5,7:9)]
+names(asmi.c) <- c("Creek","Precip","tmin","tmax","Year","Month")
+head(asmi.c)
+
+#Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
+asmi.c$Month <- as.numeric(asmi.c$Month)
+asmi.c$Year <- as.numeric(asmi.c$Year)
+asmi.c$Prev12 <- asmi.c$Year
+asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
+```
+
+Seasons    
+Winter: December-March (12-3)    
+Spring/summer: April-July (4-7)    
+Fall: August-November (8-11)   
+```{r}
+asmi.c$season <- "winter"
+asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "spring/summer"
+asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
+
+asmi.c.summary <- aggregate(asmi.c[,2:4], asmi.c[,c("season","Creek","Prev12")],
+                            FUN = function(x) mean(x, na.rm = TRUE))
+
+head(asmi.c.summary)
+
+```
+
+```{r}
+ps.asmi$Creek[ps.asmi$Site > 4] <- "South Beaver Creek"
+ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla Creek"
+asmi.m <- merge(ps.asmi[,-c(12:(length(ps.asmi)-1))], asmi.c.summary, 
+                by.x=c("Year","Creek"), by.y = c("Prev12","Creek"))
+
+str(asmi.m)
+
+#Total.Plants - AGG and dormant
+AGGDorm <- summarySE(ps.asmi, measurevar="Total.Plants", groupvars=c("Fence","Year"))
+#Total.Alive - AGG
+AGG <- summarySE(ps.asmi, measurevar="Total.Alive", groupvars=c("Fence","Year"))
+
+#Total.Fruit
+Fruit <- summarySE(ps.asmi, measurevar="Total.Fruit", groupvars=c("Fence","Year"))
+
+#X..Flowered - %flowered
+Repro <- summarySE(ps.asmi, measurevar="X..Flowered", groupvars=c("Fence","Year"))
+
+```
+
+
+ Figure 8 but different... need to figure out why different    
+AGG and Dormant
+```{r}
+ggplot(AGGDorm[AGGDorm$Total.Plants>0,], aes(Year, Total.Plants, colour = Fence))+
+  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
+  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
+  geom_errorbar(aes(ymin=Total.Plants-se, ymax=Total.Plants+se),width=1, position = position_dodge(0.1)) +
+  theme_bw() +
+  ylab("Average AGG per Site")+
+  ggtitle("a)") +
+  theme(plot.title=element_text(hjust=0))+
+  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2006.75, lty = 4)
+  
+
+```
+
+
+AGG
+```{r}
+ggplot(AGG[AGG$Total.Alive>0 & AGG$Year < 2015,], aes(Year, Total.Alive, colour = Fence))+
+  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
+  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
+  geom_errorbar(aes(ymin=Total.Alive-se, ymax=Total.Alive+se),width=1, position = position_dodge(0.1)) +
+  theme_bw() +
+  ylab("Average AGG and Dormant per Site")+
+  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2006.75, lty = 4)
+
+```
+
+
+Fruit
+```{r}
+ggplot(Fruit[AGG$Total.Alive>0 & AGG$Year < 2015,], aes(Year, Total.Fruit, colour = Fence))+
+  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
+  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
+  geom_errorbar(aes(ymin=Total.Fruit-se, ymax=Total.Fruit+se),width=1, position = position_dodge(0.1)) +
+  theme_bw() +
+  ylab("Average Fruit per Site")+
+  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2006.75, lty = 4)
+
+```
+
+
+Table 6: PCA climatic loadings for the first two principal component axes for yearly demographic data of Astragalus microcymbus from four sites within the South Beaver Creek drainage near Gunnison, CO. 
+```{r}
+
+
+
+```
+
+
+
+Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
+
+```{r}
+asmi.pva$notfenced.pro.matrix$'2012'
+
+
+```
+
+
 
 
 ### Years alive    
@@ -643,37 +823,6 @@ head(smzero)
 ```
 
 
-
-
-###Environmental Data from PRISM:   
-<http://prism.oregonstate.edu/explorer/>   
-
-
-```{r}
-asmi.climate <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/prism_data_csv.csv"),skip=6)
-head(asmi.climate)
-
-asmi.climate$Year <- substr(asmi.climate$Date,1,4)
-asmi.climate$Month <- substr(asmi.climate$Date,6,7)
-asmi.climate <- data.frame(Site = "South Beaver Creek", asmi.climate)
-
-asmi.c <- asmi.climate[,c(1,3,5,7:9)]
-names(asmi.c) <- c("Site","Precip","tmin","tmax","Year","Month")
-head(asmi.c)
-```
-
-Seasons    
-Winter: December-March (12-3)    
-Spring/summer: April-July (4-7)    
-Fall: August-November (8-11)   
-```{r}
-asmi.c$season <- "winter"
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "spring/summer"
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
-
-asmi.c.summary <- aggregate(asmi.c[,2:4])
-
-```
 
 
 ### Intraannual visits    
