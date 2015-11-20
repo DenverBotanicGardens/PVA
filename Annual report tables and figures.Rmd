@@ -12,6 +12,9 @@ library(reshape2)
 library(ggplot2)
 library(psych)
 library(popbio)
+library(devtools)
+library(sciplot)
+library(plotrix)
 ```
 
 
@@ -414,6 +417,8 @@ length(dorms[dorms==1]) #296
 length(dorms) #725
 length(dorms[dorms > 5]) #237
 length(dorms[dorms > 15]) #20
+
+
 ```
 
 
@@ -590,6 +595,13 @@ paste(round(lmdSD(asmi.pva$notfenced$'26',1996,2013)[1],2)," (",
 
 ```
 
+Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
+```{r}
+eigen.analysis(mean(asmi.pva$notfenced.pro.matrix))
+mean(asmi.pva$notfenced.pro.matrix)
+```
+
+
 
 
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
@@ -668,7 +680,56 @@ asmi.c.summary <- aggregate(asmi.c[,2:4], asmi.c[,c("season","Creek","Prev12")],
 
 head(asmi.c.summary)
 
+season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < 2016 & asmi.c.summary$Prev12 > 1994,],
+                  idvar=c("Creek","Prev12"),
+                  timevar = "season",
+                  direction="wide")
+head(season)
+
+cor.plot(cor(season[,-(1:2)]), numbers=TRUE)
+
+cor.table<-cor(season[,-(1:2)])
+data <- as.data.frame(as.table(cor.table))
+combins <- combn(colnames(cor.table),2,FUN=function(x) paste(x,collapse="_"))
+cor.data <- data[data$Var1 != data$Var2, ]
+data <- cor.data[paste(cor.data$Var1, cor.data$Var2, sep="_") %in% combins,]
+exclude <- paste(data$Var2[abs(data$Freq)>0.49],sep=",")
+tomatch <- c("Creek","Prev12",exclude)
+
+forpca <- season[,c(grep(paste(tomatch, collapse="|"),
+                            names(season), value=TRUE, invert=TRUE))]
+names(forpca)
 ```
+
+```{r}
+
+source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
+
+```
+
+```{r}
+asmi.pca <- princomp(forpca,cor=TRUE)
+summary(asmi.pca)
+asmi.load <- loadings(asmi.pca)
+asmi.pc <- predict(asmi.pca)
+
+asmi.pc <- data.frame(asmi.pc,season)
+
+```
+
+```{r}
+ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
+  geom_point()+
+  stat_ellipse()+
+  theme_bw()+
+  xlab("35.8%")+
+  ylab("23.4%")
+
+```
+
+
+
+
 
 ```{r}
 ps.asmi$Creek[ps.asmi$Site > 4] <- "South Beaver Creek"
@@ -681,66 +742,131 @@ str(asmi.m)
 #Total.Plants - AGG and dormant
 AGGDorm <- summarySE(ps.asmi, measurevar="Total.Plants", groupvars=c("Fence","Year"))
 #Total.Alive - AGG
-AGG <- summarySE(ps.asmi, measurevar="Total.Alive", groupvars=c("Fence","Year"))
+AGG <- summarySE(ps.asmi, measurevar="Total.Alive", groupvars=c("Fence","Year","Site"))
 
 #Total.Fruit
-Fruit <- summarySE(ps.asmi, measurevar="Total.Fruit", groupvars=c("Fence","Year"))
+Fruit <- summarySE(ps.asmi, measurevar="Total.Fruit", groupvars=c("Fence","Year","Site"))
 
 #X..Flowered - %flowered
-Repro <- summarySE(ps.asmi, measurevar="X..Flowered", groupvars=c("Fence","Year"))
+Repro <- summarySE(ps.asmi, measurevar="X..Flowered", groupvars=c("Fence","Year","Site"))
 
 ```
 
 
- Figure 8 but different... need to figure out why different    
-AGG and Dormant
+ Figure 8    
+AGG and Dormant  
+  
 ```{r}
-ggplot(AGGDorm[AGGDorm$Total.Plants>0,], aes(Year, Total.Plants, colour = Fence))+
-  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
-  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
-  geom_errorbar(aes(ymin=Total.Plants-se, ymax=Total.Plants+se),width=1, position = position_dodge(0.1)) +
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 1995 & ps.asmi$Year < 2015,], 
+       aes(Year, Total.Plants, shape = Fence, colour = Fence))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
   theme_bw() +
-  ylab("Average AGG per Site")+
-  ggtitle("a)") +
+  ylab("Average AGG and dormant per Site")+
+  ggtitle("b)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
-  geom_vline(xintercept = 2006.75, lty = 4)
+  geom_vline(xintercept = 2006.75, lty = 4)+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Open","Fenced"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Open","Fenced"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
   
-
 ```
 
 
 AGG
 ```{r}
-ggplot(AGG[AGG$Total.Alive>0 & AGG$Year < 2015,], aes(Year, Total.Alive, colour = Fence))+
-  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
-  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
-  geom_errorbar(aes(ymin=Total.Alive-se, ymax=Total.Alive+se),width=1, position = position_dodge(0.1)) +
+ggplot(ps.asmi[ps.asmi$Total.Alive>0,], aes(Year, Total.Alive, shape = Fence, colour = Fence))+
+#  geom_point(fun = mean)+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
   theme_bw() +
-  ylab("Average AGG and Dormant per Site")+
-  ggtitle("b)") +
+  ylab("Average AGG per Site")+
+  ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
-  geom_vline(xintercept = 2006.75, lty = 4)
+  geom_vline(xintercept = 2006.75, lty = 4)+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Open","Fenced"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Open","Fenced"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 
 ```
 
 
 Fruit
 ```{r}
-ggplot(Fruit[AGG$Total.Alive>0 & AGG$Year < 2015,], aes(Year, Total.Fruit, colour = Fence))+
-  geom_point(position=position_dodge(0.1), shape=21, fill="white")+
-  stat_summary(fun.y = function(x) mean(x, na.rm = TRUE), geom="line")+
-  geom_errorbar(aes(ymin=Total.Fruit-se, ymax=Total.Fruit+se),width=1, position = position_dodge(0.1)) +
+ggplot(ps.asmi[ps.asmi$Total.Plants>0,], 
+       aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
   theme_bw() +
-  ylab("Average Fruit per Site")+
-  ggtitle("b)") +
+  ylab("Total Fruit per Site")+
+  ggtitle("c)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
-  geom_vline(xintercept = 2006.75, lty = 4)
-
+  geom_vline(xintercept = 2006.75, lty = 4)+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Open","Fenced"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Open","Fenced"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 ```
-
+  
+X..Flowered - Percent Reproductive
+```{r}
+ggplot(ps.asmi[ps.asmi$Total.Plants>0,], 
+       aes(Year, X..Flowered, shape = Fence, colour = Fence))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
+  theme_bw() +
+  ylab("% Reproductive per Site")+
+  ggtitle("d)") +
+  theme(plot.title=element_text(hjust=0))+
+  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2006.75, lty = 4)+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Open","Fenced"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Open","Fenced"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
+```
+  
 
 Table 6: PCA climatic loadings for the first two principal component axes for yearly demographic data of Astragalus microcymbus from four sites within the South Beaver Creek drainage near Gunnison, CO. 
 ```{r}
@@ -767,13 +893,13 @@ asmi.pva$notfenced.pro.matrix$'2012'
 ```{r}
 path <- "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/"
 
-yrsalive <- lapply(1:10, function(x){ 
+yrsalive <- lapply(1:20, function(x){ 
   path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
   ysal <- read.csv(path.expand(path2), na.strings="na")
   cbind(ysal, YrsD = x)
   })
 
-head(yrsalive[[4]])
+head(yrsalive[[20]])
 str(yrsalive[[1]])
 
 yrsalive[[1]][is.na(yrsalive[[1]]$Yearsalive),]
@@ -783,17 +909,29 @@ yrsalive[[3]][is.na(yrsalive[[3]]$AsMi_plot_id),]
 
 #eliminate na or make them zeros?
 # complete.cases will eliminate any that aren't yet dead or are new in 2015 sinece they've only been seen one year. 
+```
 sumYrsAlive <- lapply(yrsalive, function(x){
   summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars=c("AsMi_plot_id","AsMi_site_id","YrsD"))
 })
+```{r}
+sumYrsAlive <- lapply(yrsalive, function(x){
+  summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars="YrsD")
+})
 
-tail(sumYrsAlive[[5]])
+sumYrsAlive
 
 smya <- do.call(rbind, sumYrsAlive)
+```
 
+Figure 2(a) Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.   
+```{r}
 ggplot(smya, aes(YrsD, Yearsalive))+
-  geom_point()+
-  stat_smooth()
+#  stat_smooth()+
+  geom_errorbar(aes(ymin=Yearsalive-se, ymax=Yearsalive+se), 
+                width=1, position=position_dodge(0.1)) +
+  theme_bw()+
+  xlab("Maximum years dormant")+
+  ylab("Life length")
 
 ```
 
@@ -837,9 +975,99 @@ names(intra)
 str(intra)
 
 intra[intra$Plot == 8,"LnJune22.24"]
-head(intra[intra$Plot == 8,])
 
-intra <- transform(intra, LnJune22.24 = as.numeric(LnJune22.24))
+
+intra <- transform(intra, LnJune22.24 = as.numeric(as.character(LnJune22.24)))
+table(intra$LnJune22.24)
+
+demo.only <- intra[,-c(1:7,13,99)]
+names(demo.only)
+
+# need to name the same before binding...
+surname <- names(demo.only[,grep("Ln",names(demo.only))])
+
+demo.only.bydate <- lapply(1:18, function(x){
+  df <- data.frame(intra[,c(1:7,13,99)], demo.only[,((5*x-4):(5*x))],Survey = surname[x])
+  names(df) <- c(names(intra[,c(1:7,13,99)]), "Ln","Fl","Fr","Br","Comment","Survey")
+  df[!is.na(df$Ln),]
+})
+
+head(demo.only.bydate[[15]])
+
+dm <- do.call(rbind, demo.only.bydate)
+names(Filter(is.character, dm))
+dm[,names(Filter(is.character, dm))] <- apply(dm[,names(Filter(is.character, dm))], 
+                                              2, as.numeric)
+str(dm)
+
+dm$Site[dm$Plot <= 610 & dm$Plot >= 606] <- "5"
+dm$Site[dm$Plot == 8 | dm$Plot == 578 | dm$Plot == 581 | dm$Plot == 799] <- "15"
+dm$Site[dm$Plot == 300 | dm$Plot <= 515 & dm$Plot >= 512] <- "19"
+dm$Site[dm$Plot == 238 | dm$Plot == 480 | 
+  	dm$Plot == 598 | dm$Plot == 611 | dm$Plot == 614] <- "26"
+dm$Site[dm$Plot == 22 | dm$Plot == 1 | dm$Plot == 32 | dm$Plot == 42
+		| dm$Plot == 52 ] <- "Cebolla Mid"
+
+dm$Site[dm$Plot == 16 | dm$Plot == 96 | dm$Plot == 58
+		| dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "Cebolla North"
+
+sites <- c("5","15","19","26","Cebolla Mid","Cebolla North")
+dm$Site <- ordered(dm$Site, levels = sites)
+```
+
+
+
+```{r}
+
+ggplot(dm, aes(Survey, Ln, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  xlab("Average Length")+
+	theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
+
+```
+
+  scale_x_discrete(limits=rainbow(length(unique(dm$Survey))), 
+                   labels = c("April 2014", "May 2014",'June-1',
+                              'June-2','July','Aug','Sept',
+                              'Oct-1','Oct-2',
+                              "April 2015","May 11-15","May 26-28",
+                              "June 8-10","June 22-24","July 20-23","Aug 12-14",
+                              "Sept 1-3","Oct 6-8")) + 
+
+Total AGG per plot
+```{r}
+sum.agg <- aggregate(dm$X, dm[,c("Plot","Site","Survey")],
+          FUN = function(x){
+            length(x)
+          })
+
+plotnum <- aggregate(dm$Plot, dm[,c("Site","Survey")],
+                     FUN = function(x){
+                       length(unique(x))
+                     })
+
+levels(plotnum$Site) <- gsub("Cebolla Mid", "1",levels(plotnum$Site)) 
+levels(plotnum$Site) <- gsub("Cebolla North", "2",levels(plotnum$Site)) 
+
+```
+
+```{r}
+ggplot(sum.agg, aes(Survey, x, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  ylab("Average AGG per plot")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  geom_text(data=plotnum, aes(label=x, y=-1, x=Survey, size = 0.9))
+  
+```
+
+```{r}
+
 
 sur.plots <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/IntraYearsurveys_tomerge.csv"), na.strings="")
 
