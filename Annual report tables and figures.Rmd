@@ -15,6 +15,7 @@ library(popbio)
 library(devtools)
 library(sciplot)
 library(plotrix)
+library(scales)
 ```
 
 
@@ -976,7 +977,6 @@ str(intra)
 
 intra[intra$Plot == 8,"LnJune22.24"]
 
-
 intra <- transform(intra, LnJune22.24 = as.numeric(as.character(LnJune22.24)))
 table(intra$LnJune22.24)
 
@@ -1003,16 +1003,27 @@ str(dm)
 dm$Site[dm$Plot <= 610 & dm$Plot >= 606] <- "5"
 dm$Site[dm$Plot == 8 | dm$Plot == 578 | dm$Plot == 581 | dm$Plot == 799] <- "15"
 dm$Site[dm$Plot == 300 | dm$Plot <= 515 & dm$Plot >= 512] <- "19"
-dm$Site[dm$Plot == 238 | dm$Plot == 480 | 
-  	dm$Plot == 598 | dm$Plot == 611 | dm$Plot == 614] <- "26"
+dm$Site[dm$Plot == 238 | dm$Plot == 480 |
+          dm$Plot == 598 | dm$Plot == 611 | dm$Plot == 614] <- "26"
 dm$Site[dm$Plot == 22 | dm$Plot == 1 | dm$Plot == 32 | dm$Plot == 42
-		| dm$Plot == 52 ] <- "Cebolla Mid"
+        | dm$Plot == 52 ] <- "Cebolla Mid"
 
 dm$Site[dm$Plot == 16 | dm$Plot == 96 | dm$Plot == 58
-		| dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "Cebolla North"
+        | dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "Cebolla North"
 
 sites <- c("5","15","19","26","Cebolla Mid","Cebolla North")
 dm$Site <- ordered(dm$Site, levels = sites)
+
+#May1 moved to 2014 order from 2015
+levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
+                       substr(levels(dm$Survey)[6],3,7),
+                       substr(levels(dm$Survey)[7:9],3,6)),paste0, "_2014"),
+                       sapply(c(substr(levels(dm$Survey)[10],3,6),
+                       substr(levels(dm$Survey)[11],3,7),
+                       substr(levels(dm$Survey)[12:13],3,6),
+                       substr(levels(dm$Survey)[14],3,7),
+                       substr(levels(dm$Survey)[15:18],3,6)),paste0, "_2015"))
+
 ```
 
 
@@ -1029,16 +1040,13 @@ ggplot(dm, aes(Survey, Ln, group = Site))+
 
 ```
 
-  scale_x_discrete(limits=rainbow(length(unique(dm$Survey))), 
-                   labels = c("April 2014", "May 2014",'June-1',
-                              'June-2','July','Aug','Sept',
-                              'Oct-1','Oct-2',
-                              "April 2015","May 11-15","May 26-28",
-                              "June 8-10","June 22-24","July 20-23","Aug 12-14",
-                              "Sept 1-3","Oct 6-8")) + 
 
 Total AGG per plot
 ```{r}
+
+#levels(dm$Site) <- gsub("Cebolla Mid", "1", levels(dm$Site))
+#levels(dm$Site) <- gsub("Cebolla North", "2",levels(dm$Site))
+
 sum.agg <- aggregate(dm$X, dm[,c("Plot","Site","Survey")],
           FUN = function(x){
             length(x)
@@ -1049,9 +1057,11 @@ plotnum <- aggregate(dm$Plot, dm[,c("Site","Survey")],
                        length(unique(x))
                      })
 
-levels(plotnum$Site) <- gsub("Cebolla Mid", "1",levels(plotnum$Site)) 
-levels(plotnum$Site) <- gsub("Cebolla North", "2",levels(plotnum$Site)) 
+# Some Site 5 plot have no plants
+plotnum$x[plotnum$Site == "5"] <- 5
 
+# One Site 15 plot has no plants
+plotnum$x[plotnum$Site == "15"] <- 4
 ```
 
 ```{r}
@@ -1061,14 +1071,120 @@ ggplot(sum.agg, aes(Survey, x, group = Site))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Average AGG per plot")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-  geom_text(data=plotnum, aes(label=x, y=-1, x=Survey, size = 0.9))
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
+  geom_text(data=plotnum, aes(label=x, y=-1, x=Survey, size = 0.9))+
+  ggtitle("a)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.position="none")
   
 ```
 
 ```{r}
 
+## Need percent of total indivduals seen each survey period (per year)
+AGG14 <- dm[grep("2014",dm$Survey),]
+# reset factor levels
+AGG14$Survey <- factor(AGG14$Survey)
 
+AGG15 <- dm[grep("2015",dm$Survey),]
+AGG15$Survey <- factor(AGG15$Survey)
+
+
+#or should it be the number that match? 
+intersect(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == "606" & AGG14$Survey == "Aprl_2014"]),
+unique(AGG14$X[AGG14$Ln>0 & 
+       AGG14$Plot == "606"]))/length(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == "606"]))
+
+AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
+  sapply(unique(AGG14$Survey), function(y){
+    length(intersect(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == x &AGG14$Survey == y]),
+    unique(AGG14$X[AGG14$Ln>0 & 
+                   AGG14$Plot == x])))/length(unique(AGG14$X[AGG14$Ln>0&AGG14$Plot == x]))
+  })
+})
+
+AGGpersurvey.14[2]
+```
+
+
+`AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
+  sapply(unique(AGG14$Survey), function(y){
+    length(unique(AGG14$X[AGG14$Ln>0 & 
+                         AGG14$Plot == x & 
+                         AGG14$Survey == y]))/length(unique(AGG14$X[AGG14$Ln>0 & 
+                                                               AGG14$Plot == x]))
+  })
+})`
+```{r}
+
+names(AGGpersurvey.14) <- unique(AGG14$Plot)
+
+AGGper <- do.call(rbind,AGGpersurvey.14)
+AGGper <- data.frame(AGGper)
+names(AGGper) <- unique(AGG14$Survey)
+AGGper <- data.frame(Plot=rownames(AGGper),AGGper)
+AGGpSurvey <- reshape(AGGper, direction="long", varying = list(names(AGGper)[-1]),
+                      v.names="AGG",
+                      idvar="Plot",
+                      timevar="Survey",
+                      times=names(AGGper)[-1])
+
+AGGpSurvey <- merge(AGGpSurvey,AGG14[,c("Plot","Site")],by = "Plot")
+AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
+names(AGGpSurvey)
+str(AGGpSurvey)
+AGGpSurvey <- AGGpSurvey[AGGpSurvey$AGG!=0,]
+```
+
+
+Figure 6:  (b) The percent of Astragalus microcymbus individuals with AGG at each survey from the total individuals with AGG during the 2014 season. (c) Total number of Astragalus microcymbus individuals per stage class as a percent of the total observed throughout the season.  
+```{r}
+ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  ylab("Percent of total AGG over the year per survey")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
+#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
+  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.position="none")+
+  scale_y_continuous(labels = percent)
+
+
+```
+
+
+```{r}
+AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
+  sapply(unique(AGG15$Survey), function(y){
+    length(unique(AGG15$X[AGG15$Ln>0 & 
+                         AGG15$Plot == x & 
+                         AGG15$Survey == y]))/length(unique(AGG15$X[AGG15$Ln>0 & 
+                                                               AGG15$Plot == x]))
+  })
+})
+
+names(AGGpersurvey.15) <- unique(AGG15$Plot)
+
+
+AGGper15 <- do.call(rbind,AGGpersurvey.15)
+AGGper15 <- data.frame(AGGper15)
+names(AGGper15) <- grep("2015", unique(dm$Survey), value = TRUE)
+AGGper15 <- data.frame(Plot=rownames(AGGper15),AGGper15)
+AGGpSurvey15 <- reshape(AGGper15, direction="long", varying = list(names(AGGper15)[-1]),
+                      v.names="AGG",
+                      idvar="Plot",
+                      timevar="Survey",
+                      times=names(AGGper15)[-1])
+
+AGGpSurvey15 <- merge(AGGpSurvey15,dm[,c("Plot","Site")], by = "Plot")
+head(AGGpSurvey)
+head(AGGpSurvey15)
+```
+
+```{r}
 sur.plots <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/IntraYearsurveys_tomerge.csv"), na.strings="")
 
 # More helpful to swap
@@ -1103,14 +1219,6 @@ str(intra)
 
 
 ```
-
-Reformat intra data    
-```{r}
-head(intra)
-
-melt(intra[grep("")])
-```
-
 
 
 
