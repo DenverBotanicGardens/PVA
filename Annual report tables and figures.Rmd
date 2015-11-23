@@ -1106,15 +1106,6 @@ AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
 AGGpersurvey.14[2]
 ```
 
-
-`AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
-  sapply(unique(AGG14$Survey), function(y){
-    length(unique(AGG14$X[AGG14$Ln>0 & 
-                         AGG14$Plot == x & 
-                         AGG14$Survey == y]))/length(unique(AGG14$X[AGG14$Ln>0 & 
-                                                               AGG14$Plot == x]))
-  })
-})`
 ```{r}
 
 names(AGGpersurvey.14) <- unique(AGG14$Plot)
@@ -1128,6 +1119,7 @@ AGGpSurvey <- reshape(AGGper, direction="long", varying = list(names(AGGper)[-1]
                       idvar="Plot",
                       timevar="Survey",
                       times=names(AGGper)[-1])
+
 
 AGGpSurvey <- merge(AGGpSurvey,AGG14[,c("Plot","Site")],by = "Plot")
 AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
@@ -1157,11 +1149,13 @@ ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
 
 
 ```{r}
+rm(AGGpersurvey.15)
 AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
   sapply(unique(AGG15$Survey), function(y){
-    length(unique(AGG15$X[AGG15$Ln>0 & 
+    length(intersect(unique(AGG15$X[AGG15$Ln>0 & 
                          AGG15$Plot == x & 
-                         AGG15$Survey == y]))/length(unique(AGG15$X[AGG15$Ln>0 & 
+                         AGG15$Survey == y]),
+           unique(AGG15$X[AGG15$Ln>0 & AGG15$Plot == x])))/length(unique(AGG15$X[AGG15$Ln>0 & 
                                                                AGG15$Plot == x]))
   })
 })
@@ -1180,9 +1174,184 @@ AGGpSurvey15 <- reshape(AGGper15, direction="long", varying = list(names(AGGper1
                       times=names(AGGper15)[-1])
 
 AGGpSurvey15 <- merge(AGGpSurvey15,dm[,c("Plot","Site")], by = "Plot")
-head(AGGpSurvey)
-head(AGGpSurvey15)
+tail(AGGpSurvey15)
 ```
+
+```{r}
+ggplot(AGGpSurvey15[AGGpSurvey15$AGG>0,], aes(Survey, AGG, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  ylab("Percent of total AGG over the year per survey")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
+#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
+  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.position="none")+
+  scale_y_continuous(labels = percent)
+
+
+```
+
+
+
+```{r}
+AGG14$Ln[grep("Basal", AGG14$Comment)] <- 0.25
+AGG14 <- AGG14[AGG14$Ln != 0,]
+split
+
+agg14 <- lapply(split(AGG14, list(AGG14$Plot,AGG14$Site)),
+                   function(x){
+                     sapply(unique(x$Survey), function(y){
+                       nrow(x[x$Survey == y,])/nrow(x)
+                       })
+                   })
+
+length(agg14[23][[1]])
+
+length(agg14[23]$"607.5")
+agg14[vapply(agg14, function(x) dim(x)[1] > 1, NA)]
+Filter(function(x) dim(x)[1] > 1, agg14)
+agg14[!unlist(lapply(agg14, is.null))]
+
+names(agg14) <- 
+do.call(rbind,agg14[agg14[[1]] > 1])
+                     
+                     
+```
+
+
+##Figure 6    
+Don't worry about the same plant being up, when are the most plants with AGG
+```{r}
+rm(AGGpersurvey.14)
+AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
+  sapply(unique(AGG14$Survey), function(y){
+    length(AGG14$X[AGG14$Ln>0 & 
+                     AGG14$Plot == x & 
+                     AGG14$Survey == y])/length(AGG14$X[AGG14$Ln>0 &
+                                                          AGG14$Plot == x])
+           })
+  })
+
+names(AGGpersurvey.14) <- unique(AGG14$Plot)
+AGGper <- do.call(rbind,AGGpersurvey.14)
+AGGper <- data.frame(AGGper)
+names(AGGper) <- unique(AGG14$Survey)
+AGGper <- data.frame(Plot=rownames(AGGper),AGGper)
+siteplot <- data.frame(table(AGG14$Plot, AGG14$Site))
+siteplot <- siteplot[siteplot$Freq > 0,]
+names(siteplot) <- c("Plot","Site","Freq")
+
+AGGpSurvey <- reshape(AGGper, direction="long", varying = list(names(AGGper)[-1]),
+                      v.names="AGG",
+                      idvar="Plot",
+                      timevar="Survey",
+                      times=names(AGGper)[-1])
+
+AGGpSurvey <- merge(AGGpSurvey,siteplot,by = "Plot")
+AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
+```
+
+```{r}
+ggplot(AGGpSurvey[AGGpSurvey$AGG > 0,], aes(Survey, AGG, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  ylab("Percent of total AGG over the year per survey")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
+#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
+  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.position="none")+
+  scale_y_continuous(labels = percent)
+
+
+```
+
+```{r}
+rm(AGGpersurvey.15)
+AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
+  sapply(unique(AGG15$Survey), function(y){
+    length(AGG15$X[AGG15$Ln>0 & 
+                     AGG15$Plot == x & 
+                     AGG15$Survey == y])/length(AGG15$X[AGG15$Ln>0 &
+                                                          AGG15$Plot == x])
+           })
+  })
+
+names(AGGpersurvey.15) <- unique(AGG15$Plot)
+AGGper.15 <- do.call(rbind,AGGpersurvey.15)
+AGGper.15 <- data.frame(AGGper.15)
+names(AGGper.15) <- unique(AGG15$Survey)
+AGGper.15 <- data.frame(Plot=rownames(AGGper.15),AGGper.15)
+
+AGGpSurvey.15 <- reshape(AGGper.15, direction="long", varying = list(names(AGGper.15)[-1]),
+                      v.names="AGG",
+                      idvar="Plot",
+                      timevar="Survey",
+                      times=names(AGGper.15)[-1])
+
+AGGpSurvey.15 <- merge(AGGpSurvey.15,siteplot,by = "Plot")
+AGGpSurvey.15$Survey <- factor(AGGpSurvey.15$Survey, levels = unique(AGG15$Survey))
+```
+
+```{r}
+ggplot(AGGpSurvey.15[AGGpSurvey.15$AGG > 0,], aes(Survey, AGG, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  ylab("Percent of total AGG over the year per survey")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
+#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
+#  ggtitle("b)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.position="none")+
+  scale_y_continuous(labels = percent)
+
+
+```
+
+figure 6c
+```{r}
+# set status
+head(dm)
+dm$status <- "dead"
+dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
+dm$status[dm$Ln > 0 & dm$Fl == 0] <- "vegetative"
+
+table(dm$status,dm$Survey)
+
+#One case says 'no cotyledons'
+table(dm$Comment)
+dm$Comment[grep("no coty", dm$Comment)] <- "Cotyledons "
+seedlings <- dm[grep("coty", dm$Comment),] 
+seedlings$Comment <- factor(seedlings$Comment)
+table(seedlings$Comment, seedlings$Ln)
+
+dm$status[grep("coty", dm$Comment)] <- "seedling" 
+
+#dormant would have an existing tag and length at a later time
+
+
+dm$status <- factor(dm$status, levels = c("seedling","vegetative","reproductive","dormant","dead"))
+
+unique.season <- lapply(split(dm, dm[,c("Site","Plot","status")]), function(x){
+  if(nrow(x) > 0){
+    cbind(x[1,c("Site","Plot","status")], num = nrow(x))
+    }
+})
+
+unique.season
+
+number.time <- 
+
+```
+
+
 
 ```{r}
 sur.plots <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/IntraYearsurveys_tomerge.csv"), na.strings="")
