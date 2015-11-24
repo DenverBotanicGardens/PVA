@@ -16,6 +16,13 @@ library(devtools)
 library(sciplot)
 library(plotrix)
 library(scales)
+library(plyr)
+library(lattice)
+library(latticeExtra)
+library(devtools)
+library(digest)
+#source_url("http://cran.r-project.org/bin/windows/Rtools/") #and then run find_rtools()
+source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
 ```
 
 
@@ -723,8 +730,12 @@ ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   geom_point()+
   stat_ellipse()+
   theme_bw()+
-  xlab("35.8%")+
-  ylab("23.4%")
+  xlab("PC1 (36%)")+
+  ylab("PC2 (23%)")+
+  ggtitle("a)") +
+  theme(plot.title=element_text(hjust=0))+
+  theme(legend.justification=c(0,0), legend.position=c(0,0)) #upper right
+  
 
 ```
 
@@ -1339,56 +1350,114 @@ dm$status[grep("coty", dm$Comment)] <- "seedling"
 
 dm$status <- factor(dm$status, levels = c("seedling","vegetative","reproductive","dormant","dead"))
 
-unique.season <- lapply(split(dm, dm[,c("Site","Plot","status")]), function(x){
-  if(nrow(x) > 0){
-    cbind(x[1,c("Site","Plot","status")], num = nrow(x))
-    }
-})
+
+unique.season <- ddply(dm, .(Site, Plot, status), summarise,
+                       UniqueNumAGG = length(unique(X[Ln >0])))
+
+#unique.season <- lapply(split(dm, dm[,c("Site","Plot","status")]), function(x){
+#  if(nrow(x) > 0){
+#    cbind(x[1,c("Site","Plot","status")], num = nrow(x))
+#    }
+#})
+# Filter(function(x) dim(x)[1] > 0, unique.season)
 
 unique.season
 
-number.time <- 
+number.time <- ddply(dm, .(Site, Plot, Survey, status), summarise,
+                     NumAGG = length(unique(X[Ln >0])))
+
+merge.num.season <- merge(unique.season, number.time, by = c("Site","Plot","status"))
+
+merge.num.season$Percent <- merge.num.season$NumAGG/merge.num.season$UniqueNumAGG
+
+ggplot(merge.num.season, aes(status, Percent, colour = status)) +
+  geom_boxplot() +
+  theme_bw() +
+	facet_grid(~ Survey)+
+	ylab("Percent of total") +
+	theme(axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0))+
+  ggtitle("c)") +
+  theme(plot.title=element_text(hjust=0))+
+  scale_y_continuous(labels = percent)
 
 ```
 
+
+Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
+```{r}
+#Plot summary for demographic data per year
+head(ps.asmi)
+
+head(asmi.pc)
+
+pcafruit <- aggregate(Total.Fruit ~ Year + Creek, data = ps.asmi, function(x){
+  if(mean(x) > 184.9){
+    1
+    }else{
+      0
+      }
+  })
+
+pcarepro <- aggregate(X..Flowered ~ Year + Creek, data = ps.asmi, function(x){
+  if(mean(x) > .17){
+    1
+    }else{
+      0
+      }
+  })
+
+pcadorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Year + Creek, data = ps.asmi, function(x){
+  if(mean(x) > .28){
+    1
+    }else{
+      0
+      }
+  })
+
+
+ps.pc <- data.frame(asmi.pc[asmi.pc$Creek == "South Beaver Creek",], 
+                    Fruit = pcafruit[pcafruit$Creek == "South Beaver Creek","Total.Fruit"],
+                    Repro = pcarepro[pcarepro$Creek == "South Beaver Creek","X..Flowered"],
+                    PerDorm = pcadorm[pcadorm$Creek == "South Beaver Creek",3])
+
+
+ps.pc.2 <- merge(ps.asmi[,c(grep(paste(c("Rain","Temp"), collapse="|"),names(ps.asmi), 
+                               value = TRUE, invert=TRUE))], 
+               asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek","Prev12"))
+
+
+
+```
+
+```{r}
+ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Repro), label = Prev12))+
+  geom_text(alpha = 0.75, angle = 45, size = 3) +
+  stat_ellipse()+
+  xlab("PC1 (36%)")+
+  ylab("PC2 (23%)")+
+  theme_bw()+
+  theme(legend.position="none")
+```
 
 
 ```{r}
-sur.plots <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/IntraYearsurveys_tomerge.csv"), na.strings="")
-
-# More helpful to swap
-#colnames(intra)[grep("Ln",names(intra))] <- c("Ln13",colnames(tsur.plots))
-#colnames(intra)
-
-nms <- colnames(intra[grep("Ln",names(intra))])
-row.names(sur.plots) <- nms[-1]
-
-sur.plots
-tsur.plots <- t(sur.plots[,-1])
-head(tsur.plots)
-colnames(tsur.plots) <- sur.plots[,1]
-
-sp <- melt(tsur.plots)
-surveyed <- sp[sp$value==1,]
-notsurveyed <- sp[is.na(sp$value),]
-
-foo <- lapply(split(intra, intra$Plot), 
-              function(x){
-                cbind(colSums(x[,grep("Ln", names(x))], na.rm = TRUE),unique(x$Plot))
-                })
-foo[[2]]
-sumln <- do.call(rbind, foo)
-rownames(sumln)
-plotswithdata <- sumln[sumln[,1] > 0,]
-plotsmissingdata <- sumln[sumln[,1] == 0,]
-
-
-
-str(intra)
-
-
+ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Fruit), label = Prev12))+
+  geom_text(alpha = 0.75, angle = 45, size = 3) +
+  stat_ellipse()+
+  xlab("PC1 (36%)")+
+  ylab("PC2 (23%)")+
+  theme_bw()+
+  theme(legend.position="none")
 ```
 
 
-
+```{r}
+ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
+  geom_text(alpha = 0.75, angle = 45, size = 3) +
+  stat_ellipse()+
+  xlab("PC1 (36%)")+
+  ylab("PC2 (23%)")+
+  theme_bw()+
+  theme(legend.position="none")
+```
 
