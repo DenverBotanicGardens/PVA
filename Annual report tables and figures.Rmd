@@ -715,6 +715,8 @@ source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
 
 ```
 
+
+T-tests for Creek from Figure 7
 ```{r}
 asmi.pca <- princomp(forpca,cor=TRUE)
 summary(asmi.pca)
@@ -723,8 +725,12 @@ asmi.pc <- predict(asmi.pca)
 
 asmi.pc <- data.frame(asmi.pc,season)
 
+t.test(Comp.1~Creek, data=asmi.pc)
+t.test(Comp.2~Creek, data=asmi.pc)
+
 ```
 
+Figure 6a
 ```{r}
 ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   geom_point()+
@@ -734,7 +740,10 @@ ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   ylab("PC2 (23%)")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0)) #upper right
+  theme(legend.justification=c(0,0), legend.position=c(0,0))+
+  scale_color_manual("Drainage", 
+                     labels = c("Cebolla Creek","South Beaver Creek"), 
+                     values = c("grey50","black")) 
   
 
 ```
@@ -1034,6 +1043,11 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
                        substr(levels(dm$Survey)[12:13],3,6),
                        substr(levels(dm$Survey)[14],3,7),
                        substr(levels(dm$Survey)[15:18],3,6)),paste0, "_2015"))
+
+```
+
+```{r Learned from intraanual}
+
 
 ```
 
@@ -1386,33 +1400,43 @@ ggplot(merge.num.season, aes(status, Percent, colour = status)) +
 Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
 ```{r}
 #Plot summary for demographic data per year
-head(ps.asmi)
 
-head(asmi.pc)
-
+# fruit above a SE above
+avgfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi, mean)
+SEfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi, std.error)
+avgfruit[,2]+SEfruit[,2]
 pcafruit <- aggregate(Total.Fruit ~ Year + Creek, data = ps.asmi, function(x){
-  if(mean(x) > 184.9){
+  if(mean(x) > 321.75){
     1
     }else{
       0
       }
   })
 
+# percent reproductive
+avgfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi, mean)
+SEfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi, std.error)
+avgfl[,2]+SEfl[,2]
 pcarepro <- aggregate(X..Flowered ~ Year + Creek, data = ps.asmi, function(x){
-  if(mean(x) > .17){
+  if(mean(x) > .267){
     1
     }else{
       0
       }
   })
 
+# percent dormant
+avgdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = ps.asmi, mean)
+SEdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = ps.asmi, std.error)
+avgdorm[,2]+SEdorm[,2]
 pcadorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Year + Creek, data = ps.asmi, function(x){
-  if(mean(x) > .28){
+  if(mean(x) > .454){
     1
     }else{
       0
       }
   })
+pcadorm[pcadorm$Year == 1995 | pcadorm$Year == 2015,3] <- 2
 
 
 ps.pc <- data.frame(asmi.pc[asmi.pc$Creek == "South Beaver Creek",], 
@@ -1425,21 +1449,41 @@ ps.pc.2 <- merge(ps.asmi[,c(grep(paste(c("Rain","Temp"), collapse="|"),names(ps.
                                value = TRUE, invert=TRUE))], 
                asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek","Prev12"))
 
-
-
 ```
 
-```{r}
+```{r t-tests Figure 6}
+# Reproductive not signficantly different
+t.test(Comp.1 ~ as.factor(Repro), data = ps.pc)
+t.test(Comp.2 ~ as.factor(Repro), data = ps.pc)
+
+# Fruit
+t.test(Comp.1 ~ as.factor(Fruit), data = ps.pc)
+t.test(Comp.2 ~ as.factor(Fruit), data = ps.pc)
+
+# Fruit
+t.test(Comp.1 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+t.test(Comp.2 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+```
+
+
+
+Percent reproductive
+```{r fruit}
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Repro), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
   stat_ellipse()+
   xlab("PC1 (36%)")+
   ylab("PC2 (23%)")+
   theme_bw()+
-  theme(legend.position="none")
+  ggtitle("c)")+
+  theme(plot.title=element_text(hjust=0))+
+  scale_color_manual("Percent Reproductive", 
+                     labels = c("<=26.7%",">26.7%"), 
+                     values = c("grey50","black"))+
+  theme(legend.justification=c(0,0), legend.position=c(0,0))
 ```
 
-
+Mast seeding
 ```{r}
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Fruit), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
@@ -1447,10 +1491,14 @@ ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Fruit), label = Prev12))+
   xlab("PC1 (36%)")+
   ylab("PC2 (23%)")+
   theme_bw()+
-  theme(legend.position="none")
+  ggtitle("b)")+
+  theme(plot.title=element_text(hjust=0))+
+  scale_color_manual("Mast Seeding", labels = c("Low/No Seed","Mast"), values = c("grey50","black"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) 
+  
 ```
 
-
+Percent dormant
 ```{r}
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
@@ -1458,6 +1506,11 @@ ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
   xlab("PC1 (36%)")+
   ylab("PC2 (23%)")+
   theme_bw()+
-  theme(legend.position="none")
+  ggtitle("d)")+
+  theme(plot.title=element_text(hjust=0))+
+  scale_color_manual("Percent Dormant", 
+                     labels = c("<=45.4%",">45.4%","First and Last Year"), 
+                     values = c("grey50","black","red"))+
+  theme(legend.justification=c(0,0), legend.position=c(0,0))
 ```
 
