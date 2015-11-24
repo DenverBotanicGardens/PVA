@@ -730,7 +730,7 @@ t.test(Comp.2~Creek, data=asmi.pc)
 
 ```
 
-Figure 6a
+Figure 7a
 ```{r}
 ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   geom_point()+
@@ -1046,11 +1046,6 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 
 ```
 
-```{r Learned from intraanual}
-
-
-```
-
 
 
 ```{r}
@@ -1163,7 +1158,6 @@ ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
   theme_bw()+
   ylab("Percent of total AGG over the year per survey")+
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
   ggtitle("b)") +
   theme(plot.title=element_text(hjust=0))+
   theme(legend.position="none")+
@@ -1360,7 +1354,7 @@ table(seedlings$Comment, seedlings$Ln)
 dm$status[grep("coty", dm$Comment)] <- "seedling" 
 
 #dormant would have an existing tag and length at a later time
-
+length(unique(dm$tag[dm$status == "dead"]))
 
 dm$status <- factor(dm$status, levels = c("seedling","vegetative","reproductive","dormant","dead"))
 
@@ -1396,6 +1390,39 @@ ggplot(merge.num.season, aes(status, Percent, colour = status)) +
 
 ```
 
+```{r learned from intra}
+dm$SurveyNum <- as.numeric(dm$Survey)
+dm$tag[dm$status == "seedling"]
+
+tags <- ddply(dm, .(status), summarise,
+              Tags = unique(tag))
+
+tags.plot <- tags$Tags[tags$status == "seedling"]
+
+tags.seed <- merge(dm, data.frame(tag = tags.plot), by = "tag")
+
+# For the most part stayed under 10cm if saw cotyledons
+ggplot(tags.seed, aes(Survey, Ln, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  xlab("Average Length")+
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
+
+ggplot(tags.seed, aes(Survey, Ln, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~status)+
+  theme_bw()+
+  xlab("Average Length")+
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
+
+
+dm.pva <- subset(merge(dm, dm, by = c("Site","Plot","X")), SurveyNum.x == SurveyNum.y - 1)
+
+
+```
 
 Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
 ```{r}
@@ -1407,7 +1434,6 @@ SEfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi, std.error)
 avgfruit[,2]+SEfruit[,2]
 pcafruit <- aggregate(Total.Fruit ~ Year + Creek, data = ps.asmi, function(x){
   if(mean(x) > 321.75){
-    1
     }else{
       0
       }
