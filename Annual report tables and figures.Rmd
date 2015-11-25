@@ -425,10 +425,19 @@ length(dorms[dorms==1]) #296
 length(dorms) #725
 length(dorms[dorms > 5]) #237
 length(dorms[dorms > 15]) #20
-
-
 ```
 
+Reproductive lengths   
+```{r}
+repros <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==3]
+max(repros)
+ggplot(data.frame(Repro = repros), aes(Repro))+
+  geom_histogram()+
+  theme_bw()+
+  ylab("Frequency")+
+  xlab("Consecutive years reproductive")
+
+```
 
 Dormancy can be set to 0-1   
 ```{r}
@@ -1214,6 +1223,31 @@ ggplot(AGGpSurvey15[AGGpSurvey15$AGG>0,], aes(Survey, AGG, group = Site))+
 ```
 
 
+```{r intraanual seedlings}
+head(dm)
+dm.15 <- dm[grep("2015",dm$Survey),]
+dm.15$Survey <- factor(dm.15$Survey)
+
+coty.seeds <- ddply(dm.15[grep("coty", dm.15$Comment),],
+                   .(Plot, Site), summarise,
+                   tag = unique(tag))
+
+head(coty.seeds)
+tags.seed <- merge(dm.15, coty.seeds, by = c("Site","Plot","tag"))
+```
+
+```{r}
+ggplot(tags.seed, aes(Survey, Ln, group = Site))+
+  stat_summary(fun.y = mean, geom = "point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  facet_grid(~Site)+
+  theme_bw()+
+  xlab("Average Length")+
+    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
+
+
+```
+
 
 ```{r}
 AGG14$Ln[grep("Basal", AGG14$Comment)] <- 0.25
@@ -1346,6 +1380,7 @@ table(dm$status,dm$Survey)
 
 #One case says 'no cotyledons'
 table(dm$Comment)
+unique(dm$Comment[grep("coty", dm$Comment)])
 dm$Comment[grep("no coty", dm$Comment)] <- "Cotyledons "
 seedlings <- dm[grep("coty", dm$Comment),] 
 seedlings$Comment <- factor(seedlings$Comment)
