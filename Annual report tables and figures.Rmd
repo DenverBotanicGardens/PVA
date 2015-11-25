@@ -26,6 +26,47 @@ source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
 ```
 
 
+
+summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
+```{r}
+summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
+                      conf.interval=.95, .drop=TRUE) {
+    library(plyr)
+
+    # New version of length which can handle NA's: if na.rm==T, don't count them
+    length2 <- function (x, na.rm=FALSE) {
+        if (na.rm) sum(!is.na(x))
+        else       length(x)
+    }
+
+    # This does the summary. For each group's data frame, return a vector with
+    # N, mean, and sd
+    datac <- ddply(data, groupvars, .drop=.drop,
+      .fun = function(xx, col) {
+        c(N    = length2(xx[[col]], na.rm=na.rm),
+          mean = mean   (xx[[col]], na.rm=na.rm),
+          sd   = sd     (xx[[col]], na.rm=na.rm)
+        )
+      },
+      measurevar
+    )
+
+    # Rename the "mean" column    
+    datac <- rename(datac, c("mean" = measurevar))
+
+    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
+
+    # Confidence interval multiplier for standard error
+    # Calculate t-statistic for confidence interval: 
+    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
+    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
+    datac$ci <- datac$se * ciMult
+
+    return(datac)
+}
+```
+
+
 ```{r}
 asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_111115.csv"), na.strings = "na")
 
@@ -114,7 +155,7 @@ Percent and total preproductive
 
 #precent reproductive
 prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id,
-                  data = asmi.raw[asmi$length > 0,],
+                  data = asmi.raw[asmi.raw$length > 0,],
                   function(x){
                     sum(x,na.rm = TRUE)/length(x)
                   })
@@ -134,7 +175,7 @@ tbl1.3[[3]]
 
 #total reproductive
 totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id + fence,
-                    data = asmi.raw[asmi$length > 0,], 
+                    data = asmi.raw[asmi.raw$length > 0,], 
                     function(x) sum(x, na.rm = TRUE))
 
 head(totrep)
@@ -181,6 +222,8 @@ X..Flowered.1 is number flowered
 ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015.csv"))
 
 head(ps.asmi)
+
+cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
 ps.asmi.t <- ps.asmi
 
@@ -266,6 +309,27 @@ cor.plot(cor(ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
                                            names(ps.cor), value = TRUE))]),
          numbers = TRUE)
 ```
+
+
+Backwards stepwise multiple linear regressions   
+Herbivory   
+Browsing is already arcsine aquare root transformed
+```{r stepwise multiple linear regressions}
+summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
+                                   X..Flowered.x + X..Flowered.y)^2, 
+                data = ps.cor)))
+
+
+summary(lm(Total.Alive.y ~ X..Browsed.x, data = ps.cor))
+summary(lm(Total.Alive.y ~ X..Browsed.y, data = ps.cor))
+
+t.test(X..Browsed.x~Fence.x, data = ps.cor)
+t.test(Total.Fruit.x~Fence.x, data = ps.cor[ps.cor$Year.x > 2005,])
+
+t.test(X..Flowered.x~Fence.x, data = ps.cor[ps.cor$Year.x > 2005,])
+
+```
+
 
 Table 3: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
 ```{r}
@@ -422,9 +486,11 @@ ggplot(data.frame(Dormant = dorms), aes(Dormant))+
 
 median(dorms) #2
 length(dorms[dorms==1]) #296
+length(dorms[dorms==1])/length(dorms) # 40.8%
 length(dorms) #725
 length(dorms[dorms > 5]) #237
 length(dorms[dorms > 15]) #20
+length(dorms[dorms == 18])
 ```
 
 Reproductive lengths   
@@ -504,6 +570,30 @@ tbl4.allpost <- sapply(mats.list[-1], function(x){
 
 tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[1],2)," (",
                       round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[2],2),")", sep="")
+```
+
+
+Function for t.tests, for annual lambdas
+```{r}
+lmdAn <- function(x,y,z){
+
+  yrs <- 1995:z
+	st <- match(c(y,z),yrs)
+	
+	lambdaAll <- c()
+	for(i in c(y:z)){
+		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
+	}	
+	lambdaAll
+}	
+
+```
+
+```{r T.test paired growth rates}
+t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, 2013),
+       lmdAn(asmi.pva$notfenced.pro.matrix, 2005, 2013),
+       paired = TRUE)
+
 ```
 
 # Table 4
@@ -621,46 +711,6 @@ mean(asmi.pva$notfenced.pro.matrix)
 
 
 
-summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
-```{r}
-summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
-                      conf.interval=.95, .drop=TRUE) {
-    library(plyr)
-
-    # New version of length which can handle NA's: if na.rm==T, don't count them
-    length2 <- function (x, na.rm=FALSE) {
-        if (na.rm) sum(!is.na(x))
-        else       length(x)
-    }
-
-    # This does the summary. For each group's data frame, return a vector with
-    # N, mean, and sd
-    datac <- ddply(data, groupvars, .drop=.drop,
-      .fun = function(xx, col) {
-        c(N    = length2(xx[[col]], na.rm=na.rm),
-          mean = mean   (xx[[col]], na.rm=na.rm),
-          sd   = sd     (xx[[col]], na.rm=na.rm)
-        )
-      },
-      measurevar
-    )
-
-    # Rename the "mean" column    
-    datac <- rename(datac, c("mean" = measurevar))
-
-    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
-
-    # Confidence interval multiplier for standard error
-    # Calculate t-statistic for confidence interval: 
-    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
-    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
-    datac$ci <- datac$se * ciMult
-
-    return(datac)
-}
-```
-
-
 ###Environmental Data from PRISM:   
 <http://prism.oregonstate.edu/explorer/>   
 
@@ -676,11 +726,21 @@ asmi.c <- asmi.climate[,c(1,3,5,7:9)]
 names(asmi.c) <- c("Creek","Precip","tmin","tmax","Year","Month")
 head(asmi.c)
 
+
 #Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
 asmi.c$Month <- as.numeric(asmi.c$Month)
 asmi.c$Year <- as.numeric(asmi.c$Year)
 asmi.c$Prev12 <- asmi.c$Year
 asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
+
+
+# Annual precipiation average per year
+creekyear <- aggregate(Precip~Creek+Prev12, 
+                       data = asmi.c[asmi.c$Year > 1994,], sum)
+
+mean(creekyear$Precip[creekyear$Creek == "Cebolla Creek"])
+mean(creekyear$Precip[creekyear$Creek == "South Beaver Creek"])
+mean(creekyear$Precip)
 ```
 
 Seasons    
@@ -896,7 +956,14 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 ```
-  
+
+T.tests for PCA
+```{r}
+t.test(Comp.2~Fruit, data = ps.pc)
+t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+
+
+```
 
 Table 6: PCA climatic loadings for the first two principal component axes for yearly demographic data of Astragalus microcymbus from four sites within the South Beaver Creek drainage near Gunnison, CO. 
 ```{r}
@@ -1223,6 +1290,55 @@ ggplot(AGGpSurvey15[AGGpSurvey15$AGG>0,], aes(Survey, AGG, group = Site))+
 ```
 
 
+In 2015, on average across sites in South Beaver Creek and Cebolla Creek...   
+```{r}
+AGGAnyTime15 <- ddply(AGG15, .(Site,Plot), summarise,
+                      TUP = length(unique(tag[Ln>0])))
+
+AGGAnyTimeSite15 <- ddply(AGG15, .(Site), summarise,
+                      UP = length(unique(tag[Ln>0])))
+AGGEachTime15 <- ddply(AGG15, .(Site,Plot,Survey), summarise,
+                      UP = length(unique(tag[Ln>0])))
+
+AGGmerge15 <- merge(AGGAnyTime15, AGGEachTime15, by = c("Site","Plot"))
+```
+
+Percent of total unique individuals seen over course of the growing season
+```{r}
+mean(AGGmerge15$UP[AGGmerge15$Survey =="June2_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="June2_2015"], na.rm = TRUE)
+
+# Both South Beaver Creek and Cebolla Creek
+mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"], na.rm = TRUE)
+
+std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"], na.rm = TRUE)
+
+# ONly Cebolla Creek
+mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+# ONly South beaver Creek
+mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+```
+
+## This is correct for 6b
+```{r Figure 6(b)}
+ggplot(AGGmerge15, aes(Survey, UP/TUP)) +
+  stat_summary(fun.y = mean, geom = 'point') +
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult = 1) +
+	facet_grid(~Site) +
+	ylab('Percent of total AGG per plot over the growing season') +
+	xlab("") +
+	theme_bw() + 
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
+  scale_y_continuous(labels = percent)
+
+```
+
+
 ```{r intraanual seedlings}
 head(dm)
 dm.15 <- dm[grep("2015",dm$Survey),]
@@ -1373,12 +1489,34 @@ figure 6c
 # set status
 head(dm)
 dm$status <- "dead"
-dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
 dm$status[dm$Ln > 0 & dm$Fl == 0] <- "vegetative"
 
 table(dm$status,dm$Survey)
 
 #One case says 'no cotyledons'
+#Seedlings in 2014
+dm.14 <- dm[grep("2014",dm$Survey),]
+dm.14$Survey <- factor(dm.14$Survey)
+
+coty.seeds14 <- ddply(dm.14[grep("coty", dm.14$Comment),],
+                   .(Plot, Site), summarise,
+                   tag = unique(tag))
+
+head(coty.seeds14)
+tags.seed14 <- merge(dm.14, coty.seeds14, by = c("Site","Plot","tag"))
+
+#Seedlings in 2015
+dm.15 <- dm[grep("2015",dm$Survey),]
+dm.15$Survey <- factor(dm.15$Survey)
+
+coty.seeds15 <- ddply(dm.15[grep("coty", dm.15$Comment),],
+                   .(Plot, Site), summarise,
+                   tag = unique(tag))
+
+head(coty.seeds15)
+tags.seed15 <- merge(dm.15, coty.seeds15, by = c("Site","Plot","tag"))
+tags.seedall <- rbind(tags.seed14, tags.seed15)
+
 table(dm$Comment)
 unique(dm$Comment[grep("coty", dm$Comment)])
 dm$Comment[grep("no coty", dm$Comment)] <- "Cotyledons "
@@ -1386,7 +1524,22 @@ seedlings <- dm[grep("coty", dm$Comment),]
 seedlings$Comment <- factor(seedlings$Comment)
 table(seedlings$Comment, seedlings$Ln)
 
-dm$status[grep("coty", dm$Comment)] <- "seedling" 
+table(tags.seedall$status)
+tags.seedall[tags.seedall$status == "reproductive",]
+dm[dm$tag == 273 & dm$Site == 26,]
+
+
+ggplot(tags.seed15, aes(Survey, Ln, group = Site))+
+  stat_summary(fun.y = mean, geom="point")+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', multi=1)+
+  facet_grid(~Site)
+
+
+#Set seedling status to tags that we saw cotyledons in 2014 or 2015
+
+
+# one seedling became reproductive after germinating in 2015
+dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
 
 #dormant would have an existing tag and length at a later time
 length(unique(dm$tag[dm$status == "dead"]))
@@ -1575,3 +1728,20 @@ ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
   theme(legend.justification=c(0,0), legend.position=c(0,0))
 ```
 
+Environmental Data    
+try using same variables as in 2014   
+```{r}
+exclude14 <- c("tmin.fall","tmax.fall","tmax.spring/summer","tmax.winter")
+tomatch14 <- c("Creek","Prev12",exclude14)
+
+forpca14 <- season[,c(grep(paste(tomatch14, collapse="|"),
+                            names(season), value=TRUE, invert=TRUE))]
+names(forpca14)
+
+asmi.pca14 <- princomp(forpca14,cor=TRUE)
+summary(asmi.pca14)
+asmi.load14 <- loadings(asmi.pca14)
+asmi.pc14 <- predict(asmi.pca14)
+
+asmi.pc14 <- data.frame(asmi.pc14,season)
+```
