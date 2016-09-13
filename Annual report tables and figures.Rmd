@@ -22,7 +22,8 @@ library(latticeExtra)
 library(devtools)
 library(digest)
 #source_url("http://cran.r-project.org/bin/windows/Rtools/") #and then run find_rtools()
-source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
+# source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R") 
+# Seems no longer supported. Use ggplot stat_ellipse instead (with colour = for designating circles)
 ```
 
 
@@ -66,9 +67,17 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
 }
 ```
 
-
+# Download raw_data 
+<https://research.botanicgardens.org/admin/demographics/asmi/reports/raw_data.php>   
+Save all sites, all data, and set to 20 years allowed dormant    
+Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
-asmi.raw <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/RawData_20yrsdormant_111115.csv"), na.strings = "na")
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
+                     currentyr,"_asmi/RawData_",
+                     currentyr, ".csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
 
 head(asmi.raw)
 table(asmi.raw$year, asmi.raw$AsMi_site_id)
@@ -218,6 +227,8 @@ Total.Plants are AGG and dormant
 Total.Alive is AGG   
 X..Flowered must be percent flowered and    
 X..Flowered.1 is number flowered
+
+#Save new annual data in folder titled "<current year>_asmi" and name the file "PlotSummary_<current year>"
 ```{r}
 ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015.csv"))
 
@@ -323,10 +334,15 @@ summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
 summary(lm(Total.Alive.y ~ X..Browsed.x, data = ps.cor))
 summary(lm(Total.Alive.y ~ X..Browsed.y, data = ps.cor))
 
-t.test(X..Browsed.x~Fence.x, data = ps.cor)
-t.test(Total.Fruit.x~Fence.x, data = ps.cor[ps.cor$Year.x > 2005,])
+sort(unique(ps.cor$Year.x))
+sort(unique(ps.cor$Year.y))
 
-t.test(X..Flowered.x~Fence.x, data = ps.cor[ps.cor$Year.x > 2005,])
+head(ps.asmi.t)
+
+t.test(X..Browsed~Fence, data = ps.asmi.t)
+t.test(Total.Fruit.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
+
+t.test(X..Flowered.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
 
 ```
 
@@ -1324,7 +1340,9 @@ std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% g
 
 ```
 
-## This is correct for 6b
+## This is correct for 6b   
+TUP = Total unique plants per plot over 2015   
+UP = unique plants per plot per survey in 2015
 ```{r Figure 6(b)}
 ggplot(AGGmerge15, aes(Survey, UP/TUP)) +
   stat_summary(fun.y = mean, geom = 'point') +
@@ -1352,6 +1370,8 @@ head(coty.seeds)
 tags.seed <- merge(dm.15, coty.seeds, by = c("Site","Plot","tag"))
 ```
 
+
+# Seedlings only in 2015
 ```{r}
 ggplot(tags.seed, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
@@ -1362,6 +1382,38 @@ ggplot(tags.seed, aes(Survey, Ln, group = Site))+
     theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
 
 
+```
+
+# how many seedlings up in each survey compared to all seedlings all year    
+```{r}
+aggregate(tag~Survey, function(x) length(unique(x)), data = tags.seed)
+
+# how many had cotyledons in July? None I think
+aggregate(tag~Survey, function(x) length(unique(x)), data = dm.15[grep("coty", dm.15$Comment),])
+
+seedanytime15 <-  ddply(tags.seed, .(Site,Plot), summarise,
+                      TUP = length(unique(tag[Ln>0])))
+seedeachtime15 <- ddply(tags.seed, .(Site,Plot,Survey), summarise,
+                      UP = length(unique(tag[Ln>0])))
+
+seedmerge15 <- merge(seedanytime15, seedeachtime15, by = c("Site","Plot"))
+
+mean(seedmerge15$UP[seedmerge15$Survey =="June2_2015"]/seedmerge15$TUP[seedmerge15$Survey =="June2_2015"], na.rm = TRUE)
+
+# Both South Beaver Creek and Cebolla Creek
+mean(seedmerge15$UP[seedmerge15$Survey =="July_2015"]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"], na.rm = TRUE)
+
+std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015"]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"], na.rm = TRUE)
+
+# ONly Cebolla Creek
+mean(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+# ONly South beaver Creek
+mean(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
+
+std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
 ```
 
 
@@ -1490,6 +1542,7 @@ figure 6c
 head(dm)
 dm$status <- "dead"
 dm$status[dm$Ln > 0 & dm$Fl == 0] <- "vegetative"
+dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
 
 table(dm$status,dm$Survey)
 
@@ -1577,6 +1630,34 @@ ggplot(merge.num.season, aes(status, Percent, colour = status)) +
   scale_y_continuous(labels = percent)
 
 ```
+
+July census     
+Size of seedlings in July, are all less than 10cm, can we use that as metric for future annual measurements?    
+Becky's comment: "For the july census…can we say that all seedlings were less than 10 cm and all re-emerging plants are greater than 10cm? I.e., can we use these data to have a cut off for the July census..kind of like we do with Scgl for reproductive vs non-reproductive? If so…then we could use this to back track and re-assess all prior years data and also use it going forward with just the July census."
+
+```{r}
+unique(merge.num.season$Survey)
+aggregate(Percent~Survey+status, mean, data = merge.num.season)
+
+head(dm)
+aggregate(Ln~Survey+status, mean, data = dm)
+
+head(tags.seed15)
+aggregate(Ln~Survey+status, mean, data = tags.seed15) #aaaahhh, lengths for dead??
+aggregate(Ln~Survey+status, max, data = tags.seed15) #aaaahhh, lengths for dead??
+
+#try again to classify seedlings for the whole year even if they become reproductive later
+head(tags.seedall) # all tags with coty seed at some point in that year, 2014, or within 2015
+aggregate(Ln~Survey, mean, data = tags.seedall) # July 5.6cm
+aggregate(Ln~Survey, max, data = tags.seedall)
+
+ggplot(aggregate(Ln~Survey, mean, data = tags.seedall), aes(Survey, Ln)) +
+  geom_point() 
+
+ggplot(aggregate(Ln~Survey, max, data = tags.seedall), aes(Survey, Ln)) +
+  geom_point() 
+```
+
 
 ```{r learned from intra}
 dm$SurveyNum <- as.numeric(dm$Survey)
