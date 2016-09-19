@@ -101,14 +101,17 @@ asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
 ```
 
+Veg -> seedling?
+Did some get marked as fruit and no flower because only fruit was on at that time? 
+### START HERE### should change in the database
+```{r}
+asmi.raw[asmi.raw$flower == 0 & asmi.raw$fruit > 0 &
+           !is.na(asmi.raw$fruit),]
 
+```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
-#alive <- lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year)),function(x){
-#  nrow(x[x$length>0,])
-#})
-
 #AGG
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
@@ -472,6 +475,7 @@ remove dead from stages, just fate
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 names(asmi.2)
+names(cebolla)
 ```
 
 Want    
@@ -496,6 +500,11 @@ table(Fate = asmi.2$fate, Stage = asmi.2$stage)
 table(asmi.2$site, asmi.2$year)
 table(asmi.2$plot, asmi.2$year)
 table(asmi.2$stage)
+
+cebolla.2 <- cebolla[, names(cebolla) %in% unique(grep(paste(cols,collapse="|"),
+                                                  names(cebolla), value = TRUE))]
+colnames(cebolla.2) <- c( "tag","year","length","fruits","stage","plot",
+                       "site","fenced","browse","fate")
 ```
 
 bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions   
@@ -562,7 +571,7 @@ script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/mas
 eval(parse(text = script))
 
 asmi.pva <- StagePVA(asmi.2)
-
+cebolla.pva <- StagePVA(cebolla.2)
 ```
 
 
@@ -575,9 +584,6 @@ names(site)<-unique(asmi.2$site)
 site
 
 asmi.pva$plot.matrix[site$'15'[1]]
-
-
-
 ```
 
 ### Function for lambda and 
@@ -588,8 +594,9 @@ y is the start year
 z is the start of the last transition
 ```{r}
 lmdSD <- function(x,y,z){
-
-	yrs <- 1995:z
+  
+  startyr <- min(as.numeric(names(x)))
+	yrs <- startyr:z
 	st <- match(c(y,z),yrs)
 	
 	lambdaAll <- c()
@@ -601,11 +608,12 @@ lmdSD <- function(x,y,z){
 }	
 ```
 
-
+# Table 4: Growth rate    
+All
 ```{r}
-lmdSD(asmi.pva$pro.matrix, 1996, 2014)
+lmdSD(asmi.pva$pro.matrix, 1996, currentyr-1)
 #         lmda        SD
-#[1,] 0.916556 0.1715709  
+#[1,] 1.186665 0.8954535 
 paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[1],2)," (",
       round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[2],2), ")", sep ="")
 
@@ -622,6 +630,29 @@ tbl4.allpost <- sapply(mats.list[-1], function(x){
 
 tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[1],2)," (",
                       round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[2],2),")", sep="")
+```
+
+Cebolla all
+```{r}
+lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)
+#         lmda       SD
+#[1,] 1.138889 1.038878
+paste(round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)[1],2)," (",
+      round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)[2],2), ")", sep ="")
+
+mats.list <- list(cebolla.pva$pro.matrix,cebolla.pva$fenced.pro.matrix,cebolla.pva$notfenced.pro.matrix)
+tbl4.all <- sapply(mats.list, function(x){
+   paste(round(lmdSD(x, 2014, currentyr-1)[1],2)," (",
+         round(lmdSD(x, 2014, currentyr-1)[2],2),")", sep="")
+    })
+
+sapply(mats.list[-1], function(x){
+  paste(round(lmdSD(x, 2014,currentyr-1)[1],2)," (",
+        round(lmdSD(x, 2014,currentyr-1)[2],2),")", sep="")
+  })
+
+paste(round(lmdSD(cebolla.pva$notfenced.pro.matrix, 2014,currentyr-1)[1],2)," (",
+      round(lmdSD(cebolla.pva$notfenced.pro.matrix, 2014,currentyr-1)[2],2),")", sep="")
 ```
 
 
@@ -641,9 +672,10 @@ lmdAn <- function(x,y,z){
 
 ```
 
+T-test fenced vs. open after fencing installed
 ```{r T.test paired growth rates}
-t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, 2013),
-       lmdAn(asmi.pva$notfenced.pro.matrix, 2005, 2013),
+t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
+       lmdAn(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
        paired = TRUE)
 
 ```
@@ -670,13 +702,16 @@ asmi.pva$notfenced$"5"  | asmi.pva$notfenced$"5" |  asmi.pva$notfenced$"5"
 Site 15
 `asmi.pva$Site$"15"` ...        
 
+[[1]]:All; [[2]]:fenced; [[3]]:open
 ```{r}
 matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
 
-# yarggg, won't work!!
+# 1996 (remove first year) through 2004 since it's 2004-2005 before fencing
+# All
 tbl4.96.04 <- 
   lapply(as.character(unique(asmi.2$site)), function(x){
-    lapply(matord.list, function(y){
+    mat <- sprintf('matord.list[[1]]$\"',x,'\"$\"2004"')
+    lapply(mat, function(y){
       paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
             round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")
     })
@@ -692,24 +727,24 @@ paste(round(lmdSD(asmi.pva$fenced$'5',1996,2004)[1],2)," (",
 paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$fenced$'5',2005,2013)[1],2)," (",
+paste(round(lmdSD(asmi.pva$fenced$'5',2005,currentyr-2)[1],2)," (",
             round(lmdSD(asmi.pva$fenced$'5',2005,2013)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'5',2005,2013)[1],2)," (",
+paste(round(lmdSD(asmi.pva$notfenced$'5',2005,currentyr-2)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'5',2005,2013)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2013)[1],2)," (",
+paste(round(lmdSD(asmi.pva$notfenced$'5',1996,currentyr-2)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'5',1996,2013)[2],2),")", sep="")
 
 #Site 15
 paste(round(lmdSD(asmi.pva$Site$'15',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$Site$'15',1996,2004)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$Site$'15',2005,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$Site$'15',2005,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$Site$'15',2005,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'15',2005,currentyr-2)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$Site$'15',1996,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$Site$'15',1996,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$Site$'15',1996,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$Site$'15',1996,currentyr-2)[2],2),")", sep="")
 
 #site 19
 paste(round(lmdSD(asmi.pva$Site$'19',1996,2004)[1],2)," (",
@@ -722,14 +757,14 @@ paste(round(lmdSD(asmi.pva$notfenced$'19',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'19',1996,2004)[2],2),")", sep="")
 
 
-paste(round(lmdSD(asmi.pva$fenced$'19',2005,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$fenced$'19',2005,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$fenced$'19',2005,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'19',2005,currentyr-2)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'19',2005,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'19',2005,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$notfenced$'19',2005,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'19',2005,currentyr-2)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'19',1996,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'19',1996,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$notfenced$'19',1996,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'19',1996,currentyr-2)[2],2),")", sep="")
 
 #site 26
 paste(round(lmdSD(asmi.pva$Site$'26',1996,2004)[1],2)," (",
@@ -742,19 +777,27 @@ paste(round(lmdSD(asmi.pva$notfenced$'26',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'26',1996,2004)[2],2),")", sep="")
 
 
-paste(round(lmdSD(asmi.pva$fenced$'26',2005,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$fenced$'26',2005,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$fenced$'26',2005,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$fenced$'26',2005,currentyr-2)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'26',2005,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'26',2005,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$notfenced$'26',2005,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'26',2005,currentyr-2)[2],2),")", sep="")
 
-paste(round(lmdSD(asmi.pva$notfenced$'26',1996,2013)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'26',1996,2013)[2],2),")", sep="")
+paste(round(lmdSD(asmi.pva$notfenced$'26',1996,currentyr-2)[1],2)," (",
+            round(lmdSD(asmi.pva$notfenced$'26',1996,currentyr-2)[2],2),")", sep="")
 
+#Cebolla Mid
+paste(round(lmdSD(cebolla.pva$notfenced$'1',2014,currentyr-2)[1],2)," (",
+            round(lmdSD(cebolla.pva$notfenced$'1',2014,currentyr-2)[2],2),")", sep="")
+
+paste(round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[1],2)," (",
+            round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[2],2),")", sep="")
 
 ```
 
-Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
+Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
+
+#### START HERE#### why are there 'vegetative' to 'seedling' fertilities?!?!
 ```{r}
 eigen.analysis(mean(asmi.pva$notfenced.pro.matrix))
 mean(asmi.pva$notfenced.pro.matrix)
