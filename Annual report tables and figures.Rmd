@@ -4,7 +4,7 @@ author: "Michelle DePrenger-Levin"
 date: "Tuesday, October 27, 2015"
 output: pdf_document
 ---
-
+The git remote is "AsMiPVA"
 AsMiPVA
 
 ```{r}
@@ -24,9 +24,15 @@ library(digest)
 #source_url("http://cran.r-project.org/bin/windows/Rtools/") #and then run find_rtools()
 # source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R") 
 # Seems no longer supported. Use ggplot stat_ellipse instead (with colour = for designating circles)
+
+library(prism)
 ```
 
+Remove all variables, keep functions
+```{r reset values, eval = FALSE}
+rm(list = setdiff(ls(), lsf.str()))
 
+```
 
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
 ```{r}
@@ -105,29 +111,35 @@ Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek
 
 #AGG
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
-                  data = asmi.raw, function(x) length(x[x>0]))
+                  data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
 
 #AGG and dormant
 aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id + fence,
-                     data = asmi.raw, function(x) length(x[x != "dead"]))
+                     data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
+```
+
+```{r}
 ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
   geom_point()+
   stat_smooth(size=1)+
   theme_bw()+
-  scale_color_manual("Sites/n",labels = c("Cebolla Mid", 
+  scale_color_manual("Sites",labels = c("Cebolla Mid", 
                                           "Cebolla South",
                                           "5","15","19","26"),
                      values = c("cyan", "darkblue",
                                 "olivedrab","olivedrab1",
                                 "mediumseagreen","mistyrose3"))
+```
 
+
+```{r}
 tbl1a.1 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
-tbl1a.1[tbl1a.1$year == 2015,]
 
 tbl1a.2 <- summarySE(aggdorm, measurevar="status", groupvars=c("AsMi_site_id", "year"))
 
 sites <- unique(tbl1a.1$AsMi_site_id)
+
 tbl1.1 <- lapply(sites, function(x){
   paste(round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"length"],2)," (",
         round(tbl1a.1[tbl1a.1$AsMi_site_id == x,"se"],2), ")", sep="")
@@ -144,32 +156,34 @@ tbl1a <- lapply(1:6, function(x){
 
 #Cebolla Mid, Site 1
 tbl1a[[1]]
+write.table(tbl1a[[1]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #Cebolla North, Site 2
 tbl1a[[2]]
+write.table(tbl1a[[2]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #South Beaver Creek, Site 5
 tbl1a[[3]]
+write.table(tbl1a[[3]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 #South Beaver Creek, Site 15
 tbl1a[[4]]
+write.table(tbl1a[[4]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 #South Beaver Creek, Site 19
 tbl1a[[5]]
+write.table(tbl1a[[5]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 #South Beaver Creek, Site 26
 tbl1a[[6]]
+write.table(tbl1a[[6]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 ```
 
 Percent and total preproductive
 ```{r}
-# Percent and average reproductive
-
 #precent reproductive
-prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id,
-                  data = asmi.raw[asmi.raw$length > 0,],
+prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id+fence,
+                  data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),],
                   function(x){
                     sum(x,na.rm = TRUE)/length(x)
                   })
-head(prep)
-str(prep)
 tbl1b.1 <- summarySE(prep, measurevar="flower", groupvars=c("AsMi_site_id","year"))
 head(tbl1b.1)
 
@@ -184,7 +198,7 @@ tbl1.3[[3]]
 
 #total reproductive
 totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id + fence,
-                    data = asmi.raw[asmi.raw$length > 0,], 
+                    data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),], 
                     function(x) sum(x, na.rm = TRUE))
 
 head(totrep)
@@ -201,21 +215,27 @@ tbl1b <- lapply(1:6, function(x){
 
 #Cebolla Mid, 1
 tbl1b[[1]]
+write.table(tbl1b[[1]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #Cebolla North, 2
 tbl1b[[2]]
+write.table(tbl1b[[2]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #South Beaver Creek, 5
 tbl1b[[3]]
+write.table(tbl1b[[3]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #South Beaver Creek, 15
 tbl1b[[4]]
+write.table(tbl1b[[4]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #South Beaver Creek, 19
 tbl1b[[5]]
+write.table(tbl1b[[5]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 #South Beaver Creek, 26
 tbl1b[[6]]
+write.table(tbl1b[[6]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
 
 
 ```
@@ -230,7 +250,10 @@ X..Flowered.1 is number flowered
 
 #Save new annual data in folder titled "<current year>_asmi" and name the file "PlotSummary_<current year>"
 ```{r}
-ps.asmi <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/PlotSummary_2015.csv"))
+plotdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,
+                      "_asmi/PlotSummary_",currentyr,".csv",
+                      collapse = '', sep = '')
+ps.asmi <- read.csv(path.expand(plotdatapath))
 
 head(ps.asmi)
 
@@ -268,8 +291,10 @@ cor(ps.cor[,names(ps.cor) %in%
 #If errors:
 #dev.off()
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
-cor(ps.cor[,names(ps.cor) %in% 
-             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))])
+write.table(cor(ps.cor[,names(ps.cor) %in% 
+             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
+            "clipboard", sep="\t",
+            row.names = FALSE, col.names = FALSE)
 
 cor.plot(cor(ps.cor[,names(ps.cor) %in% 
                       unique(grep(paste(cors,collapse="|"),
@@ -379,7 +404,7 @@ asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
 asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
 table(asmi.raw$browsing)
-table(asmi.raw$Browsing...Status) #lots of missing -1 and one row with nothing
+table(asmi.raw$Browsing...Status) 
 nrow(asmi.raw)
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
@@ -397,6 +422,9 @@ cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year
 
 asmi.1$status <- factor(asmi.1$status)
 table(asmi.1$status)
+
+cebolla$status <- factor(cebolla$status)
+table(cebolla$status)
 ```
 
 Set order of classes
@@ -418,9 +446,10 @@ table(asmi.1$status)
 table(asmi.1$year,asmi.1$status)
 table(asmi.1$year, asmi.1$AsMi_site_id)
 table(asmi.1$length) # looks like tag numbers got recorded as length
+table(cebolla$length)
 
 asmi.1[is.na(asmi.1$length),]
-asmi.1[asmi.1$length > 100,]
+asmi.1[asmi.1$length > 100 & !is.na(asmi.1$length),]
 
 # One length that was recorded crazy
 asmi.1$length[asmi.1$length == 921] <- NA
@@ -443,7 +472,6 @@ remove dead from stages, just fate
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 names(asmi.2)
-head(asmi.2[,grep("year", names(asmi.2), )])
 ```
 
 Want    
@@ -484,6 +512,7 @@ boottrans <- lapply(unique(asmi.2$site), function(x){
 
 bt <- do.call(rbind, boottrans)
 head(bt)
+dev.off()
 ggplot(bt, aes(as.factor(Site), Boot, colour = as.factor(Site)))+
   geom_boxplot()
 ```
@@ -493,20 +522,25 @@ repeat lengths
 ```{r}
 dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
 max(dorms)
+```
+
+```{r}
 ggplot(data.frame(Dormant = dorms), aes(Dormant))+
   geom_histogram()+
   theme_bw()+
   ylab("Frequency")+
   xlab("Consecutive years dormant")
+```
 
 
-median(dorms) #2
-length(dorms[dorms==1]) #296
-length(dorms[dorms==1])/length(dorms) # 40.8%
-length(dorms) #725
-length(dorms[dorms > 5]) #237
-length(dorms[dorms > 15]) #20
-length(dorms[dorms == 18])
+```{r}
+median(dorms) #3
+length(dorms[dorms==1]) #305
+length(dorms[dorms==1])/length(dorms) # 37.7%
+length(dorms) #808
+length(dorms[dorms > 5]) #286
+length(dorms[dorms > 15]) #50
+length(dorms[dorms == 18]) #9
 ```
 
 Reproductive lengths   
@@ -521,9 +555,11 @@ ggplot(data.frame(Repro = repros), aes(Repro))+
 
 ```
 
+
 Dormancy can be set to 0-1   
 ```{r}
-load(path.expand("P:/hackathon/GitPVA/StagePVAFunction.R"))
+script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
+eval(parse(text = script))
 
 asmi.pva <- StagePVA(asmi.2)
 
@@ -728,12 +764,27 @@ mean(asmi.pva$notfenced.pro.matrix)
 
 
 ###Environmental Data from PRISM:   
-<http://prism.oregonstate.edu/explorer/>   
+<http://prism.oregonstate.edu/explorer/>  
+<https://github.com/ropensci/prism>
 
-
+Process takes a while
 ```{r}
-asmi.climate <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/prism_data_csv.csv"),skip=6)
-head(asmi.climate)
+# Set wd for prism
+options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+
+#Precipitation total, rain and snow
+get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+
+#Maximum temperature (average)
+get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+
+#Minimum temperature (average)
+get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+
+latlongs_asmi <- 
+
+# Want Site, Year, Month, ppt, tmin, tmax
+asmi.climate <- 
 
 asmi.climate$Year <- substr(asmi.climate$Date,1,4)
 asmi.climate$Month <- substr(asmi.climate$Date,6,7)
@@ -999,14 +1050,16 @@ asmi.pva$notfenced.pro.matrix$'2012'
 ```
 
 
-
-
 ### Years alive    
 
 ```{r}
-path <- "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/2015_asmi/"
+dormyrs <- currentyr-1995
 
-yrsalive <- lapply(1:20, function(x){ 
+path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,
+              "_asmi/", collapse = '', sep = '')
+
+yrsalive <- lapply(1:dormyrs, function(x){ 
   path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
   ysal <- read.csv(path.expand(path2), na.strings="na")
   cbind(ysal, YrsD = x)
@@ -1044,7 +1097,8 @@ ggplot(smya, aes(YrsD, Yearsalive))+
                 width=1, position=position_dodge(0.1)) +
   theme_bw()+
   xlab("Maximum years dormant")+
-  ylab("Life length")
+  ylab("Life length")+
+  scale_y_continuous(breaks = seq(2, 4, .5), limits = c(2.3, 3.8)) 
 
 ```
 
@@ -1072,9 +1126,6 @@ head(smzero)
 
 
 ```
-
-
-
 
 ### Intraannual visits    
 Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA    

@@ -61,18 +61,18 @@ StagePVA <- function(df,dormancy = 1){
   for(i in years){
     
     # Not split by site, overall
-    fert <- subset(df, x == i)
-    fencedfert <- subset(df, x == i & df$fenced == "y")
-    notfencedfert <- subset(df, x == i & df$fenced == "n")		
+    fert <- subset(df, df$year == i)
+    fencedfert <- subset(df, df$year == i & df$fenced == "y")
+    notfencedfert <- subset(df, df$year == i & df$fenced == "n")		
     
     # Pre-breeding census
     # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
     # fruit production per individual as a percent of the total production that year. Time t
     # this times the number of seedlings that survived the next year
   
-    seedlings <- nrow(subset(df, x == i+1 & df$stage== "seedling"))
-    fencedseedlings <- nrow(subset(df, x == i+1 & df$stage== "seedling" & df$fenced == "y"))
-    notfencedseedlings <- nrow(subset(df, x == i+1 & df$stage== "seedling" & df$fenced == "n"))
+    seedlings <- nrow(subset(df, df$year == i+1 & df$stage== "seedling"))
+    fencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage== "seedling" & df$fenced == "y"))
+    notfencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage== "seedling" & df$fenced == "n"))
     
     # Adding a fertility column to seedlings. 
     # instead could Do something like if seedling and length > 10cm then call it vegetative/repro and add to 
@@ -129,8 +129,8 @@ StagePVA <- function(df,dormancy = 1){
       # df$site is Site
       # x is Year
       rm(fencedfert)
-      fencedfert <- subset(df, x == i & df$site == j & df$fenced == "y")
-      fencedseedlings <- nrow(subset(df, x == i+1 & df$stage == "seedling" & df$site == j & df$fenced == "y"))
+      fencedfert <- subset(df, df$year == i & df$site == j & df$fenced == "y")
+      fencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$site == j & df$fenced == "y"))
       
       # no fencing in site 15 creates errors. Fencing removed from all in 2015
       if(nrow(fencedfert) == 0){ 
@@ -144,15 +144,15 @@ StagePVA <- function(df,dormancy = 1){
       
       rm(fert)
       rm(notfencedfert)
-      fert <- subset(df, x == i & df$site == j)
-      notfencedfert <- subset(df, x == i & df$site == j & df$fenced == "n")
+      fert <- subset(df, df$year == i & df$site == j)
+      notfencedfert <- subset(df, df$year == i & df$site == j & df$fenced == "n")
       
       # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
       # fruit production per individual as a percent of the total production that year. Time t
       # this times the number of seedlings that survived the next year
       
-      seedlings <- nrow(subset(df, x == i+1 & df$stage == "seedling" & df$site == j))
-      notfencedseedlings <- nrow(subset(df, x == i+1 & df$stage == "seedling" & df$site == j & df$fenced == "n"))
+      seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$site == j))
+      notfencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$site == j & df$fenced == "n"))
       
       fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
       fert$seedling[is.nan(fert$seedling)] <- 0
