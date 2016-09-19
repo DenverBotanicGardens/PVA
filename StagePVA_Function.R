@@ -88,7 +88,7 @@ StagePVA <- function(df,dormancy = 1){
     death.to.dormants_fencedfert <- projection.matrix(fencedfert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
     death.to.dormants_notfencedfert <- projection.matrix(notfencedfert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
     
-    
+    #alter the surviving dormants to something less than one
     pro.matrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(unique(df$stage)),
                                                                      length(unique(df$stage)), 
                                                                      death.to.dormants_fert))
@@ -128,7 +128,7 @@ StagePVA <- function(df,dormancy = 1){
       
       # df$site is Site
       # x is Year
-      rm(fencedfert)
+      rm(fencedfert, fencedseedlings)
       fencedfert <- subset(df, df$year == i & df$site == j & df$fenced == "y")
       fencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$site == j & df$fenced == "y"))
       
@@ -142,8 +142,7 @@ StagePVA <- function(df,dormancy = 1){
         fencedfert$seedling[is.nan(fencedfert$seedling)] <- 0
         fenced.promatrix[[as.character(i)]] <- projection.matrix(fencedfert)}	# end if else
       
-      rm(fert)
-      rm(notfencedfert)
+      rm(fert,notfencedfert)
       fert <- subset(df, df$year == i & df$site == j)
       notfencedfert <- subset(df, df$year == i & df$site == j & df$fenced == "n")
       
@@ -210,6 +209,10 @@ StagePVA <- function(df,dormancy = 1){
       fert$seedling[is.nan(fert$seedling)] <- 0
       fert$seedling[is.na(fert$seedling)] <- 0
       
+      
+      fertplot$seedling <- seedlings * (fertplot$fruits / sum(fertplot$fruits, na.rm = T))
+      
+      ## error, missing a fertility column with individual fertility rates, where's seedling?
       death.to.dormants <- projection.matrix(fertplot)[length(unique(df$stage)),length(unique(df$stage))]*dormancy 
       
       plotpromatrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(unique(df$stage)),
