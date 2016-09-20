@@ -21,6 +21,7 @@ library(lattice)
 library(latticeExtra)
 library(devtools)
 library(digest)
+library(RCurl)
 #source_url("http://cran.r-project.org/bin/windows/Rtools/") #and then run find_rtools()
 # source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R") 
 # Seems no longer supported. Use ggplot stat_ellipse instead (with colour = for designating circles)
@@ -85,7 +86,10 @@ rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Ast
 
 asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
 
-head(asmi.raw)
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+
 table(asmi.raw$year, asmi.raw$AsMi_site_id)
 table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
@@ -98,15 +102,6 @@ asmi.raw <- asmi.raw[asmi.raw$status != "",]
 
 #reset factors of browsing to eliminate " "
 asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
-
-```
-
-Veg -> seedling?
-Did some get marked as fruit and no flower because only fruit was on at that time? 
-### START HERE### should change in the database
-```{r}
-asmi.raw[asmi.raw$flower == 0 & asmi.raw$fruit > 0 &
-           !is.na(asmi.raw$fruit),]
 
 ```
 
@@ -260,19 +255,26 @@ ps.asmi <- read.csv(path.expand(plotdatapath))
 
 head(ps.asmi)
 
+# Don't need the climate data from database, will download from PRISM
+ps.asmi <- ps.asmi[,1:11]
+
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
 ps.asmi.t <- ps.asmi
+```
 
 #log transform
+```{r}
 logtrans <- c("X..Flowered.1","Total.Alive","X..Dormant","Total.Fruit",
               "X..Flowered")
 intersect(names(ps.asmi.t),logtrans) #Check that names are right
 ps.asmi.t[,logtrans] <- lapply(ps.asmi.t[,logtrans], 
                                      function(x) log(x + 1)) #NA in num flowered
 ps.asmi.t$X..Flowered.1[is.na(ps.asmi.t$X..Flowered.1)] <- 0
+```
 
 #arcsine square root transformed  asin(sqrt(x/100))
+```{r}
 ps.asmi.t["X..Browsed"] <- lapply(ps.asmi.t["X..Browsed"],
                                   function(x) asin(sqrt(x/100)))
 
@@ -280,8 +282,9 @@ ps.asmi.t["X..Browsed"] <- lapply(ps.asmi.t["X..Browsed"],
 ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
                        by = c("Site","Plot")), Year.x == Year.y - 1)
 head(ps.cor[,c("Year.x","Year.y")])
+```
 
-head(ps.cor)
+```{r}
 cor.plot(cor(ps.cor[,names(ps.cor) %in% 
                       unique(grep(paste(cors,collapse="|"),
                                   names(ps.cor), value=TRUE))]),
@@ -290,9 +293,11 @@ cor.plot(cor(ps.cor[,names(ps.cor) %in%
 cor(ps.cor[,names(ps.cor) %in% 
                       unique(grep(paste(cors,collapse="|"),
                                   names(ps.cor), value=TRUE))])
+```
 
 #If errors:
 #dev.off()
+```{r}
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 write.table(cor(ps.cor[,names(ps.cor) %in% 
              unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
@@ -303,11 +308,11 @@ cor.plot(cor(ps.cor[,names(ps.cor) %in%
                       unique(grep(paste(cors,collapse="|"),
                                   names(ps.cor), value=TRUE))]),
          numbers = TRUE)
-
 ```
 
 
 ```{r}
+#x1 is p.value, x2 is correlation
 cortests <- lapply(ps.cor[,names(ps.cor) %in% 
                             unique(grep(paste(cors,collapse="|"),
                                         names(ps.cor), value=TRUE))],
@@ -331,8 +336,8 @@ cortests[[2]] # X..Browsed.x to all
 head(df.c)
 nrow(df.c)
 
-#All significant
-df.c[df.c$X1 > 0.001,]
+#significant?
+df.c[df.c$X1 < 0.0000001 & df.c$X2 > 0.7 & df.c$X2 < 1,]
 
 ```
 
@@ -353,6 +358,8 @@ cor.plot(cor(ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
 Backwards stepwise multiple linear regressions   
 Herbivory   
 Browsing is already arcsine aquare root transformed
+y is the current year
+x is the previous year
 ```{r stepwise multiple linear regressions}
 summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
                                    X..Flowered.x + X..Flowered.y)^2, 
@@ -361,6 +368,9 @@ summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
 
 summary(lm(Total.Alive.y ~ X..Browsed.x, data = ps.cor))
 summary(lm(Total.Alive.y ~ X..Browsed.y, data = ps.cor))
+
+summary(lm(Total.Alive.y ~ X..Flowered.x, data = ps.cor))
+summary(lm(Total.Alive.y ~ X..Flowered.y, data = ps.cor))
 
 sort(unique(ps.cor$Year.x))
 sort(unique(ps.cor$Year.y))
@@ -372,6 +382,11 @@ t.test(Total.Fruit.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
 
 t.test(X..Flowered.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
 
+t.test(Total.Alive.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
+
+t.test(X..Browsed.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,]) #not signficantly different
+
+t.test(length~fence, data = asmi.raw[asmi.raw$AsMi_site_id > 2 & asmi.raw$year > 2005,])
 ```
 
 
@@ -448,7 +463,7 @@ check errors
 table(asmi.1$status)
 table(asmi.1$year,asmi.1$status)
 table(asmi.1$year, asmi.1$AsMi_site_id)
-table(asmi.1$length) # looks like tag numbers got recorded as length
+table(asmi.1$length) 
 table(cebolla$length)
 
 asmi.1[is.na(asmi.1$length),]
