@@ -8,6 +8,7 @@ The git remote is "AsMiPVA"
 AsMiPVA
 
 ```{r}
+#install.packages("ggplot2")
 library(reshape2)
 library(ggplot2)
 library(psych)
@@ -17,8 +18,8 @@ library(sciplot)
 library(plotrix)
 library(scales)
 library(plyr)
-library(lattice)
-library(latticeExtra)
+#library(lattice)
+#library(latticeExtra)
 library(devtools)
 library(digest)
 library(RCurl)
@@ -27,6 +28,11 @@ library(RCurl)
 # Seems no longer supported. Use ggplot stat_ellipse instead (with colour = for designating circles)
 
 library(prism)
+library(rgdal)
+library(raster)
+#library(car)
+#install.packages("ellipse")
+#library(ellipse)
 ```
 
 Remove all variables, keep functions
@@ -99,20 +105,26 @@ table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 # one blank row at the end of the csv download
 asmi.raw[asmi.raw$status == "",]
 asmi.raw <- asmi.raw[asmi.raw$status != "",]
+asmi.raw$status <- factor(asmi.raw$status)
+table(asmi.raw$status)
 
 #reset factors of browsing to eliminate " "
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
 asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
+#reset factors for fence
+asmi.raw$fence <- factor(asmi.raw$fence)
+table(asmi.raw$fence)
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
 #AGG
-alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
+alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id, #+ fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
 
 #AGG and dormant
-aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id + fence,
+aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id, # + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
 ```
@@ -120,7 +132,7 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id + fence,
 ```{r}
 ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
   geom_point()+
-  stat_smooth(size=1)+
+  stat_smooth()+
   theme_bw()+
   scale_color_manual("Sites",labels = c("Cebolla Mid", 
                                           "Cebolla South",
@@ -253,10 +265,11 @@ plotdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/As
                       collapse = '', sep = '')
 ps.asmi <- read.csv(path.expand(plotdatapath))
 
-head(ps.asmi)
-
 # Don't need the climate data from database, will download from PRISM
-ps.asmi <- ps.asmi[,1:11]
+ps.asmi <- ps.asmi[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(ps.asmi),
+                           value = TRUE, invert = TRUE)]
+
+head(ps.asmi)
 
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
@@ -349,9 +362,9 @@ ps.cor <- ps.cor[,grep("Flowered.1.", names(ps.cor), invert=TRUE)]
 
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
-cor.plot(cor(ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
-                                           names(ps.cor), value = TRUE))]),
-         numbers = TRUE)
+cor.plot(cor(ps.cor[,names(ps.cor) %in% 
+                      unique(grep(paste(cors,collapse="|"),
+                                  names(ps.cor), value = TRUE))]),numbers = TRUE)
 ```
 
 
@@ -454,17 +467,20 @@ stages <- c("seedling", "vegetative", "reproductive", "dormant","dead")
 
 asmi.1$status <- ordered(asmi.1$status, levels = stages)
 cebolla$status <- ordered(cebolla$status, levels = stages)
-
-
 ```
 
 check errors
 ```{r}
 table(asmi.1$status)
+
+asmi.1[asmi.1$flower == 1 & asmi.1$status == "vegetative",]
+
 table(asmi.1$year,asmi.1$status)
 table(asmi.1$year, asmi.1$AsMi_site_id)
 table(asmi.1$length) 
 table(cebolla$length)
+
+cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
 
 asmi.1[is.na(asmi.1$length),]
 asmi.1[asmi.1$length > 100 & !is.na(asmi.1$length),]
@@ -548,6 +564,7 @@ dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$val
 max(dorms)
 ```
 
+#Figure 2b
 ```{r}
 ggplot(data.frame(Dormant = dorms), aes(Dormant))+
   geom_histogram()+
@@ -626,7 +643,7 @@ lmdSD <- function(x,y,z){
 # Table 4: Growth rate    
 All
 ```{r}
-lmdSD(asmi.pva$pro.matrix, 1996, currentyr-1)
+lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
 #[1,] 1.186665 0.8954535 
 paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[1],2)," (",
@@ -639,35 +656,27 @@ tbl4.all <- sapply(mats.list, function(x){
     })
 
 tbl4.allpost <- sapply(mats.list[-1], function(x){
-  paste(round(lmdSD(x, 2005,2013)[1],2)," (",
-        round(lmdSD(x, 2005,2013)[2],2),")", sep="")
+  paste(round(lmdSD(x, 2005,currentyr-2)[1],2)," (",
+        round(lmdSD(x, 2005,currentyr-2)[2],2),")", sep="")
 })
 
-tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[1],2)," (",
-                      round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,2013)[2],2),")", sep="")
+tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[1],2)," (",
+                      round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[2],2),")", sep="")
 ```
 
 Cebolla all
 ```{r}
-lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)
+lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
 #         lmda       SD
 #[1,] 1.138889 1.038878
-paste(round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)[1],2)," (",
-      round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1)[2],2), ")", sep ="")
+paste(round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)[1],2)," (",
+      round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)[2],2), ")", sep ="")
 
 mats.list <- list(cebolla.pva$pro.matrix,cebolla.pva$fenced.pro.matrix,cebolla.pva$notfenced.pro.matrix)
-tbl4.all <- sapply(mats.list, function(x){
+sapply(mats.list, function(x){
    paste(round(lmdSD(x, 2014, currentyr-1)[1],2)," (",
          round(lmdSD(x, 2014, currentyr-1)[2],2),")", sep="")
     })
-
-sapply(mats.list[-1], function(x){
-  paste(round(lmdSD(x, 2014,currentyr-1)[1],2)," (",
-        round(lmdSD(x, 2014,currentyr-1)[2],2),")", sep="")
-  })
-
-paste(round(lmdSD(cebolla.pva$notfenced.pro.matrix, 2014,currentyr-1)[1],2)," (",
-      round(lmdSD(cebolla.pva$notfenced.pro.matrix, 2014,currentyr-1)[2],2),")", sep="")
 ```
 
 
@@ -698,7 +707,7 @@ t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
 # Table 4
 pattern is:          
 
-All pre-fence  1996-2004        |All post-fence 2005-2013       |Open plots 1996-2013       
+All pre-fence  1996-2004        |All post-fence 2005-currentyr-2       |Open plots 1996-currentyr-2       
 --------------------------------|--------------------------------|----------------------    
 asmi.pva$pro.matrix             |                                |  
 asmi.pva$fenced.pro.matrix      | asmi.pva$fenced.pro.matrix     |           
@@ -743,13 +752,13 @@ paste(round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'5',1996,2004)[2],2),")", sep="")
 
 paste(round(lmdSD(asmi.pva$fenced$'5',2005,currentyr-2)[1],2)," (",
-            round(lmdSD(asmi.pva$fenced$'5',2005,2013)[2],2),")", sep="")
+            round(lmdSD(asmi.pva$fenced$'5',2005,currentyr-2)[2],2),")", sep="")
 
 paste(round(lmdSD(asmi.pva$notfenced$'5',2005,currentyr-2)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'5',2005,2013)[2],2),")", sep="")
+            round(lmdSD(asmi.pva$notfenced$'5',2005,currentyr-2)[2],2),")", sep="")
 
 paste(round(lmdSD(asmi.pva$notfenced$'5',1996,currentyr-2)[1],2)," (",
-            round(lmdSD(asmi.pva$notfenced$'5',1996,2013)[2],2),")", sep="")
+            round(lmdSD(asmi.pva$notfenced$'5',1996,currentyr-2)[2],2),")", sep="")
 
 #Site 15
 paste(round(lmdSD(asmi.pva$Site$'15',1996,2004)[1],2)," (",
@@ -812,7 +821,7 @@ paste(round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[1],2)," (",
 
 Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
 
-#### START HERE#### why are there 'vegetative' to 'seedling' fertilities?!?!
+#### START HERE#### 
 ```{r}
 eigen.analysis(mean(asmi.pva$notfenced.pro.matrix))
 mean(asmi.pva$notfenced.pro.matrix)
@@ -839,32 +848,109 @@ get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = 1994:curren
 #Minimum temperature (average)
 get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
 
-latlongs_asmi <- 
+```
+
+Error, didn't download
+```{r}
+get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
+get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
+get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
+get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 2000)
+get_prism_monthlys(type="ppt", mon = 5, keepZip = FALSE, years = 2002)
+get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 2006)
+get_prism_monthlys(type="ppt", mon = 10, keepZip = FALSE, years = 2006)
+get_prism_monthlys(type="ppt", mon = 12, keepZip = FALSE, years = 2012)
+
+
+```
+
+
+
+```{r}
+asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
+
+
+SpatialPoints(c(asmilatlong$Northing,asmilatlong$Easting), 
+              proj4string=CRS("+proj=utm +zone=13 +datum=WGS84"))
+
+# Specify column names for (x,y) and convert to a SpatialPointsDataFrame
+coordinates(asmilatlong) <- c("Easting","Northing")
+
+# Specify the projection
+proj4string(asmilatlong) <- CRS("+proj=utm +zone=13, ellps=WGS84")
+
+as(asmilatlong, "SpatialPoints")
+
+asmilatlong <- spTransform(asmilatlong, CRS("+proj=longlat +datum=WGS84"))
+
+asmiLL <- data.frame(asmilatlong@data, long = coordinates(asmilatlong)[,1],
+           lat=coordinates(asmilatlong)[,2])
+```
+
 
 # Want Site, Year, Month, ppt, tmin, tmax
-asmi.climate <- 
+```{r}
+maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
+mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
+ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
 
-asmi.climate$Year <- substr(asmi.climate$Date,1,4)
-asmi.climate$Month <- substr(asmi.climate$Date,6,7)
+avgTemps.max <- lapply(maxs, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+})
 
-asmi.c <- asmi.climate[,c(1,3,5,7:9)]
-names(asmi.c) <- c("Creek","Precip","tmin","tmax","Year","Month")
-head(asmi.c)
+avgTemps.min <- lapply(mins, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+})
 
+avgPrecip <- lapply(ppt, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+})
+
+mins.avg <- do.call(rbind, avgTemps.min)
+maxs.avg <- do.call(rbind, avgTemps.max)
+ppt.avg <- do.call(rbind, avgPrecip)
+
+mins.avg <- cbind(mins.avg, asmilatlong$Tag__)
+maxs.avg <- cbind(maxs.avg, asmilatlong$Tag__)
+ppt.avg <- cbind(ppt.avg, asmilatlong$Tag__)
+
+ gsub('.*-([0-9]+).*','\\2',asmi.climate$date[1])
+
+asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+names(asmi.climate) <- c("tmin","date","Plot","tmax","Precip")
+
+#date is a factor
+asmi.climate$date <- as.character(asmi.climate$date)
+
+#split by _ select the YYYYMM numbers
+asmi.climate$Year <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+asmi.c <- asmi.climate[,c(1,3:7)]
+
+plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
+plots.site$Creek <- "South Beaver"
+plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
+
+asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
+names(asmi.c) <- c("Plot","Site","Creek",names(asmi.c)[4:8])
 
 #Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
-asmi.c$Month <- as.numeric(asmi.c$Month)
-asmi.c$Year <- as.numeric(asmi.c$Year)
 asmi.c$Prev12 <- asmi.c$Year
 asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
 
+asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
 # Annual precipiation average per year
-creekyear <- aggregate(Precip~Creek+Prev12, 
-                       data = asmi.c[asmi.c$Year > 1994,], sum)
+creekyear <- aggregate(Precip~Creek+Prev12, data = asmi.c[asmi.c$Year > 1994,], sum)
 
-mean(creekyear$Precip[creekyear$Creek == "Cebolla Creek"])
-mean(creekyear$Precip[creekyear$Creek == "South Beaver Creek"])
+mean(creekyear$Precip[creekyear$Creek == "Cebolla"])
+mean(creekyear$Precip[creekyear$Creek == "South Beaver"])
 mean(creekyear$Precip)
 ```
 
@@ -877,12 +963,15 @@ asmi.c$season <- "winter"
 asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "spring/summer"
 asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
 
-asmi.c.summary <- aggregate(asmi.c[,2:4], asmi.c[,c("season","Creek","Prev12")],
+asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
+                                     grep(paste(c("tmin","tmax","Precip"),collapse="|"),
+                                          names(asmi.c), value=TRUE)], 
+                            asmi.c[,c("season","Creek","Prev12")],
                             FUN = function(x) mean(x, na.rm = TRUE))
 
 head(asmi.c.summary)
 
-season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < 2016 & asmi.c.summary$Prev12 > 1994,],
+season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr-1 & asmi.c.summary$Prev12 > 1994,],
                   idvar=c("Creek","Prev12"),
                   timevar = "season",
                   direction="wide")
@@ -903,12 +992,6 @@ forpca <- season[,c(grep(paste(tomatch, collapse="|"),
 names(forpca)
 ```
 
-```{r}
-
-source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R")
-
-```
-
 
 T-tests for Creek from Figure 7
 ```{r}
@@ -924,20 +1007,29 @@ t.test(Comp.2~Creek, data=asmi.pc)
 
 ```
 
+```{r}
+#library(ggplot2)
+#library(devtools)
+library(digest)
+source_url("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R")    
+
+```
+
 Figure 7a
 ```{r}
-ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
+
+ggplot(asmi.pc, aes(Comp.1,Comp.2, color = Creek))+
   geom_point()+
   stat_ellipse()+
   theme_bw()+
-  xlab("PC1 (36%)")+
-  ylab("PC2 (23%)")+
+  xlab("PC1 (34%)")+
+  ylab("PC2 (31%)")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1))+
   scale_color_manual("Drainage", 
                      labels = c("Cebolla Creek","South Beaver Creek"), 
-                     values = c("grey50","black")) 
+                     values = c("darkseagreen","black")) 
   
 
 ```
@@ -947,32 +1039,29 @@ ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
 
 
 ```{r}
-ps.asmi$Creek[ps.asmi$Site > 4] <- "South Beaver Creek"
-ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla Creek"
-asmi.m <- merge(ps.asmi[,-c(12:(length(ps.asmi)-1))], asmi.c.summary, 
-                by.x=c("Year","Creek"), by.y = c("Prev12","Creek"))
-
-str(asmi.m)
+ps.asmi$Creek[ps.asmi$Site > 4] <- "South Beaver"
+ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla"
 
 #Total.Plants - AGG and dormant
-AGGDorm <- summarySE(ps.asmi, measurevar="Total.Plants", groupvars=c("Fence","Year"))
+AGGDorm <- summarySE(ps.asmi, measurevar="Total.Plants", groupvars=c("Fence","Year","Site","Creek"))
 #Total.Alive - AGG
-AGG <- summarySE(ps.asmi, measurevar="Total.Alive", groupvars=c("Fence","Year","Site"))
+AGG <- summarySE(ps.asmi, measurevar="Total.Alive", groupvars=c("Fence","Year","Site","Creek"))
 
 #Total.Fruit
-Fruit <- summarySE(ps.asmi, measurevar="Total.Fruit", groupvars=c("Fence","Year","Site"))
+Fruit <- summarySE(ps.asmi, measurevar="Total.Fruit", groupvars=c("Fence","Year","Site","Creek"))
 
 #X..Flowered - %flowered
-Repro <- summarySE(ps.asmi, measurevar="X..Flowered", groupvars=c("Fence","Year","Site"))
+Repro <- summarySE(ps.asmi, measurevar="X..Flowered", groupvars=c("Fence","Year","Site","Creek"))
 
 ```
 
 
  Figure 8    
 AGG and Dormant  
-  
+South Beaver Creek  
 ```{r}
-ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 1995 & ps.asmi$Year < 2015,], 
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 1995 & 
+                 ps.asmi$Year < currentyr & ps.asmi$Creek == "South Beaver",], 
        aes(Year, Total.Plants, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -985,7 +1074,7 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 1995 & ps.asmi$Year < 201
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG and dormant per Site")+
+  ylab("Average AGG and dormant")+
   ggtitle("b)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
@@ -997,6 +1086,35 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 1995 & ps.asmi$Year < 201
   theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
   
 ```
+
+Cebolla  
+```{r}
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Year > 2013 & 
+                 ps.asmi$Year < currentyr & ps.asmi$Creek == "Cebolla",], 
+       aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
+  theme_bw() +
+  ylab("Average AGG and dormant per Site")+
+  ggtitle("b)") +
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  theme(legend.justification=c(1,0), legend.position=c(1,0)) +
+  scale_y_continuous(limits = c(0,68)) +
+  scale_x_continuous(breaks = c(2014:currentyr))
+  
+```
+
 
 
 AGG
@@ -1028,9 +1146,10 @@ ggplot(ps.asmi[ps.asmi$Total.Alive>0,], aes(Year, Total.Alive, shape = Fence, co
 ```
 
 
-Fruit
+Fruit   
+South Beaver Creek
 ```{r}
-ggplot(ps.asmi[ps.asmi$Total.Plants>0,], 
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "South Beaver",], 
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1054,10 +1173,39 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 ```
+
+
+Cebolla
+```{r}
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "Cebolla",], 
+       aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
+  theme_bw() +
+  ylab("Total Fruit per Site")+
+  ggtitle("c)") +
+  theme(plot.title=element_text(hjust=0))+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1))+
+  scale_y_continuous(limits = c(0,68)) +
+  scale_x_continuous(breaks = c(2014:currentyr))
+```
+  
   
 X..Flowered - Percent Reproductive
 ```{r}
-ggplot(ps.asmi[ps.asmi$Total.Plants>0,], 
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "South Beaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1081,6 +1229,34 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 ```
+
+Cebolla
+```{r}
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "Cebolla",], 
+       aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "errorbar")+
+  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
+               fun.ymin = function(x) mean(x) - std.error(x),
+               fun.ymax = function(x) mean(x) + std.error(x),
+               geom = "point")+
+  stat_summary(fun.y = mean,
+               geom = "line")+
+  theme_bw() +
+  ylab("% Reproductive per Site")+
+  ggtitle("d)") +
+  theme(plot.title=element_text(hjust=0))+
+  scale_color_manual(values=c("#000000","#7e7e7e"),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  scale_shape_manual(values=c(1,2),
+                     labels = c("Cebolla Mid","Cebolla North"))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1))+
+  scale_x_continuous(breaks = c(2014:currentyr))+
+  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
+```
+
 
 T.tests for PCA
 ```{r}
