@@ -94,6 +94,10 @@ lmdAn <- function(x,y,z){
 	lambdaAll
 }	
 
+# StagePVA_Function.R
+script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
+eval(parse(text = script))
+
 ```
 
 ### Function for lambda and 
@@ -637,9 +641,6 @@ ggplot(data.frame(Repro = repros), aes(Repro))+
 
 Dormancy can be set to 0-1   
 ```{r}
-script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
-eval(parse(text = script))
-
 asmi.pva <- StagePVA(asmi.2)
 cebolla.pva <- StagePVA(cebolla.2)
 ```
@@ -726,17 +727,18 @@ asmi.pva$notfenced$"5"  | asmi.pva$notfenced$"5" |  asmi.pva$notfenced$"5"
 Site 15
 `asmi.pva$Site$"15"` ...        
 
-START HERE
-
 [[1]]:All; [[2]]:fenced; [[3]]:open
 ```{r}
 matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
+
+lapply(seq_along(asmi.pva$Site), function(n,i){ paste(n[[i]])}, 
+       n=names(asmi.pva$Site))
 
 # 1996 (remove first year) through 2004 since it's 2004-2005 before fencing
 # All
 tbl4.96.04 <- 
   lapply(as.character(unique(asmi.2$site)), function(x){
-    mat <- sprintf('matord.list[[1]]$\"',x,'\"$\"2004"')
+    mat <- cat("matord.list[[1]]$\`",x,"\`$\`","2004\`", sep='')
     lapply(mat, function(y){
       paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
             round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")

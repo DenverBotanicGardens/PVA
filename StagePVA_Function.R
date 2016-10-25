@@ -1,29 +1,15 @@
 ##############################################################################
 ###############3#####			StagePVA			##################
 
-# all variables with <<- assignment will be avaliable outside of the function
-# 	Extract variable:
-# Each lambda for the duration of the study as "Sitemu"	
-# r squared	as "R.sq"
+# Each lambda for the duration of the study = "Sitemu"	
+# r squared	= "R.sq"
 # mu with lower and upper 95% CI as "mu.s" with three columns of "mu.s$fit", "mu.s$lwr", and "mu.s$upr" 
 # the set of year intervals of the start year of study and each consecutive addition of years as "years"
 #		"years$RangeStart" and "years$RangeEnd"
 # Lambda and the lower and upper 95% CIs as "growth.exp" with "growth.exp$fit", "growth.exp$lwr", and "growth.exp$upr"  
 
-#	To use the function, enter "CountPVA(x,y)
-#	df$year The column with the years of the study 	'table$year'
-#	df$site The column with the site names		'table$site'
-#	df$stage The column with stage				'table$stage'
 #	table The whole data frame that has (1) site, (2) tag, (3) year, (4) measurment, (5) fruit, (6) browsed/measurment
 #							(7) stage, (8) fate (9) plot - in some other order...
-
-
-# To create the function in your R Console, run the following block of code:
-#############################################################################################
-############################### Stage PVA Function ##########################################
-##################################### Start #################################################
-#############################################################################################
-
 
 StagePVA <- function(df,dormancy = 1){
   
@@ -57,7 +43,7 @@ StagePVA <- function(df,dormancy = 1){
   notfenced.pro.matrix <- vector("list", length(years))
   names(notfenced.pro.matrix) <- years
   
-  ## Fencing
+  ## All, Fenced, Open
   for(i in years){
     
     # Not split by site, overall
@@ -68,7 +54,7 @@ StagePVA <- function(df,dormancy = 1){
     # Pre-breeding census
     # ?projection.matrix uses a column with a stage name as a fertility measure per plant 
     # fruit production per individual as a percent of the total production that year. Time t
-    # this times the number of seedlings that survived the next year
+    # this times the number of seedlings in the next year
   
     seedlings <- nrow(subset(df, df$year == i+1 & df$stage== "seedling"))
     fencedseedlings <- nrow(subset(df, df$year == i+1 & df$stage== "seedling" & df$fenced == "y"))
@@ -230,6 +216,3 @@ StagePVA <- function(df,dormancy = 1){
   # The list returned from the function
   SiteMatrix
 }
-
-
-save(StagePVA, file = path.expand("P:/hackathon/GitPVA/StagePVAFunction.R"))
