@@ -38,7 +38,6 @@ library(raster)
 Remove all variables, keep functions
 ```{r reset values, eval = FALSE}
 rm(list = setdiff(ls(), lsf.str()))
-
 ```
 
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/  
@@ -140,6 +139,7 @@ asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|")
                            value = TRUE, invert = TRUE)]
 
 table(asmi.raw$year, asmi.raw$AsMi_site_id)
+table(asmi.raw$year, asmi.raw$AsMi_plot_id)
 table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
 str(asmi.raw)
@@ -356,6 +356,7 @@ cor(ps.cor[,names(ps.cor) %in%
 #If errors:
 #dev.off()
 ```{r}
+dev.off()
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 write.table(cor(ps.cor[,names(ps.cor) %in% 
              unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
@@ -486,7 +487,10 @@ sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
 table(sbc$AsMi_site_id,sbc$year)
 
 #remove plot 598 from SBC, it was added so late.. or do all plots on their own instead of by sites? 
-sbc <- sbc[sbc$AsMi_plot_id != 598,]
+#sbc <- sbc[sbc$AsMi_plot_id != 598,]
+
+# the others added later: 238 & 300 @ 1996 - take out 1995
+#sbc <- sbc[sbc$year > 1995,]
 
 asmi.1 <- sbc[order(sbc$AsMi_site_id, sbc$AsMi_tag_id, sbc$year),]
 cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
@@ -582,7 +586,7 @@ colnames(cebolla.2) <- c( "tag","year","length","fruits","stage","plot",
 
 bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions   
 
-Doesn't make sense... shouldn't be so high...
+Doesn't make sense... shouldn't be so high... Because 26 had additional plots added in 1996?
 
 ```{r}
 boottrans <- lapply(unique(asmi.2$site), function(x){
@@ -609,13 +613,13 @@ max(dorms)
 #Figure 2b
 ```{r}
 ggplot(data.frame(Dormant = dorms), aes(Dormant))+
-  geom_histogram()+
+  geom_histogram(bins = 20)+
   theme_bw()+
   ylab("Frequency")+
   xlab("Consecutive years dormant")
 ```
 
-
+#only South beaver creek
 ```{r}
 median(dorms) #3
 length(dorms[dorms==1]) #305
@@ -631,7 +635,7 @@ Reproductive lengths
 repros <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==3]
 max(repros)
 ggplot(data.frame(Repro = repros), aes(Repro))+
-  geom_histogram()+
+  geom_histogram(bins=8)+
   theme_bw()+
   ylab("Frequency")+
   xlab("Consecutive years reproductive")
@@ -646,7 +650,7 @@ cebolla.pva <- StagePVA(cebolla.2)
 ```
 
 
-By plot
+By plot, South Beaver Creek
 ```{r}
 site <- sapply(unique(asmi.2$site), function(x){
   as.character(unique(asmi.2$plot[asmi.2$site == x]))
@@ -683,17 +687,24 @@ tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-
 ```
 
 Cebolla all
+1:Mid
+2:North
 ```{r}
 lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
+# lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1) #in 2016, not enough data to exclude the last one
 #         lmda       SD
 #[1,] 1.138889 1.038878
-paste(round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)[1],2)," (",
-      round(lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)[2],2), ")", sep ="")
+paste(round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-1)[1],2)," (",
+      round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-1)[2],2), ")", sep ="")
+
+
+paste(round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-1)[1],2)," (",
+      round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-1)[2],2), ")", sep ="")
 
 mats.list <- list(cebolla.pva$pro.matrix,cebolla.pva$fenced.pro.matrix,cebolla.pva$notfenced.pro.matrix)
 sapply(mats.list, function(x){
-   paste(round(lmdSD(x, 2014, currentyr-1)[1],2)," (",
-         round(lmdSD(x, 2014, currentyr-1)[2],2),")", sep="")
+   paste(round(lmdSD(x, 2014, currentyr-2)[1],2)," (",
+         round(lmdSD(x, 2014, currentyr-2)[2],2),")", sep="")
     })
 ```
  
@@ -736,9 +747,10 @@ lapply(seq_along(asmi.pva$Site), function(n,i){ paste(n[[i]])},
 
 # 1996 (remove first year) through 2004 since it's 2004-2005 before fencing
 # All
+# not working! move on to one by one
 tbl4.96.04 <- 
   lapply(as.character(unique(asmi.2$site)), function(x){
-    mat <- cat("matord.list[[1]]$\`",x,"\`$\`","2004\`", sep='')
+    mat <- cat("matord.list[[1]]$\`",x,"`", sep='')
     lapply(mat, function(y){
       paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
             round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")
@@ -823,16 +835,12 @@ paste(round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[1],2)," (",
 
 ```
 
-Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
+Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-currentyr-1 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
 
-#### START HERE#### 
 ```{r}
 eigen.analysis(mean(asmi.pva$notfenced.pro.matrix))
 mean(asmi.pva$notfenced.pro.matrix)
 ```
-
-
-
 
 ###Environmental Data from PRISM:   
 <http://prism.oregonstate.edu/explorer/>  
@@ -865,30 +873,22 @@ get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 2006)
 get_prism_monthlys(type="ppt", mon = 10, keepZip = FALSE, years = 2006)
 get_prism_monthlys(type="ppt", mon = 12, keepZip = FALSE, years = 2012)
 
-
 ```
 
-
-
+UTM Zone 13 from ArcGIS
 ```{r}
 asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
 
+# Convert from UTM to lat/long
+asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
+                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
+                       CRS("+proj=longlat +datum=WGS84"))
 
-SpatialPoints(c(asmilatlong$Northing,asmilatlong$Easting), 
-              proj4string=CRS("+proj=utm +zone=13 +datum=WGS84"))
+#All AsMi plot points
+coordinates(asmi.ll)
 
-# Specify column names for (x,y) and convert to a SpatialPointsDataFrame
-coordinates(asmilatlong) <- c("Easting","Northing")
+asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
-# Specify the projection
-proj4string(asmilatlong) <- CRS("+proj=utm +zone=13, ellps=WGS84")
-
-as(asmilatlong, "SpatialPoints")
-
-asmilatlong <- spTransform(asmilatlong, CRS("+proj=longlat +datum=WGS84"))
-
-asmiLL <- data.frame(asmilatlong@data, long = coordinates(asmilatlong)[,1],
-           lat=coordinates(asmilatlong)[,2])
 ```
 
 
@@ -900,31 +900,29 @@ ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
 
 avgTemps.max <- lapply(maxs, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 avgTemps.min <- lapply(mins, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 avgPrecip <- lapply(ppt, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("long","lat")]), date = ls_prism_data()[x,])
+  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 mins.avg <- do.call(rbind, avgTemps.min)
 maxs.avg <- do.call(rbind, avgTemps.max)
 ppt.avg <- do.call(rbind, avgPrecip)
 
-mins.avg <- cbind(mins.avg, asmilatlong$Tag__)
-maxs.avg <- cbind(maxs.avg, asmilatlong$Tag__)
-ppt.avg <- cbind(ppt.avg, asmilatlong$Tag__)
-
- gsub('.*-([0-9]+).*','\\2',asmi.climate$date[1])
+mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
 
 asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
-names(asmi.climate) <- c("tmin","date","Plot","tmax","Precip")
+names(asmi.climate) <- c("tmin","date","Plot","Site","tmax","Precip")
 
 #date is a factor
 asmi.climate$date <- as.character(asmi.climate$date)
@@ -935,14 +933,14 @@ asmi.climate$Year <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'),
 asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
                                    function(x) x[5], character(1)), 5,6))
 
-asmi.c <- asmi.climate[,c(1,3:7)]
+asmi.c <- asmi.climate[,-2]
 
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
 plots.site$Creek <- "South Beaver"
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
-names(asmi.c) <- c("Plot","Site","Creek",names(asmi.c)[4:8])
+names(asmi.c) <- c("Plot","Site","Creek",names(asmi.c)[4:length(asmi.c)])
 
 #Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
 asmi.c$Prev12 <- asmi.c$Year
@@ -953,9 +951,10 @@ asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 # Annual precipiation average per year
 creekyear <- aggregate(Precip~Creek+Prev12, data = asmi.c[asmi.c$Year > 1994,], sum)
 
-mean(creekyear$Precip[creekyear$Creek == "Cebolla"])
-mean(creekyear$Precip[creekyear$Creek == "South Beaver"])
-mean(creekyear$Precip)
+#ppt mm*100
+mean(creekyear$Precip[creekyear$Creek == "Cebolla"])/100
+mean(creekyear$Precip[creekyear$Creek == "South Beaver"])/100
+mean(creekyear$Precip)/100
 ```
 
 Seasons    
@@ -1011,7 +1010,7 @@ t.test(Comp.2~Creek, data=asmi.pc)
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 #library(ggplot2)
 #library(devtools)
 library(digest)
@@ -1022,7 +1021,7 @@ source_url("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R")
 Figure 7a
 ```{r}
 
-ggplot(asmi.pc, aes(Comp.1,Comp.2, color = Creek))+
+ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   geom_point()+
   stat_ellipse()+
   theme_bw()+
@@ -1037,9 +1036,6 @@ ggplot(asmi.pc, aes(Comp.1,Comp.2, color = Creek))+
   
 
 ```
-
-
-
 
 
 ```{r}
@@ -1261,15 +1257,6 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "Cebolla",],
   theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
 ```
 
-
-T.tests for PCA
-```{r}
-t.test(Comp.2~Fruit, data = ps.pc)
-t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
-
-
-```
-
 Table 6: PCA climatic loadings for the first two principal component axes for yearly demographic data of Astragalus microcymbus from four sites within the South Beaver Creek drainage near Gunnison, CO. 
 ```{r}
 
@@ -1278,18 +1265,8 @@ Table 6: PCA climatic loadings for the first two principal component axes for ye
 ```
 
 
-
-Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-2014 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings.    
-
-```{r}
-asmi.pva$notfenced.pro.matrix$'2012'
-
-
-```
-
-
 ### Years alive    
-
+######### START HERE ##############
 ```{r}
 dormyrs <- currentyr-1995
 
@@ -1311,8 +1288,10 @@ yrsalive[[1]][is.na(yrsalive[[1]]$Yearsalive),]
 yrsalive[[3]][is.na(yrsalive[[3]]$AsMi_plot_id),]
 
 
-#eliminate na or make them zeros?
-# complete.cases will eliminate any that aren't yet dead or are new in 2015 sinece they've only been seen one year. 
+#eliminate na or make them zeros? - why would there be NA? oh, 2016 doesn't mean dead, don't know...
+# complete.cases will eliminate any that aren't yet dead or are new in 2015 sinece they've only been seen one year.
+
+
 ```
 sumYrsAlive <- lapply(yrsalive, function(x){
   summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars=c("AsMi_plot_id","AsMi_site_id","YrsD"))
@@ -2034,6 +2013,15 @@ ps.pc.2 <- merge(ps.asmi[,c(grep(paste(c("Rain","Temp"), collapse="|"),names(ps.
                asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek","Prev12"))
 
 ```
+
+T.tests for PCA
+```{r}
+t.test(Comp.2~Fruit, data = ps.pc)
+t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+
+
+```
+
 
 ```{r t-tests Figure 6}
 # Reproductive not signficantly different
