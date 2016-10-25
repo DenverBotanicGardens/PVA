@@ -41,7 +41,8 @@ rm(list = setdiff(ls(), lsf.str()))
 
 ```
 
-summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/    
+summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/  
+Function for t.tests, for annual lambdas
 ```{r}
 summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
                       conf.interval=.95, .drop=TRUE) {
@@ -78,7 +79,45 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
 
     return(datac)
 }
+
+#Function for t.tests, for annual lambdas
+
+lmdAn <- function(x,y,z){
+
+  yrs <- 1995:z
+	st <- match(c(y,z),yrs)
+	
+	lambdaAll <- c()
+	for(i in c(y:z)){
+		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
+	}	
+	lambdaAll
+}	
+
 ```
+
+### Function for lambda and 
+requires library(popbio)    
+x is the list of matrices, i.e. notfenced.Site.matrix$"26",     
+					or fenced.Site.matrix$"19"[2:17])    
+y is the start year    
+z is the start of the last transition
+```{r}
+lmdSD <- function(x,y,z){
+  
+  startyr <- min(as.numeric(names(x)))
+	yrs <- startyr:z
+	st <- match(c(y,z),yrs)
+	
+	lambdaAll <- c()
+	for(i in c(y:z)){
+		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
+	}	
+	StandDev <- sqrt(var(c(lambdaAll)))	#Standard Deviation
+	cbind(lmda = lambda(mean(x[st[1]:st[2]])),SD = StandDev)
+}	
+```
+
 
 # Download raw_data 
 <https://research.botanicgardens.org/admin/demographics/asmi/reports/raw_data.php>   
@@ -120,11 +159,11 @@ table(asmi.raw$fence)
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
 #AGG
-alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id, #+ fence, 
+alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
 
 #AGG and dormant
-aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id, # + fence,
+aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
 ```
@@ -188,11 +227,15 @@ write.table(tbl1a[[6]], "clipboard", sep="\t", row.names=FALSE, col.names = FALS
 
 Percent and total preproductive
 ```{r}
-#precent reproductive
-prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id+fence,
+#precent reproductive, return 0 if no 
+prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id +fence,
                   data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),],
                   function(x){
-                    sum(x,na.rm = TRUE)/length(x)
+                    if(length(x)>0){
+                      sum(x,na.rm = TRUE)/length(x)
+                    } else {
+                        0
+                      }
                   })
 tbl1b.1 <- summarySE(prep, measurevar="flower", groupvars=c("AsMi_site_id","year"))
 head(tbl1b.1)
@@ -207,7 +250,7 @@ tbl1.3 <- lapply(sites, function(x){
 tbl1.3[[3]]
 
 #total reproductive
-totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id + fence,
+totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                     data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),], 
                     function(x) sum(x, na.rm = TRUE))
 
@@ -246,8 +289,6 @@ write.table(tbl1b[[5]], "clipboard", sep="\t", row.names=FALSE, col.names = FALS
 #South Beaver Creek, 26
 tbl1b[[6]]
 write.table(tbl1b[[6]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-
 ```
 
 Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995 – 2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
@@ -429,14 +470,9 @@ data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]])
 Table 4: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
 
 ```{r}
-table(asmi.raw$Browsing...Status)
-asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
-
-asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
-
 table(asmi.raw$browsing)
 table(asmi.raw$Browsing...Status) 
-nrow(asmi.raw)
+nrow(asmi.raw) #13806
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
@@ -472,8 +508,10 @@ cebolla$status <- ordered(cebolla$status, levels = stages)
 check errors
 ```{r}
 table(asmi.1$status)
+table(cebolla$status)
 
 asmi.1[asmi.1$flower == 1 & asmi.1$status == "vegetative",]
+cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
 
 table(asmi.1$year,asmi.1$status)
 table(asmi.1$year, asmi.1$AsMi_site_id)
@@ -618,34 +656,13 @@ site
 asmi.pva$plot.matrix[site$'15'[1]]
 ```
 
-### Function for lambda and 
-requires library(popbio)
-x is the list of matrices, i.e. notfenced.Site.matrix$"26", 
-					or fenced.Site.matrix$"19"[2:17])
-y is the start year
-z is the start of the last transition
-```{r}
-lmdSD <- function(x,y,z){
-  
-  startyr <- min(as.numeric(names(x)))
-	yrs <- startyr:z
-	st <- match(c(y,z),yrs)
-	
-	lambdaAll <- c()
-	for(i in c(y:z)){
-		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
-	}	
-	StandDev <- sqrt(var(c(lambdaAll)))	#Standard Deviation
-	cbind(lmda = lambda(mean(x[st[1]:st[2]])),SD = StandDev)
-}	
-```
 
 # Table 4: Growth rate    
 All
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
-#[1,] 1.186665 0.8954535 
+# [1,] 1.179791 0.9690063
 paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[1],2)," (",
       round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[2],2), ")", sep ="")
 
@@ -678,24 +695,7 @@ sapply(mats.list, function(x){
          round(lmdSD(x, 2014, currentyr-1)[2],2),")", sep="")
     })
 ```
-
-
-Function for t.tests, for annual lambdas
-```{r}
-lmdAn <- function(x,y,z){
-
-  yrs <- 1995:z
-	st <- match(c(y,z),yrs)
-	
-	lambdaAll <- c()
-	for(i in c(y:z)){
-		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
-	}	
-	lambdaAll
-}	
-
-```
-
+ 
 T-test fenced vs. open after fencing installed
 ```{r T.test paired growth rates}
 t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
@@ -725,6 +725,8 @@ asmi.pva$notfenced$"5"  | asmi.pva$notfenced$"5" |  asmi.pva$notfenced$"5"
 
 Site 15
 `asmi.pva$Site$"15"` ...        
+
+START HERE
 
 [[1]]:All; [[2]]:fenced; [[3]]:open
 ```{r}
