@@ -1281,12 +1281,9 @@ yrsalive <- lapply(1:dormyrs, function(x){
   })
 
 head(yrsalive[[20]])
-str(yrsalive[[1]])
-
+yrsalive[[20]][yrsalive[[20]]$EndYear == 2016,]
 yrsalive[[1]][is.na(yrsalive[[1]]$Yearsalive),]
-
 yrsalive[[3]][is.na(yrsalive[[3]]$AsMi_plot_id),]
-
 
 #eliminate na or make them zeros? - why would there be NA? oh, 2016 doesn't mean dead, don't know...
 # complete.cases will eliminate any that aren't yet dead or are new in 2015 sinece they've only been seen one year.
