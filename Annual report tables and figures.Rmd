@@ -1289,16 +1289,8 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "Cebolla",],
   theme(legend.justification=c(0,1), legend.position=c(0,1)) #upper right
 ```
 
-Table 6: PCA climatic loadings for the first two principal component axes for yearly demographic data of Astragalus microcymbus from four sites within the South Beaver Creek drainage near Gunnison, CO. 
-```{r}
-
-
-
-```
-
 
 ### Years alive    
-######### START HERE ##############
 ```{r}
 dormyrs <- currentyr-1995
 
@@ -1306,41 +1298,50 @@ path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus
               currentyr,
               "_asmi/", collapse = '', sep = '')
 
+#If a plant is still alive in the current year, there is no years alive calculated
 yrsalive <- lapply(1:dormyrs, function(x){ 
   path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
   ysal <- read.csv(path.expand(path2), na.strings="na")
-  cbind(ysal, YrsD = x)
+  ysal <- cbind(ysal, YrsD = x)
+  ysal[complete.cases(ysal),]
   })
 
-head(yrsalive[[20]])
-yrsalive[[20]][yrsalive[[20]]$EndYear == 2016,]
-yrsalive[[1]][is.na(yrsalive[[1]]$Yearsalive),]
-yrsalive[[3]][is.na(yrsalive[[3]]$AsMi_plot_id),]
-
-#eliminate na or make them zeros? - why would there be NA? oh, 2016 doesn't mean dead, don't know...
-# complete.cases will eliminate any that aren't yet dead or are new in 2015 sinece they've only been seen one year.
-
+head(yrsalive[[4]])
 
 ```
-sumYrsAlive <- lapply(yrsalive, function(x){
-  summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars=c("AsMi_plot_id","AsMi_site_id","YrsD"))
-})
+
 ```{r}
 sumYrsAlive <- lapply(yrsalive, function(x){
   summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars="YrsD")
 })
 
-sumYrsAlive
-
 smya <- do.call(rbind, sumYrsAlive)
 ```
 
-Figure 2(a) Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.   
+Of the 797 individuals alive in South Beaver Creek in 1995 ...
+```{r}
+
+lifelength <- do.call(rbind, yrsalive)
+
+
+mean(lifelength$Yearsalive[lifelength$YrsD < 8]) #2.5
+mean(lifelength$Yearsalive)
+```
+
+Dormancy    
+repeat lengths   
+```{r}
+dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
+max(dorms)
+```
+
+
+Figure 2(a) Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
 ```{r}
 ggplot(smya, aes(YrsD, Yearsalive))+
 #  stat_smooth()+
   geom_errorbar(aes(ymin=Yearsalive-se, ymax=Yearsalive+se), 
-                width=1, position=position_dodge(0.1)) +
+                width=1) +
   theme_bw()+
   xlab("Maximum years dormant")+
   ylab("Life length")+
