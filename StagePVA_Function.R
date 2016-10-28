@@ -94,9 +94,12 @@ StagePVA <- function(df,dormancy = 1){
   ## 2
   # Projection matrices divdied by Site
   
-  Site.matrix <- vector("list", length(years))
-  fenced.Site.matrix <- vector("list", length(years))
-  notfenced.Site.matrix <- vector("list", length(years))
+  #Set variables
+  sites <- unique(df$site)
+  
+  Site.matrix <- c() 
+  fenced.Site.matrix <- c() 
+  notfenced.Site.matrix <- c()
   
   promatrix <- vector("list", length(years))
   names(promatrix) <- years
@@ -104,9 +107,6 @@ StagePVA <- function(df,dormancy = 1){
   names(fenced.promatrix) <- years
   notfenced.promatrix <- vector("list", length(years))
   names(notfenced.promatrix) <- years
-  
-  #Set variables
-  sites <- unique(df$site)
   
   ## Fencing by site
   for(j in sites){

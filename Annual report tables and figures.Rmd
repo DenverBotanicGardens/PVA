@@ -2,13 +2,12 @@
 title: "AsMi_annual report"
 author: "Michelle DePrenger-Levin"
 date: "Tuesday, October 27, 2015"
-output: pdf_document
+output: html_document
 ---
 The git remote is "AsMiPVA"
 AsMiPVA
 
 ```{r}
-#install.packages("ggplot2")
 library(reshape2)
 library(ggplot2)
 library(psych)
@@ -18,21 +17,12 @@ library(sciplot)
 library(plotrix)
 library(scales)
 library(plyr)
-#library(lattice)
-#library(latticeExtra)
 library(devtools)
 library(digest)
 library(RCurl)
-#source_url("http://cran.r-project.org/bin/windows/Rtools/") #and then run find_rtools()
-# source_url("https://raw.github.com/JoFrhwld/FAAV/master/r/stat-ellipse.R") 
-# Seems no longer supported. Use ggplot stat_ellipse instead (with colour = for designating circles)
-
 library(prism)
 library(rgdal)
 library(raster)
-#library(car)
-#install.packages("ellipse")
-#library(ellipse)
 ```
 
 Remove all variables, keep functions
@@ -638,12 +628,14 @@ ggplot(data.frame(Repro = repros), aes(Repro))+
 ```
 
 
+Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
+notfenced has 21 blank (each year)
+
 Dormancy can be set to 0-1   
 ```{r}
 asmi.pva <- StagePVA(asmi.2)
 cebolla.pva <- StagePVA(cebolla.2)
 ```
-
 
 By plot, South Beaver Creek
 ```{r}
@@ -947,8 +939,9 @@ asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 write.table(asmi.c, file = "P:/hackathon/GitPVA/datasets/asmi.c.csv", sep=",")
 ```
 
+After create new climate dataset, can download it from GitHub
 ```{r}
-
+asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
 
 ```
 
@@ -1018,7 +1011,7 @@ t.test(Comp.2~Creek, data=asmi.pc)
 
 Figure 7a
 ```{r}
-dev.of()
+dev.off()
 ggplot(asmi.pc, aes(Comp.1,Comp.2, colour = Creek))+
   geom_point()+
   stat_ellipse()+
@@ -1367,17 +1360,16 @@ ggplot(smya, aes(YrsD, Yearsalive))+
 
 ```
 
+#Plot summary for demographic data per year
 
 Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
 ```{r}
-#Plot summary for demographic data per year
-
 # fruit above a SE above
 avgfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi, mean)
 SEfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi, std.error)
 avgfruit[,2]+SEfruit[,2]
 pcafruit <- aggregate(Total.Fruit ~ Year, 
-                      data = ps.asmi[ps.asmi$Creek == "South Beaver"], function(x){
+                      data = ps.asmi[ps.asmi$Creek == "South Beaver",], function(x){
   if(mean(x) > avgfruit$Total.Fruit[avgfruit$Creek == "South Beaver"]){
     1
     }else{
@@ -1390,7 +1382,7 @@ avgfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi, mean)
 SEfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi, std.error)
 avgfl[,2]+SEfl[,2]
 pcarepro <- aggregate(X..Flowered ~ Year, 
-                      data = ps.asmi[ps.asmi$Creek == "South Beaver"], function(x){
+                      data = ps.asmi[ps.asmi$Creek == "South Beaver",], function(x){
   if(mean(x) > avgfl$X..Flowered[avgfl$Creek == "South Beaver"]){
     1
     }else{
@@ -1403,7 +1395,7 @@ avgdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = p
 SEdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = ps.asmi, std.error)
 avgdorm[,2]+SEdorm[,2]
 pcadorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Year, 
-                      data = ps.asmi[ps.asmi$Creek == "South Beaver"], function(x){
+                      data = ps.asmi[ps.asmi$Creek == "South Beaver",], function(x){
   if(mean(x) > 
      avgdorm$`((Total.Plants - Total.Alive)/Total.Plants)`[avgdorm$Creek == "South Beaver"]){
     1
@@ -1411,13 +1403,13 @@ pcadorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Year,
       0
       }
   })
-pcadorm[pcadorm$Year == 1995 | pcadorm$Year == currentyr,3] <- 2
+pcadorm[pcadorm$Year == 1995 | pcadorm$Year == currentyr,2] <- 2
 
 
 ps.pc <- data.frame(asmi.pc[asmi.pc$Creek == "South Beaver",], 
-                    Fruit = pcafruit$Total.Fruit[pcafruit$Creek == "South Beaver"],
-                    Repro = pcarepro[pcarepro$Creek == "South Beaver","X..Flowered"],
-                    PerDorm = pcadorm[pcadorm$Creek == "South Beaver",3])
+                    Fruit = pcafruit$Total.Fruit,
+                    Repro = pcarepro$X..Flowered,
+                    PerDorm = pcadorm[,2])
 
 
 ps.pc.2 <- merge(ps.asmi, asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek","Prev12"))
@@ -1549,8 +1541,8 @@ head(demo.only.bydate[[15]])
 
 dm <- do.call(rbind, demo.only.bydate)
 names(Filter(is.character, dm))
-dm[,names(Filter(is.character, dm))] <- apply(dm[,names(Filter(is.character, dm))], 
-                                              2, as.numeric)
+dm[,names(Filter(is.character, dm))] <- sapply(dm[,names(Filter(is.character, dm))], 
+                                               function(x) as.numeric(x))
 str(dm)
 
 dm$Site[dm$Plot <= 610 & dm$Plot >= 606] <- "5"
@@ -1580,12 +1572,11 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 ```
 
 
-
 ```{r}
 
 ggplot(dm, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom="errorbar", fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   xlab("Average Length")+
@@ -1620,7 +1611,7 @@ plotnum$x[plotnum$Site == "15"] <- 4
 ```{r}
 ggplot(sum.agg, aes(Survey, x, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Average AGG per plot")+
@@ -1686,7 +1677,7 @@ Figure 6:  (b) The percent of Astragalus microcymbus individuals with AGG at eac
 ```{r}
 ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar',fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Percent of total AGG over the year per survey")+
@@ -1701,7 +1692,6 @@ ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
 
 
 ```{r}
-rm(AGGpersurvey.15)
 AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
   sapply(unique(AGG15$Survey), function(y){
     length(intersect(unique(AGG15$X[AGG15$Ln>0 & 
@@ -1732,7 +1722,7 @@ tail(AGGpSurvey15)
 ```{r}
 ggplot(AGGpSurvey15[AGGpSurvey15$AGG>0,], aes(Survey, AGG, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Percent of total AGG over the year per survey")+
@@ -1787,7 +1777,7 @@ UP = unique plants per plot per survey in 2015
 ```{r Figure 6(b)}
 ggplot(AGGmerge15, aes(Survey, UP/TUP)) +
   stat_summary(fun.y = mean, geom = 'point') +
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult = 1) +
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1)) +
 	facet_grid(~Site) +
 	ylab('Percent of total AGG per plot over the growing season') +
 	xlab("") +
@@ -1816,7 +1806,7 @@ tags.seed <- merge(dm.15, coty.seeds, by = c("Site","Plot","tag"))
 ```{r}
 ggplot(tags.seed, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   xlab("Average Length")+
@@ -1861,7 +1851,6 @@ std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in
 ```{r}
 AGG14$Ln[grep("Basal", AGG14$Comment)] <- 0.25
 AGG14 <- AGG14[AGG14$Ln != 0,]
-split
 
 agg14 <- lapply(split(AGG14, list(AGG14$Plot,AGG14$Site)),
                    function(x){
@@ -1873,14 +1862,12 @@ agg14 <- lapply(split(AGG14, list(AGG14$Plot,AGG14$Site)),
 length(agg14[23][[1]])
 
 length(agg14[23]$"607.5")
-agg14[vapply(agg14, function(x) dim(x)[1] > 1, NA)]
-Filter(function(x) dim(x)[1] > 1, agg14)
+# agg14[vapply(agg14, function(x) dim(x)[1] > 1, NA)]
+#Filter(function(x) dim(x)[1] > 1, agg14)
 agg14[!unlist(lapply(agg14, is.null))]
 
 names(agg14) <- 
 do.call(rbind,agg14[agg14[[1]] > 1])
-                     
-                     
 ```
 
 
@@ -1919,7 +1906,7 @@ AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
 ```{r}
 ggplot(AGGpSurvey[AGGpSurvey$AGG > 0,], aes(Survey, AGG, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Percent of total AGG over the year per survey")+
@@ -1963,7 +1950,7 @@ AGGpSurvey.15$Survey <- factor(AGGpSurvey.15$Survey, levels = unique(AGG15$Surve
 ```{r}
 ggplot(AGGpSurvey.15[AGGpSurvey.15$AGG > 0,], aes(Survey, AGG, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Percent of total AGG over the year per survey")+
@@ -2025,7 +2012,7 @@ dm[dm$tag == 273 & dm$Site == 26,]
 
 ggplot(tags.seed15, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom="point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', multi=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)
 
 
@@ -2100,7 +2087,7 @@ ggplot(aggregate(Ln~Survey, max, data = tags.seedall), aes(Survey, Ln)) +
 ```
 
 
-```{r learned from intra}
+```{r learned from intra, eval=FALSE}
 dm$SurveyNum <- as.numeric(dm$Survey)
 dm$tag[dm$status == "seedling"]
 
@@ -2114,7 +2101,7 @@ tags.seed <- merge(dm, data.frame(tag = tags.plot), by = "tag")
 # For the most part stayed under 10cm if saw cotyledons
 ggplot(tags.seed, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   xlab("Average Length")+
@@ -2122,7 +2109,7 @@ ggplot(tags.seed, aes(Survey, Ln, group = Site))+
 
 ggplot(tags.seed, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', mult=1)+
+  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~status)+
   theme_bw()+
   xlab("Average Length")+
