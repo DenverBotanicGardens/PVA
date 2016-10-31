@@ -1054,7 +1054,7 @@ MidH <- unique(ave(season[,names(comp1[1])],season$Creek)) +
 Mid <- unique(ave(season[,names(comp1[1])],season$Creek))
 ```
 
-Above and below mean
+Above and below mean [1] with [2]
 ```{r}
 names(comp1[2])
 lmFruit <- lm(Total.Fruit[asmi.env[names(comp1[1])] > Mid[2]] ~ 
@@ -1078,66 +1078,26 @@ summary(lmFruit)
 
 ```
 
-
-#High [1] with [2]
 ```{r}
 names(comp1[2])
-lmFruit <- lm(Total.Fruit[asmi.env[names(comp1[1])] > MidH] ~ 
-                asmi.env[asmi.env[,names(comp1[1])] > MidH,names(comp1[2])],
-              data = asmi.env[asmi.env[,names(comp1[1])] > MidH & 
-                                asmi.env$Creek == "Cebolla",])
+lmFruit <- lm(Total.Fruit[asmi.env[names(comp1[1])] <= Mid[2]] ~ 
+                asmi.env[asmi.env[,names(comp1[1])] <= Mid[2],names(comp1[2])],
+              data = asmi.env[asmi.env[,names(comp1[1])] <= Mid[2] & 
+                                asmi.env$Creek == "South Beaver",])
 
-ggplot(asmi.env[asmi.env[,names(comp1[1])] > MidH& 
-                                asmi.env$Creek == "Cebolla",], 
-       aes(asmi.env[asmi.env[,names(comp1[1])] > MidH& 
-                                asmi.env$Creek == "Cebolla",names(comp1[2])],
-           Total.Fruit[asmi.env[names(comp1[1])] > MidH& 
-                                asmi.env$Creek == "Cebolla"])) +
+asmi.envC1below <- asmi.env[asmi.env[,names(comp1[1])] <= Mid[2] &
+                              asmi.env$Creek == "South Beaver",]
+
+ggplot(asmi.envC1below, aes(asmi.envC1below[,names(comp1[2])],
+                            Total.Fruit)) +
   geom_point()+
   ylab("Total Fruit")+
   xlab(paste(names(comp1[2])))+
-  ggtitle(paste("High", names(comp1[1])))
+  ggtitle(paste("Above average", names(comp1[1])))+
+  stat_smooth(method = "lm")
   
-
-
 summary(lmFruit)
-```
 
-#Middle  [1] with [2]
-```{r}
-lmFruit.mid <- lm(Total.Fruit[asmi.env[names(comp1[1])] <= MidH &
-                              asmi.env[names(comp1[1])] >= MidL] ~ 
-                asmi.env[asmi.env[,names(comp1[1])] <= MidH &
-                          asmi.env[names(comp1[1])] >= MidL,names(comp1[2])],
-              data = asmi.env[asmi.env[,names(comp1[1])] > MidH &
-                          asmi.env[names(comp1[1])] >= MidL,])
-
-ggplot(asmi.env[asmi.env[,names(comp1[1])] <= MidH &
-                              asmi.env[names(comp1[1])] >= MidL,], 
-       aes(asmi.env[asmi.env[,names(comp1[1])] <= MidH &
-                              asmi.env[names(comp1[1])] >= MidL,names(comp1[2])],
-           Total.Fruit[asmi.env[names(comp1[1])] <= MidH &
-                              asmi.env[names(comp1[1])] >= MidL])) +
-  geom_point()+
-  ylab("Total Fruit")+
-  xlab(paste(names(comp1[2])))+
-  ggtitle(paste("High", names(comp1[1])))+
-  stat_smooth(method="lm", formula = y~x)
-```
-#Low [1] with [2]
-```{r}
-lmFruit <- lm(Total.Fruit[asmi.env[names(comp1[1])] < MidL] ~ 
-                asmi.env[asmi.env[,names(comp1[1])] < MidL,names(comp1[2])],
-              data = asmi.env[asmi.env[,names(comp1[1])] < MidL,])
-
-ggplot(asmi.env[asmi.env[,names(comp1[1])] < MidL,], 
-       aes(asmi.env[asmi.env[,names(comp1[1])] < MidL,names(comp1[2])],
-           Total.Fruit[asmi.env[names(comp1[1])] < MidL])) +
-  geom_point()+
-  ylab("Total Fruit")+
-  xlab(paste(names(comp1[2])))+
-  ggtitle(paste("High", names(comp1[1])))+
-  stat_smooth(method="lm", formula = y~x)
 
 ```
 
