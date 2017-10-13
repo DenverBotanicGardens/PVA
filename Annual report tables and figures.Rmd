@@ -227,7 +227,6 @@ prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id +fence,
                       }
                   })
 tbl1b.1 <- summarySE(prep, measurevar="flower", groupvars=c("AsMi_site_id","year"))
-head(tbl1b.1)
 
 #sites above
 #percent reproductive 
@@ -243,7 +242,7 @@ totrep <- aggregate(flower ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                     data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),], 
                     function(x) sum(x, na.rm = TRUE))
 
-head(totrep)
+
 tbl1b.2 <- summarySE(totrep, measurevar="flower",groupvars=c("AsMi_site_id","year"))
 
 tbl1.4 <- lapply(sites, function(x){
@@ -267,34 +266,6 @@ names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 ```
 
-```{r}
-#Cebolla Mid, 1
-tbl1b[[1]]
-write.table(tbl1b[[1]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-#Cebolla North, 2
-tbl1b[[2]]
-write.table(tbl1b[[2]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-#South Beaver Creek, 5
-tbl1b[[3]]
-write.table(tbl1b[[3]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-#South Beaver Creek, 15
-tbl1b[[4]]
-write.table(tbl1b[[4]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-#South Beaver Creek, 19
-tbl1b[[5]]
-write.table(tbl1b[[5]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-#South Beaver Creek, 26
-tbl1b[[6]]
-write.table(tbl1b[[6]], "clipboard", sep="\t", row.names=FALSE, col.names = FALSE)
-
-
-
-```
 
 Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995 – 2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
 
@@ -320,6 +291,18 @@ head(ps.asmi)
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
 ps.asmi.t <- ps.asmi
+
+ps.asmi.t <- ps.asmi.t[ps.asmi.t$Site<3 & ps.asmi.t$Year>2013 | ps.asmi.t$Site>4,]
+
+# added plots 238 (site 26) and 300 (site 19) in 1996
+# added 598 (site 26) in 2004 
+ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 238 & ps.asmi.t$Year < 1996),]
+ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 300 & ps.asmi.t$Year < 1996),]
+ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 598 & ps.asmi.t$Year < 2004),]
+
+table(ps.asmi.t$Year,ps.asmi.t$Site) #no rows for years when some plots weren't in yet
+
+
 ```
 
 #log transform
@@ -419,7 +402,8 @@ Backwards stepwise multiple linear regressions
 Herbivory   
 Browsing is already arcsine aquare root transformed
 y is the current year
-x is the previous year
+x is the previous year    
+Total.Alive is AGG 
 ```{r stepwise multiple linear regressions}
 summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
                                    X..Flowered.x + X..Flowered.y)^2, 
@@ -435,7 +419,7 @@ summary(lm(Total.Alive.y ~ X..Flowered.y, data = ps.cor))
 sort(unique(ps.cor$Year.x))
 sort(unique(ps.cor$Year.y))
 
-head(ps.asmi.t)
+head(ps.asmi.t) 
 
 t.test(X..Browsed~Fence, data = ps.asmi.t)
 
