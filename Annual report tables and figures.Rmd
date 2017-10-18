@@ -115,7 +115,7 @@ lmdSD <- function(x,y,z){
 
 # Download raw_data 
 <https://research.botanicgardens.org/admin/demographics/asmi/reports/raw_data.php>   
-Save all sites, all data, and set to 20 years allowed dormant    
+Save all sites, all data, and set to 20 years allowed dormant (or all possible years)    
 Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
@@ -205,12 +205,12 @@ Table1 <- data.frame(tbl1a[[3]],tbl1a[[4]],tbl1a[[5]],tbl1a[[6]])
 names(Table1) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
                    "Site 19 (5 plots)"," ","Site 26 (5 plots)"," ")
 
-write.table(Table1, file=paste(savepath,"Table1a_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+#write.table(Table1, file=paste(savepath,"Table1a_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 Table1_Cebolla <- data.frame(tbl1a[[1]],tbl1a[[2]])
 names(Table1_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
-write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+#write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 ```
 
@@ -258,16 +258,16 @@ Table1b <- data.frame(tbl1b[[3]],tbl1b[[4]],tbl1b[[5]],tbl1b[[6]])
 names(Table1b) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
                    "Site 19 (5 plots)"," ","Site 26 (5 plots)"," ")
 
-write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+#write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 Table1b_Cebolla <- data.frame(tbl1b[[1]],tbl1b[[2]])
 names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
-write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+#write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 ```
 
 
-Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995 â€“ 2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
+Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995-2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
 
 Plot Summary (weather data is prev. Aug through currrent Jul)   
 Total.Plants are AGG and dormant    
@@ -323,7 +323,7 @@ ps.asmi.t["X..Browsed"] <- lapply(ps.asmi.t["X..Browsed"],
 
 ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
                        by = c("Site","Plot")), Year.x == Year.y - 1)
-head(ps.cor[,c("Year.x","Year.y")])
+head(ps.cor[,c("Year.x","Year.y")]) # x = t, y=t+1
 ```
 
 ```{r}
@@ -331,71 +331,74 @@ cor.plot(cor(ps.cor[,names(ps.cor) %in%
                       unique(grep(paste(cors,collapse="|"),
                                   names(ps.cor), value=TRUE))]),
          numbers = TRUE)
-
-cor(ps.cor[,names(ps.cor) %in% 
-                      unique(grep(paste(cors,collapse="|"),
-                                  names(ps.cor), value=TRUE))])
 ```
 
-#If errors:
-#dev.off()
+cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"    
+ps.cor has both current (.x) = t      
+and previous year (.y) = t+1
 ```{r}
-#dev.off()
-cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
-write.table(cor(ps.cor[,names(ps.cor) %in% 
-             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
-            "clipboard", sep="\t",
-            row.names = FALSE, col.names = FALSE)
-
-cor.plot(cor(ps.cor[,names(ps.cor) %in% 
+cor.vars <- length(names(ps.cor[,names(ps.cor) %in% 
                       unique(grep(paste(cors,collapse="|"),
-                                  names(ps.cor), value=TRUE))]),
-         numbers = TRUE)
-```
+                                  names(ps.cor), value=TRUE))]))
 
+cortests <- apply(combn(1:cor.vars,2), 2, function(x){
+  cor.df <- ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
+                                                   names(ps.cor), value=TRUE))]
+  ct <- cor.test(cor.df[,x[1]], cor.df[,x[2]])
+  out <- data.frame(Var.1 = names(cor.df)[x[1]], Var.2 = names(cor.df)[x[2]],
+                    P.val = ct$p.value, Cor.est = ct$estimate)
+})
 
-```{r}
-#x1 is p.value, x2 is correlation
-cortests <- lapply(ps.cor[,names(ps.cor) %in% 
-                            unique(grep(paste(cors,collapse="|"),
-                                        names(ps.cor), value=TRUE))],
-                   function(x){
-                     sapply(ps.cor[,names(ps.cor) %in% 
-                                     unique(grep(paste(cors,collapse="|"),
-                                                 names(ps.cor), value=TRUE))],
-                            function(y){
-                              ct <- cor.test(x,y)
-                              cbind(ct$p.value,ct$estimate)
-                              })
-                     })
-
-
-t(cortests[[1]]) # Total.Alive.x to all
-tst <- lapply(cortests, function(x) data.frame(t(x)))
-df.c <- do.call(rbind,tst)
-
-cortests[[2]] # X..Browsed.x to all
-
-head(df.c)
-nrow(df.c)
+df.c <- do.call(rbind,cortests)
 
 #significant?
-df.c[df.c$X1 < 0.0000001 & df.c$X2 > 0.7 & df.c$X2 < 1,]
+df.c[df.c$P.val > 0.04,]
 
 ```
 
 
-
+Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38° 27' 39.8" N, 106° 57' 37.6" W). 
 ```{r}
-#get rid of the number of reproductive individuals, only percent reproductive
-ps.cor <- ps.cor[,grep("Flowered.1.", names(ps.cor), invert=TRUE)]
+cor.out <- round(cor(ps.cor[,names(ps.cor) %in% 
+             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
+             2)
 
-cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
+dimnames(cor.out)
+cor.out[1,4]
+notsig <- df.c[df.c$P.val > 0.04,]
 
-cor.plot(cor(ps.cor[,names(ps.cor) %in% 
-                      unique(grep(paste(cors,collapse="|"),
-                                  names(ps.cor), value = TRUE))]),numbers = TRUE)
+cor.sign <- apply(notsig,1,function(x){
+  row1 <- which(dimnames(cor.out)[[1]] == x[1]) #row
+  column2 <- which(dimnames(cor.out)[[2]] == x[2]) #column
+  c(row1,column2)
+})
+
+pairs(ps.cor[,names(ps.cor) %in% 
+             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))][1:5])
+
+###Yarggg, doesn't work
+cor.sign <- apply(notsig,1,function(x){
+  row1 <- which(dimnames(cor.out)[[1]] == x[1]) #row
+  column2 <- which(dimnames(cor.out)[[2]] == x[2]) #column
+  for(i in 1:length(dimnames(cor.out)[[1]])){
+    for(j in 1:length(dimnames(cor.out)[[2]])){
+      if(i == row1){
+        if(j == column2){
+          cor.out[i,j] <- paste(cor.out[i,column2],"*",sep="")
+          } else {
+            cor.out[i,j] <- cor.out[i,j]
+          }
+        }
+      }
+  }
+  cor.out
+  })
+
+
+#write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
+
 ```
+
 
 
 Backwards stepwise multiple linear regressions   
@@ -405,10 +408,24 @@ y is the current year
 x is the previous year    
 Total.Alive is AGG 
 ```{r stepwise multiple linear regressions}
-summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Browsed.y +
-                                   X..Flowered.x + X..Flowered.y)^2, 
-                data = ps.cor)))
 
+step1 <- as.formula(paste("Total.Alive.y ~ (",
+                          paste(names(ps.cor)[grep(paste(cors[-1],collapse="|"),
+                                                   names(ps.cor))],
+                                collapse = "+"),")^2"))
+lm4step <- do.call("lm", list(step1, quote(ps.cor)))
+summary(step(lm4step))
+
+step2 <- as.formula(paste("Total.Alive.y ~ ",
+                          paste(names(ps.cor)[grep(paste(cors[-1],collapse="|"),
+                                                   names(ps.cor))],
+                                collapse = "+")))
+lm4step2 <- do.call("lm", list(step2, quote(ps.cor)))
+summary(step(lm4step2))
+
+
+summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Flowered.1.x + X..Browsed.y +
+             X..Flowered.1.y + X..Dormant.y)^2, data= ps.cor)))
 
 summary(lm(Total.Alive.y ~ X..Browsed.x, data = ps.cor)) #previous year
 summary(lm(Total.Alive.y ~ X..Browsed.y, data = ps.cor)) #current year
@@ -418,8 +435,6 @@ summary(lm(Total.Alive.y ~ X..Flowered.y, data = ps.cor))
 
 sort(unique(ps.cor$Year.x))
 sort(unique(ps.cor$Year.y))
-
-head(ps.asmi.t) 
 
 t.test(X..Browsed~Fence, data = ps.asmi.t)
 
@@ -475,7 +490,7 @@ Table 4: Growth rate (Î») and standard deviation within treatment (fenced or ope
 ```{r}
 table(asmi.raw$browsing)
 table(asmi.raw$Browsing...Status) 
-nrow(asmi.raw) #13806
+nrow(asmi.raw) #13806->16377
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
@@ -485,10 +500,10 @@ sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
 table(sbc$AsMi_site_id,sbc$year)
 
 #remove plot 598 from SBC, it was added so late.. or do all plots on their own instead of by sites? 
-#sbc <- sbc[sbc$AsMi_plot_id != 598,]
+sbc <- sbc[sbc$AsMi_plot_id != 598,]
 
 # the others added later: 238 & 300 @ 1996 - take out 1995
-#sbc <- sbc[sbc$year > 1995,]
+sbc <- sbc[sbc$year > 1995,]
 
 asmi.1 <- sbc[order(sbc$AsMi_site_id, sbc$AsMi_tag_id, sbc$year),]
 cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
@@ -516,17 +531,16 @@ check errors
 table(asmi.1$status)
 table(cebolla$status)
 
+# should all be reproductive (status 4 in DBG phpMyAdmin)
 asmi.1[asmi.1$flower == 1 & asmi.1$status == "vegetative",]
 cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
 
-table(asmi.1$year,asmi.1$status)
+
 table(asmi.1$year, asmi.1$AsMi_site_id)
-table(asmi.1$length) 
-table(cebolla$length)
+tail(table(asmi.1$length) )
+tail(table(cebolla$length))
 
-cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
-
-asmi.1[is.na(asmi.1$length),]
+table(asmi.1$status[is.na(asmi.1$length)])
 asmi.1[asmi.1$length > 100 & !is.na(asmi.1$length),]
 
 # One length that was recorded crazy
@@ -549,8 +563,7 @@ remove dead from stages, just fate
 ```{r}
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
-names(asmi.2)
-names(cebolla)
+
 ```
 
 Want    
@@ -572,9 +585,6 @@ asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-length(stages)])
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
 table(Fate = asmi.2$fate, Stage = asmi.2$stage)
-table(asmi.2$site, asmi.2$year)
-table(asmi.2$plot, asmi.2$year)
-table(asmi.2$stage)
 
 cebolla.2 <- cebolla[, names(cebolla) %in% unique(grep(paste(cols,collapse="|"),
                                                   names(cebolla), value = TRUE))]
@@ -587,23 +597,78 @@ bootstrap distributions of population growth rates (lambda), stage vectors, and 
 Doesn't make sense... shouldn't be so high... Because 26 had additional plots added in 1996?
 
 ```{r}
-boottrans <- lapply(unique(asmi.2$site), function(x){
+asmi.boot <- asmi.2
+#add 'seedling' filed
+asmi.boot$seedling <- do.call(c,lapply(unique(asmi.boot$year),function(year){
+  seedlings <- nrow(asmi.boot[asmi.boot$year == year & asmi.boot$stage == "seedling",])
+  seedlingsout <- asmi.boot$fruits[asmi.boot$year==year]/sum(asmi.boot$fruits[asmi.boot$year==year],na.rm = TRUE) * seedlings
+  seedlingsout
+  }))
+
+boottrans <- lapply(unique(asmi.boot$site), function(x){
   data.frame(cbind(Site = x,
-                   Boot = boot.transitions(asmi.2[asmi.2$site == x & asmi.2$fenced == "n",], 
+                   Boot = boot.transitions(asmi.boot[asmi.boot$site == x & 
+                                                       asmi.boot$fenced == "n",], 
                                            1000,
                                            fertility = "fruits")$lambda))
   })
 
 bt <- do.call(rbind, boottrans)
 head(bt)
-dev.off()
+#dev.off()
 ggplot(bt, aes(as.factor(Site), Boot, colour = as.factor(Site)))+
   geom_boxplot()
 ```
 
-#Figure 2b
+#Figure 2b 
+
+Nooooo, why lengths of 40?! can't be. Unless some individuals incorretly always say dormant or end or start with dormant? removed 1995 so can start in 1996 with dormant
+
 ```{r}
-dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
+
+# sorted by tag and then year so....
+firststage <- asmi.2[!duplicated(asmi.2$tag),]
+table(firststage$stage[firststage$year != 1996]) # 11 times when first account of tagged individual is vegetative, not seedling, why?!
+
+firststage[firststage$stage=="vegetative" & firststage$year!=1996,]
+
+
+foo <- rle(as.numeric(asmi.2$stage))
+foo$values[1:10]
+foo$lengths[1:10]
+sum(foo$lengths[1:10])
+asmi.2$stage[1:sum(foo$lengths[1:10])]
+
+
+dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
+
+table(dorms) #No!! study hasn't been long enough, cannot be any that are ending in dormant!
+
+table(asmi.2$year) #Oh! missing 2017 because that's fate, not stage!
+
+which(rle(as.numeric(asmi.2$stage))$lengths > (currentyr-1995)) #first one is at 67  
+# all the places in asmi.2 where it goes from dormant in one tag to dormant in another
+#   67  833 1317 2542 2562 2586 2647 2887 2893 3081 3959
+sum(rle(as.numeric(asmi.2$stage))$lengths[1:67]) #206
+
+fromtodorms <- lapply(which(rle(as.numeric(asmi.2$stage))$lengths > (currentyr-1995)),
+                      function(x){
+                        rows <- sum(rle(as.numeric(asmi.2$stage))$lengths[1:x])
+                        out <- asmi.2[(rows-10):(rows+5),]
+                        out
+                      })
+
+fromtodorms[[1]]
+
+laststage <- do.call(rbind,lapply(unique(asmi.2$tag), function(tag){
+  currenttag <- asmi.2[asmi.2$tag == tag,] 
+  out <- currenttag[currenttag$year == max(currenttag$year),]
+  out
+})
+)
+
+nrow(laststage[laststage$fate == "dormant",]) # Well goodness! First off, tag 1 has 2017!
+laststage[laststage$fate == "dormant",]
 
 ggplot(data.frame(Dormant = dorms), aes(Dormant))+
   geom_histogram(bins = 20)+
@@ -620,12 +685,12 @@ length(dorms[dorms==1])/length(dorms) # 37.7%
 length(dorms) #808
 length(dorms[dorms > 5]) #286
 length(dorms[dorms > 15]) #50
-length(dorms[dorms == 18]) #9
+length(dorms[dorms == 20]) #20
 ```
 
-Reproductive lengths   
+Reproductive lengths - South Beaver Creek only   
 ```{r}
-repros <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==3]
+repros <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==3]
 max(repros)
 ggplot(data.frame(Repro = repros), aes(Repro))+
   geom_histogram(bins=8)+
@@ -663,6 +728,8 @@ All
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
 # [1,] 1.179791 0.9690063
+
+#Pre-fencing (2004-2005 transition)
 paste(round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[1],2)," (",
       round(lmdSD(asmi.pva$pro.matrix, 1996, 2004)[2],2), ")", sep ="")
 
@@ -671,6 +738,8 @@ tbl4.all <- sapply(mats.list, function(x){
    paste(round(lmdSD(x, 1996, 2004)[1],2)," (",
          round(lmdSD(x, 1996, 2004)[2],2),")", sep="")
     })
+
+t(tbl4.all)
 
 tbl4.allpost <- sapply(mats.list[-1], function(x){
   paste(round(lmdSD(x, 2005,currentyr-2)[1],2)," (",
@@ -689,12 +758,14 @@ lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
 # lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1) #in 2016, not enough data to exclude the last one
 #         lmda       SD
 #[1,] 1.138889 1.038878
-paste(round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-1)[1],2)," (",
-      round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-1)[2],2), ")", sep ="")
 
+#Cebolla Mid = Site 1
+paste(round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-2)[1],2)," (",
+      round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-2)[2],2), ")", sep ="")
 
-paste(round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-1)[1],2)," (",
-      round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-1)[2],2), ")", sep ="")
+#Cebolla North = Site 2
+paste(round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-2)[1],2)," (",
+      round(lmdSD(cebolla.pva$Site$`2`, 2014, currentyr-2)[2],2), ")", sep ="")
 
 mats.list <- list(cebolla.pva$pro.matrix,cebolla.pva$fenced.pro.matrix,cebolla.pva$notfenced.pro.matrix)
 sapply(mats.list, function(x){
@@ -746,10 +817,12 @@ lapply(seq_along(asmi.pva$Site), function(n,i){ paste(n[[i]])},
 tbl4.96.04 <- 
   lapply(as.character(unique(asmi.2$site)), function(x){
     mat <- cat("matord.list[[1]]$\`",x,"`", sep='')
-    lapply(mat, function(y){
-      paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
+    outapply<-lapply(mat, function(y){
+      out<- paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
             round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")
+      out
     })
+    outapply
   })
 
 #site 5
@@ -841,7 +914,8 @@ mean(asmi.pva$notfenced.pro.matrix)
 <http://prism.oregonstate.edu/explorer/>  
 <https://github.com/ropensci/prism>
 
-Process takes a while
+Process takes a while   
+Can go back to folder and delete old provisional data to replace with more current   
 ```{r, eval = FALSE}
 # Set wd for prism
 options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
@@ -881,7 +955,7 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
                        CRS("+proj=longlat +datum=WGS84"))
 
 #All AsMi plot points
-coordinates(asmi.ll)
+#coordinates(asmi.ll)
 
 asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
