@@ -1450,6 +1450,13 @@ dev.off()
 
 Cebolla  
 ```{r}
+
+
+    jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig8b-Cebolla.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
 ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 & 
                  ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "Cebolla",], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
@@ -1477,37 +1484,42 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 &
   scale_y_continuous(limits = c(0,68)) +
   scale_x_continuous(breaks = c(2014:currentyr-1))
   
+dev.off()
 ```
 
-
-
-#Gina Gleene suggestion
+#Gina Gleene suggestion   
+log transformed! 
 ```{r}
-ggplot(ps.asmi[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",], 
+ps.asmi1 <- ps.asmi[ps.asmi$Site<3 & ps.asmi$Year>2013 | ps.asmi$Site>4,]
+
+# added plots 238 (site 26) and 300 (site 19) in 1996
+# added 598 (site 26) in 2004 
+ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 238 & ps.asmi1$Year < 1996),]
+ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 300 & ps.asmi1$Year < 1996),]
+ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 598 & ps.asmi1$Year < 2004),]
+
+
+ggplot(ps.asmi1[ps.asmi1$Total.Alive>0 & ps.asmi1$Site > 3,], 
        aes(Year, Total.Alive, colour = as.factor(Site)))+
   geom_point()+
-  geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
-              aes(color = NULL, group = factor(Site))) +
+  stat_smooth(method="lm", se=TRUE, alpha=0.1)+
+#  geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
+#              aes(color = NULL, group = factor(Site))) + 
   geom_line(stat='smooth', method = "lm", alpha=0.3)+
   theme_bw() +
   ylab("Average AGG per Site")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2015.5)+
   geom_vline(xintercept = 2006.75, lty = 4)+
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) +
-  scale_color_manual("Site",
-                     values=c("#000000","#E0E0E0","#00FF00","#FF9933"),
-                     labels = c("Site 5","Site 15","Site 19","Site 26"))+
-  scale_shape_manual("Site",
-                     values=c(5,15,19,26),
-                     labels = c("Site 5","Site 15","Site 19","Site 26"))
-
+  theme(legend.justification=c(1,1), legend.position=c(1,1),
+        legend.background = element_rect(fill=alpha('white', 0.1)))
 ```
 
 # the decline is from one plot, the rest are stable or increasing!
 ```{r}
-ggplot(ps.asmi[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",], 
+ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",], 
        aes(Year, Total.Alive, colour = as.factor(Plot)))+
   geom_point()+
  # geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
@@ -1526,7 +1538,13 @@ ggplot(ps.asmi[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",],
 South Beaver
 AGG
 ```{r}
-ggplot(ps.asmi[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",], 
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+           currentyr,"_asmi/","Fig8a.jpg", sep = ""),
+     units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
+ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Alive, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1542,20 +1560,27 @@ ggplot(ps.asmi[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",],
   ylab("Average AGG per Site")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
-  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
+  geom_vline(xintercept = 2015.5, lty =3) +
   scale_color_manual(values=c("#000000","#7e7e7e"),
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
+  theme(legend.justification=c(0,0), legend.position=c(0,0),#upper right
+        legend.background = element_rect(fill=alpha('white', 0.1))) 
+dev.off()
 
 ```
 
 Cebolla
 AGG
 ```{r}
-ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "Cebolla",], 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+           currentyr,"_asmi/","Fig8a-Cebolla.jpg", sep = ""),
+     units = "mm", res = 300, height = 181.03, width = 186.87)
+
+ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1578,7 +1603,10 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "Cebolla",],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.justification=c(0,1), legend.position=c(0,1)) #upper left
+  theme(legend.justification=c(0,1), legend.position=c(0,1),
+        legend.background = element_rect(fill=alpha('white', 0.1))) 
+
+dev.off()
 
 ```
 
@@ -1587,7 +1615,11 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "Cebolla",],
 Fruit   
 South Beaver Creek
 ```{r}
-ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "South Beaver",], 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig8c.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1603,24 +1635,34 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Creek == "South Beaver",],
   ylab("Total Fruit per Site")+
   ggtitle("c)") +
   theme(plot.title=element_text(hjust=0))+
-  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
+  geom_vline(xintercept = 2015.5, lty =3) +
   scale_color_manual(values=c("#000000","#7e7e7e"),
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
+  theme(legend.justification=c(1,1), legend.position=c(1,1),
+        legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
+dev.off()
+
 ```
 
 
 Cebolla
 ```{r}
 
-aggregate(Total.Fruit~Site+Year,data=ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",], mean)
+aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site < 3,], mean)
 
-aggregate(Total.Fruit~Site+Year,data=ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",], std.error)
+aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
+          std.error)
 
-ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",], 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig8c-Cebolla.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,], 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1640,13 +1682,21 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",],
   scale_shape_manual("Site", 
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  theme(legend.justification=c(0.5,1), legend.position=c(0.5,1))+
+  theme(legend.justification=c(0,1), legend.position=c(0,1),
+        legend.background = element_rect(fill=alpha('white', 0.1)))+
   scale_x_continuous(breaks = c(2014:currentyr))
+
+dev.off()
 ```
   
   
 X..Flowered - Percent Reproductive
 ```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig8d.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
 ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
@@ -1663,18 +1713,26 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",],
   ylab("% Reproductive per Site")+
   ggtitle("d)") +
   theme(plot.title=element_text(hjust=0))+
-  geom_vline(xintercept = 2005.75)+
+  geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
+  geom_vline(xintercept = 2015.5, lty =3) +
   scale_color_manual(values=c("#000000","#7e7e7e"),
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) #upper right
+  theme(legend.justification=c(1,1), legend.position=c(1,1),  #bottom left
+        legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
+
+dev.off()
 ```
 
 Cebolla
 ```{r}
-ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",], 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig8d-Cebolla.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,], 
        aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -1697,9 +1755,13 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "Cebolla",],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.justification=c(0,1), legend.position=c(0,1)) #upper right
+  theme(legend.justification=c(0,1), legend.position=c(0,1),
+        legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
+
+dev.off()
 ```
 
+Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July
 
 ### Years alive    
 ```{r}
@@ -1742,24 +1804,30 @@ mean(lifelength$Yearsalive)
 Dormancy    
 repeat lengths   
 ```{r}
-dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
-max(dorms)
+#in Raw, #2 is dormant
 
-mode(dorms)
+dorms <- do.call(c,lapply(unique(asmi.raw$AsMi_tag_id), function(x){
+  tag <- asmi.raw[asmi.raw$AsMi_tag_id == x,]
+  dormlns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==2]
+  dormlns
+}))
+
+#dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
+max(dorms) #21
 
 Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
 
-Mode(dorms)
-length(dorms[dorms==1]) #322
-length(dorms[dorms==1])/length(dorms)
-length(dorms[dorms == max(dorms)]) # 14 with 20 years
+Mode(dorms) #1
+length(dorms[dorms==1]) #441
+length(dorms[dorms==1])/length(dorms) #41.9%
+length(dorms[dorms == max(dorms)]) # 13 with 21 years
 
 ```
 
-
+#SKIP!
 Figure 2(a) Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
 ```{r}
 ggplot(smya, aes(YrsD, Yearsalive))+
