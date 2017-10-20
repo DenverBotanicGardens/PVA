@@ -176,6 +176,32 @@ ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
                                 "mediumseagreen","mistyrose3"))
 ```
 
+#Fluctuations  
+```{r}
+
+#AGG
+alive.site <-aggregate(length ~ year + AsMi_site_id + fence, 
+                  data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
+
+#AGG and dormant
+aggdorm.site <- aggregate(status ~ year + AsMi_site_id  + fence,
+                     data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
+
+
+PercentAlive <- lapply(split(alive.site, alive.site$AsMi_site_id), function(x){
+  nofence <- x$length[x$year == max(x$year)&
+                        x$fence=="n"]/x$length[x$year==min(x$year)&x$fence=="n"]
+  fence <- x$length[x$year == max(x$year)&
+                      x$fence=="y"]/x$length[x$year==min(x$year)&x$fence=="y"]
+  cbind(nofence,fence)
+
+  })
+
+```
+
+
+
+
 
 ```{r}
 tbl1a.1 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
@@ -213,6 +239,8 @@ names(Table1_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 #write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 ```
+
+
 
 Percent and total preproductive
 ```{r}
@@ -266,6 +294,7 @@ names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 #write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 ```
 
+#Correlated biotic factors
 
 Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995-2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
 
@@ -290,6 +319,13 @@ head(ps.asmi)
 
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
+
+
+```
+
+#log transform
+```{r}
+#t for transformations!
 ps.asmi.t <- ps.asmi
 
 ps.asmi.t <- ps.asmi.t[ps.asmi.t$Site<3 & ps.asmi.t$Year>2013 | ps.asmi.t$Site>4,]
@@ -302,48 +338,63 @@ ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 598 & ps.asmi.t$Year < 2004),]
 
 table(ps.asmi.t$Year,ps.asmi.t$Site) #no rows for years when some plots weren't in yet
 
+ps.asmi.t$Percent..Dormant <-
+  (ps.asmi.t$Total.Plants-ps.asmi.t$Total.Alive)/ps.asmi.t$Total.Plants
 
-```
+ggplot(ps.asmi.t, aes(X..Dormant))+
+  geom_histogram()+
+  facet_grid(~Site)
 
-#log transform
-```{r}
-logtrans <- c("X..Flowered.1","Total.Alive","X..Dormant","Total.Fruit",
-              "X..Flowered")
+ggplot(ps.asmi.t, aes(Percent..Dormant))+
+  geom_histogram()+
+  facet_grid(~Site)
+
+logtrans <- c("Total.Alive", #Percent Browsed
+              "X..Flowered.1","X..Flowered","Percent..Dormant","Total.Fruit")
 intersect(names(ps.asmi.t),logtrans) #Check that names are right
-ps.asmi.t[,logtrans] <- lapply(ps.asmi.t[,logtrans], 
-                                     function(x) log(x + 1)) #NA in num flowered
-ps.asmi.t$X..Flowered.1[is.na(ps.asmi.t$X..Flowered.1)] <- 0
+
+
+log.t.cols <- do.call(data.frame,lapply(ps.asmi.t[,logtrans], function(x){ 
+  log(x + 1)})) 
+  #NA in num flowered
+transformed <- sapply(logtrans,function(x) paste(x,"logtransformed",sep=""))
+
+names(log.t.cols) <- transformed
+ps.asmi.t <- data.frame(ps.asmi.t,log.t.cols)
+
+ggplot(ps.asmi.t, aes(Percent..Dormantlogtransformed))+
+  geom_histogram()+
+  facet_grid(~Site)
+
+ps.asmi.t$X..Flowered.1logtransformed[is.na(ps.asmi.t$X..Flowered.1logtransformed)] <- 0
+ps.asmi.t$Percent..Dormantlogtransformed[is.na(ps.asmi.t$Percent..Dormantlogtransformed)] <- 0
 ```
 
 #arcsine square root transformed  asin(sqrt(x/100))
 ```{r}
-ps.asmi.t["X..Browsed"] <- lapply(ps.asmi.t["X..Browsed"],
-                                  function(x) asin(sqrt(x/100)))
+assqrt <- do.call(data.frame,lapply(ps.asmi.t["X..Browsed"],
+                                  function(x) asin(sqrt(x/100))))
 
-
+names(assqrt) <- "X..Browsedarcsinsqrttransformed"
+ps.asmi.t <- data.frame(ps.asmi.t, assqrt)
 ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
                        by = c("Site","Plot")), Year.x == Year.y - 1)
 head(ps.cor[,c("Year.x","Year.y")]) # x = t, y=t+1
 ```
 
 ```{r}
-cor.plot(cor(ps.cor[,names(ps.cor) %in% 
-                      unique(grep(paste(cors,collapse="|"),
-                                  names(ps.cor), value=TRUE))]),
-         numbers = TRUE)
+cor.plot(cor(ps.cor[,grep("transformed", names(ps.cor))]),
+         numbers=TRUE)
 ```
 
 cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"    
 ps.cor has both current (.x) = t      
 and previous year (.y) = t+1
 ```{r}
-cor.vars <- length(names(ps.cor[,names(ps.cor) %in% 
-                      unique(grep(paste(cors,collapse="|"),
-                                  names(ps.cor), value=TRUE))]))
+cor.vars <- length(names(ps.cor[,grep("transformed",names(ps.cor))]))
 
 cortests <- apply(combn(1:cor.vars,2), 2, function(x){
-  cor.df <- ps.cor[,names(ps.cor) %in% unique(grep(paste(cors,collapse="|"),
-                                                   names(ps.cor), value=TRUE))]
+  cor.df <- ps.cor[,grep("transformed",names(ps.cor))]
   ct <- cor.test(cor.df[,x[1]], cor.df[,x[2]])
   out <- data.frame(Var.1 = names(cor.df)[x[1]], Var.2 = names(cor.df)[x[2]],
                     P.val = ct$p.value, Cor.est = ct$estimate)
@@ -359,12 +410,8 @@ df.c[df.c$P.val > 0.04,]
 
 Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38° 27' 39.8" N, 106° 57' 37.6" W). 
 ```{r}
-cor.out <- round(cor(ps.cor[,names(ps.cor) %in% 
-             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))]),
-             2)
+cor.out <- round(cor(ps.cor[,grep("transformed",names(ps.cor))]),2)
 
-dimnames(cor.out)
-cor.out[1,4]
 notsig <- df.c[df.c$P.val > 0.04,]
 
 cor.sign <- apply(notsig,1,function(x){
@@ -376,26 +423,13 @@ cor.sign <- apply(notsig,1,function(x){
 pairs(ps.cor[,names(ps.cor) %in% 
              unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))][1:5])
 
-###Yarggg, doesn't work
-cor.sign <- apply(notsig,1,function(x){
-  row1 <- which(dimnames(cor.out)[[1]] == x[1]) #row
-  column2 <- which(dimnames(cor.out)[[2]] == x[2]) #column
-  for(i in 1:length(dimnames(cor.out)[[1]])){
-    for(j in 1:length(dimnames(cor.out)[[2]])){
-      if(i == row1){
-        if(j == column2){
-          cor.out[i,j] <- paste(cor.out[i,column2],"*",sep="")
-          } else {
-            cor.out[i,j] <- cor.out[i,j]
-          }
-        }
-      }
-  }
-  cor.out
-  })
+pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 
 
-#write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
+#x = t, y = t+1
+# X..Flowered = density; X..Flowered.1 = % reproductive  
+#Total.Alive = AGG; Total.Plants=AGG+Dormant
+write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
 
 ```
 
@@ -408,21 +442,33 @@ y is the current year
 x is the previous year    
 Total.Alive is AGG 
 ```{r stepwise multiple linear regressions}
-
-step1 <- as.formula(paste("Total.Alive.y ~ (",
-                          paste(names(ps.cor)[grep(paste(cors[-1],collapse="|"),
-                                                   names(ps.cor))],
+#All interactions
+step1 <- as.formula(paste("Total.Alivelogtransformed.y ~ (",
+                          paste(names(ps.cor)[grep("transformed",names(ps.cor))[-7]], #remove Total.Alivelogtransformed.y from the variables!
                                 collapse = "+"),")^2"))
 lm4step <- do.call("lm", list(step1, quote(ps.cor)))
 summary(step(lm4step))
 
-step2 <- as.formula(paste("Total.Alive.y ~ ",
-                          paste(names(ps.cor)[grep(paste(cors[-1],collapse="|"),
-                                                   names(ps.cor))],
+#Just linear factors
+step2 <- as.formula(paste("Total.Alivelogtransformed.y ~ ",
+                          paste(names(ps.cor)[grep("transformed",names(ps.cor))[-7]],
                                 collapse = "+")))
 lm4step2 <- do.call("lm", list(step2, quote(ps.cor)))
 summary(step(lm4step2))
 
+ggplot(ps.cor, aes(x=Total.Fruitlogtransformed.y,y=Total.Alivelogtransformed.y) )+
+  geom_point()+
+  stat_smooth(method = "lm")
+
+ggplot(ps.cor, aes(x=Total.Alivelogtransformed.y,y=Total.Fruitlogtransformed.y) )+
+  geom_point()+
+  stat_smooth(method = "lm")
+
+
+
+```
+
+```{r}
 
 summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Flowered.1.x + X..Browsed.y +
              X..Flowered.1.y + X..Dormant.y)^2, data= ps.cor)))
@@ -1900,8 +1946,10 @@ ps.pc.2 <- merge(ps.asmi.t, asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek",
 T.tests for PCA
 ```{r}
 t.test(Comp.2~Fruit, data = ps.pc)
-t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
 
+t.test(Comp.1~Fruit, data = ps.pc)
+t.test(Comp.1~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
 
 ```
 
@@ -1924,8 +1972,8 @@ t.test(Comp.3 ~ as.factor(Fruit), data = ps.pc)
 
 # Dormant
  avgdorm$`((Total.Plants - Total.Alive)/Total.Plants)`[avgdorm$Creek == "South Beaver"]
-t.test(Comp.1 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
-t.test(Comp.2 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < 2015,])
+t.test(Comp.1 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
+t.test(Comp.2 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
 ```
 
 
@@ -1933,11 +1981,17 @@ Souht Beaver Creek
 Percent reproductive
 ```{r fruit}
 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig7c.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
+
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Repro), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
   stat_ellipse()+
-  xlab("PC1 (34%)")+
-  ylab("PC2 (32%)")+
+  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
+  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
   theme_bw()+
   ggtitle("c)")+
   theme(plot.title=element_text(hjust=0))+
@@ -1945,38 +1999,54 @@ ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Repro), label = Prev12))+
                      labels = c(paste("<=", round(avgfl[2,2],2)*100,"%",sep=""),
                                 paste(">", round(avgfl[2,2],2)*100,"%",sep="")), 
                      values = c("grey50","black"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0))
+  theme(legend.justification=c(0,0), legend.position=c(0,0),
+        legend.background = element_rect(fill=alpha('white', 0.1)))
+
+dev.off()
 ```
 
 Mast seeding
 ```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig7b.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Fruit), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
   stat_ellipse()+
-  xlab("PC1 (34%)")+
-  ylab("PC2 (32%)")+
+  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
+  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
   theme_bw()+
   ggtitle("b)")+
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Mast Seeding", labels = c("Low/No Seed","Mast"), values = c("grey50","black"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1)) 
+  theme(legend.justification=c(1,1), legend.position=c(1,1),
+        legend.background = element_rect(fill=alpha('white', 0.1))) 
+dev.off()
   
 ```
 
 Percent dormant
 ```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig7d.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03, width = 186.87)
+
+
 ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
   geom_text(alpha = 0.75, angle = 45, size = 3) +
   stat_ellipse()+
-  xlab("PC1 (34%)")+
-  ylab("PC2 (32%)")+
+  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
+  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
   theme_bw()+
   ggtitle("d)")+
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Percent Dormant", 
                      labels = c("<=45.4%",">45.4%","First and Last Year"), 
                      values = c("grey50","black","red"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0))
+  theme(legend.justification=c(0,0), legend.position=c(0,0),
+        legend.background = element_rect(fill=alpha('white', 0.1)))
+dev.off()
 ```
 
 Environmental Data    
