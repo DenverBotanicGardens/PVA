@@ -133,7 +133,7 @@ table(asmi.raw$year, asmi.raw$AsMi_site_id)
 table(asmi.raw$year, asmi.raw$AsMi_plot_id)
 table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
-str(asmi.raw)_
+
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 
 # one blank row at the end of the csv download
@@ -344,23 +344,7 @@ ps.asmi.t$Percent..Browsing <- ps.asmi.t$X..Browsed/ps.asmi.t$Total.Alive
 ps.asmi.t$Percent..Dormant <-
   (ps.asmi.t$Total.Plants-ps.asmi.t$Total.Alive)/ps.asmi.t$Total.Plants
 
-ggplot(ps.asmi.t, aes(X..Dormant))+
-  geom_histogram()+
-  facet_grid(~Site)
 
-ggplot(ps.asmi.t, aes(Percent..Dormant))+
-  geom_histogram()+
-  facet_grid(~Site)
-
-ggplot(ps.asmi.t, aes(Percent..Browsing))+
-  geom_histogram()+
-  facet_grid(~Site)
-ggplot(ps.asmi.t, aes(X..Browsed))+
-  geom_histogram()+
-  facet_grid(~Site)
-```
-
-```{r}
 logtrans <- c("Total.Alive", "Percent..Browsing",
               "X..Flowered.1","X..Flowered","Percent..Dormant","Total.Fruit")
 intersect(names(ps.asmi.t),logtrans) #Check that names are right
@@ -374,12 +358,31 @@ transformed <- sapply(logtrans,function(x) paste(x,"logtransformed",sep=""))
 names(log.t.cols) <- transformed
 ps.asmi.t <- data.frame(ps.asmi.t,log.t.cols)
 
-ggplot(ps.asmi.t, aes(Percent..Dormantlogtransformed))+
-  geom_histogram()+
-  facet_grid(~Site)
+
+#Arcsin sq rt transform percent browsing
+assqrt <- do.call(data.frame,lapply(ps.asmi.t["Percent..Browsing"],
+                                  function(x) asin(sqrt(x/100))))
+
+names(assqrt) <- "X..Browsedarcsinsqrttransformed"
+ps.asmi.t <- data.frame(ps.asmi.t, assqrt)
+
+#Arcsin sq rt transform percent reproductive
+assqrt.repro <- do.call(data.frame,lapply(ps.asmi.t["X..Flowered"],
+                                  function(x) asin(sqrt(x/100))))
+
+names(assqrt.repro) <- "X..Floweredarcsinsqrttransformed"
+ps.asmi.t <- data.frame(ps.asmi.t, assqrt.repro)
+
+
 
 ps.asmi.t$X..Flowered.1logtransformed[is.na(ps.asmi.t$X..Flowered.1logtransformed)] <- 0
 ps.asmi.t$Percent..Dormantlogtransformed[is.na(ps.asmi.t$Percent..Dormantlogtransformed)] <- 0
+ps.asmi.t$Percent..Browsinglogtransformed[is.na(ps.asmi.t$Percent..Browsinglogtransformed)] <- 0
+ps.asmi.t$X..Floweredarcsinsqrttransformed[is.na(ps.asmi.t$X..Floweredarcsinsqrttransformed)] <- 0
+ps.asmi.t$X..Browsedarcsinsqrttransformed[is.na(ps.asmi.t$X..Browsedarcsinsqrttransformed)] <- 0
+
+ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
+                       by = c("Site","Plot")), Year.x == Year.y - 1)
 ```
 
 
@@ -392,10 +395,13 @@ cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"
 ps.cor has both current (.x) = t      
 and previous year (.y) = t+1
 ```{r}
-cor.vars <- length(names(ps.cor[,grep("transformed",names(ps.cor))]))
+
+forcor <- names(ps.cor[,grep("transformed",names(ps.cor))])[c(1,7:8,3,5:6,
+                                                              9,15:16,11,13:14)]
+cor.vars <- length(forcor)
 
 cortests <- apply(combn(1:cor.vars,2), 2, function(x){
-  cor.df <- ps.cor[,grep("transformed",names(ps.cor))]
+  cor.df <- ps.cor[,forcor]
   ct <- cor.test(cor.df[,x[1]], cor.df[,x[2]])
   out <- data.frame(Var.1 = names(cor.df)[x[1]], Var.2 = names(cor.df)[x[2]],
                     P.val = ct$p.value, Cor.est = ct$estimate)
@@ -411,7 +417,8 @@ df.c[df.c$P.val > 0.04,]
 
 Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38° 27' 39.8" N, 106° 57' 37.6" W). 
 ```{r}
-cor.out <- round(cor(ps.cor[,grep("transformed",names(ps.cor))]),2)
+
+cor.out <- round(cor(ps.cor[,forcor]),2)
 
 notsig <- df.c[df.c$P.val > 0.04,]
 
@@ -428,7 +435,7 @@ pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 
 
 #x = t, y = t+1
-# X..Flowered = density; X..Flowered.1 = % reproductive  
+# X..Flowered.1 = density; X..Flowered = % reproductive  
 #Total.Alive = AGG; Total.Plants=AGG+Dormant
 write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
 
@@ -451,8 +458,9 @@ lm4step <- do.call("lm", list(step1, quote(ps.cor)))
 summary(step(lm4step))
 
 #Just linear factors
+out <- grep("Total.Alivelogtransformed.y", names(ps.cor[grep("transformed",names(ps.cor))]))
 step2 <- as.formula(paste("Total.Alivelogtransformed.y ~ ",
-                          paste(names(ps.cor)[grep("transformed",names(ps.cor))[-7]],
+                          paste(names(ps.cor)[grep("transformed",names(ps.cor))][-out],
                                 collapse = "+")))
 lm4step2 <- do.call("lm", list(step2, quote(ps.cor)))
 summary(step(lm4step2))
@@ -484,17 +492,21 @@ summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.y, data = ps.
 
 
 #Fencing put in for browsing
-t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t)
+t.test(Percent..Browsinglogtransformed~Fence, data = ps.asmi.t)
 t.test(X..Browsed~Fence, data = ps.asmi.t)
+
+
+t.test(Percent..Browsinglogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year<2006,])
+t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year  <2006,])
 
 #Fencing for plots after 2006
 t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
 
 #fenced plots compared before and after, open too
-t.test(ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year<2007&
+t.test(ps.asmi.t$Percent..Browsinglogtransformed[ps.asmi.t$Year<2007&
                                                    ps.asmi.t$Fence=="y"],
-       ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year>=2007&
+       ps.asmi.t$Percent..Browsinglogtransformed[ps.asmi.t$Year>=2007&
                                                    ps.asmi.t$Fence=="y"])
 
 #AGG 
