@@ -133,7 +133,7 @@ table(asmi.raw$year, asmi.raw$AsMi_site_id)
 table(asmi.raw$year, asmi.raw$AsMi_plot_id)
 table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
-str(asmi.raw)
+str(asmi.raw)_
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 
 # one blank row at the end of the csv download
@@ -338,6 +338,9 @@ ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 598 & ps.asmi.t$Year < 2004),]
 
 table(ps.asmi.t$Year,ps.asmi.t$Site) #no rows for years when some plots weren't in yet
 
+#Want percent herbivory
+ps.asmi.t$Percent..Browsing <- ps.asmi.t$X..Browsed/ps.asmi.t$Total.Alive
+
 ps.asmi.t$Percent..Dormant <-
   (ps.asmi.t$Total.Plants-ps.asmi.t$Total.Alive)/ps.asmi.t$Total.Plants
 
@@ -349,7 +352,16 @@ ggplot(ps.asmi.t, aes(Percent..Dormant))+
   geom_histogram()+
   facet_grid(~Site)
 
-logtrans <- c("Total.Alive", #Percent Browsed
+ggplot(ps.asmi.t, aes(Percent..Browsing))+
+  geom_histogram()+
+  facet_grid(~Site)
+ggplot(ps.asmi.t, aes(X..Browsed))+
+  geom_histogram()+
+  facet_grid(~Site)
+```
+
+```{r}
+logtrans <- c("Total.Alive", "Percent..Browsing",
               "X..Flowered.1","X..Flowered","Percent..Dormant","Total.Fruit")
 intersect(names(ps.asmi.t),logtrans) #Check that names are right
 
@@ -370,17 +382,6 @@ ps.asmi.t$X..Flowered.1logtransformed[is.na(ps.asmi.t$X..Flowered.1logtransforme
 ps.asmi.t$Percent..Dormantlogtransformed[is.na(ps.asmi.t$Percent..Dormantlogtransformed)] <- 0
 ```
 
-#arcsine square root transformed  asin(sqrt(x/100))
-```{r}
-assqrt <- do.call(data.frame,lapply(ps.asmi.t["X..Browsed"],
-                                  function(x) asin(sqrt(x/100))))
-
-names(assqrt) <- "X..Browsedarcsinsqrttransformed"
-ps.asmi.t <- data.frame(ps.asmi.t, assqrt)
-ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
-                       by = c("Site","Plot")), Year.x == Year.y - 1)
-head(ps.cor[,c("Year.x","Year.y")]) # x = t, y=t+1
-```
 
 ```{r}
 cor.plot(cor(ps.cor[,grep("transformed", names(ps.cor))]),
@@ -468,21 +469,56 @@ ggplot(ps.cor, aes(x=Total.Alivelogtransformed.y,y=Total.Fruitlogtransformed.y) 
 
 ```
 
+# Herbivory section
 ```{r}
 
-summary(step(lm(Total.Alive.y ~ (X..Browsed.x + X..Flowered.1.x + X..Browsed.y +
-             X..Flowered.1.y + X..Dormant.y)^2, data= ps.cor)))
+summary(lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, 
+           data = ps.cor)) #previous year
+summary(lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.y, 
+           data = ps.cor)) #current year
 
-summary(lm(Total.Alive.y ~ X..Browsed.x, data = ps.cor)) #previous year
-summary(lm(Total.Alive.y ~ X..Browsed.y, data = ps.cor)) #current year
+summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.x, data = ps.cor))
+summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.y, data = ps.cor))
 
-summary(lm(Total.Alive.y ~ X..Flowered.x, data = ps.cor))
-summary(lm(Total.Alive.y ~ X..Flowered.y, data = ps.cor))
 
-sort(unique(ps.cor$Year.x))
-sort(unique(ps.cor$Year.y))
 
+
+#Fencing put in for browsing
+t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t)
 t.test(X..Browsed~Fence, data = ps.asmi.t)
+
+#Fencing for plots after 2006
+t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
+t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
+
+#fenced plots compared before and after, open too
+t.test(ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year<2007&
+                                                   ps.asmi.t$Fence=="y"],
+       ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year>=2007&
+                                                   ps.asmi.t$Fence=="y"])
+
+#AGG 
+t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
+t.test(Total.Alive~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
+
+
+t.test(Total.Alivelogtransformed~Fence, data =
+         ps.asmi.t[ps.asmi.t$Year>2006&ps.asmi.t$Year<2009,])
+t.test(Total.Alive~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006&ps.asmi.t$Year<2009,])
+
+#Fencing for plots after 2006
+t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t)
+t.test(Total.Alive~Fence, data = ps.asmi.t)
+
+
+#AGG and dormant
+t.test(Total.Plants~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
+
+#Fencing for plots after 2006
+t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t)
+t.test(Total.Alive~Fence, data = ps.asmi.t)
+
+
 
 #In all years after fence installation
 t.test(Total.Fruit.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
@@ -496,6 +532,12 @@ t.test(Total.Alive.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
 t.test(Total.Plants~Fence, data = ps.asmi.t[ps.asmi$Year > 2005,])
 t.test(Total.Plants~Fence, data = ps.asmi.t)
 
+t.test(ps.asmi.t$Total.Plants[ps.asmi.t$Year<2006&
+                                ps.asmi.t$Fence=="y"],
+       ps.asmi.t$Total.Plants[ps.asmi.t$Year>=2006&
+                                ps.asmi.t$Fence=="y"])
+
+
 #herbivory
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,]) #not signficantly different
 allttestherb <- lapply(1995:currentyr, function(x){
@@ -505,6 +547,11 @@ allttestherb <- lapply(1995:currentyr, function(x){
 allttestherb[[22]]
 
 t.test(length~fence, data = asmi.raw[asmi.raw$AsMi_site_id > 2 & asmi.raw$year > 2005,])
+
+#Percent herbivory between fenced and open
+t.test(X..Browsedarcsinsqrttransformed~Fence, data=ps.asmi.t[ps.asmi.t$Year>2005,])
+
+t.test(X..Browsedarcsinsqrttransformed~Fence, data=ps.asmi.t[ps.asmi.t$Year>2005,])
 ```
 
 
@@ -520,7 +567,7 @@ tbl3.1 <- summarySE(fruit, measurevar="fruit",groupvars=c("AsMi_site_id","year")
 sites <- unique(tbl3.1$AsMi_site_id)
 tbl3 <- lapply(sites, function(x){
   paste(round(tbl3.1[tbl3.1$AsMi_site_id == x,"fruit"],2)," (",
-        round(tbl3.1[tbl3.1$AsMi_site_id == x,"se"],1), ")", sep="")
+        round(tbl3.1[tbl3.1$AsMi_site_id == x,"se"],1), ")", sep="")???
 })
 
 #Cebolla Creek
@@ -667,8 +714,6 @@ ggplot(bt, aes(as.factor(Site), Boot, colour = as.factor(Site)))+
 ```
 
 #Figure 2b 
-
-Nooooo, why lengths of 40?! can't be. Unless some individuals incorretly always say dormant or end or start with dormant? removed 1995 so can start in 1996 with dormant
 
 ```{r}
 
