@@ -392,8 +392,8 @@ cor.plot(cor(ps.cor[,grep("transformed", names(ps.cor))]),
 ```
 
 cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"    
-ps.cor has both current (.x) = t      
-and previous year (.y) = t+1
+ps.cor has both previous (.x) = t      
+and following year (.y) = t+1
 ```{r}
 
 forcor <- names(ps.cor[,grep("transformed",names(ps.cor))])[c(1,7:8,3,5:6,
@@ -450,15 +450,18 @@ y is the current year
 x is the previous year    
 Total.Alive is AGG 
 ```{r stepwise multiple linear regressions}
+
+
+out <- grep("Total.Alivelogtransformed.y", names(ps.cor[grep("transformed",names(ps.cor))]))
+
 #All interactions
 step1 <- as.formula(paste("Total.Alivelogtransformed.y ~ (",
-                          paste(names(ps.cor)[grep("transformed",names(ps.cor))[-7]], #remove Total.Alivelogtransformed.y from the variables!
+                          paste(names(ps.cor)[grep("transformed",names(ps.cor))[-out]], #remove Total.Alivelogtransformed.y from the variables!
                                 collapse = "+"),")^2"))
 lm4step <- do.call("lm", list(step1, quote(ps.cor)))
 summary(step(lm4step))
 
 #Just linear factors
-out <- grep("Total.Alivelogtransformed.y", names(ps.cor[grep("transformed",names(ps.cor))]))
 step2 <- as.formula(paste("Total.Alivelogtransformed.y ~ ",
                           paste(names(ps.cor)[grep("transformed",names(ps.cor))][-out],
                                 collapse = "+")))
@@ -492,11 +495,13 @@ summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.y, data = ps.
 
 
 #Fencing put in for browsing
-t.test(Percent..Browsinglogtransformed~Fence, data = ps.asmi.t)
+t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t)
 t.test(X..Browsed~Fence, data = ps.asmi.t)
 
 
 t.test(Percent..Browsinglogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year<2006,])
+
+t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year<2006,])
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year  <2006,])
 
 #Fencing for plots after 2006
@@ -504,9 +509,9 @@ t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year>20
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
 
 #fenced plots compared before and after, open too
-t.test(ps.asmi.t$Percent..Browsinglogtransformed[ps.asmi.t$Year<2007&
+t.test(ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year<2007&
                                                    ps.asmi.t$Fence=="y"],
-       ps.asmi.t$Percent..Browsinglogtransformed[ps.asmi.t$Year>=2007&
+       ps.asmi.t$X..Browsedarcsinsqrttransformed[ps.asmi.t$Year>=2007&
                                                    ps.asmi.t$Fence=="y"])
 
 #AGG 
@@ -533,7 +538,10 @@ t.test(Total.Alive~Fence, data = ps.asmi.t)
 
 
 #In all years after fence installation
-t.test(Total.Fruit.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
+t.test(Total.Fruitlogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,])
+t.test(X..Floweredarcsinsqrttransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,])
+
+
 
 t.test(X..Flowered.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
 
@@ -579,7 +587,7 @@ tbl3.1 <- summarySE(fruit, measurevar="fruit",groupvars=c("AsMi_site_id","year")
 sites <- unique(tbl3.1$AsMi_site_id)
 tbl3 <- lapply(sites, function(x){
   paste(round(tbl3.1[tbl3.1$AsMi_site_id == x,"fruit"],2)," (",
-        round(tbl3.1[tbl3.1$AsMi_site_id == x,"se"],1), ")", sep="")???
+        round(tbl3.1[tbl3.1$AsMi_site_id == x,"se"],1), ")", sep="")
 })
 
 #Cebolla Creek
@@ -743,35 +751,15 @@ sum(foo$lengths[1:10])
 asmi.2$stage[1:sum(foo$lengths[1:10])]
 
 
-dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
+#dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
+levels(asmi.1$status) # 4 is dormant
 
-table(dorms) #No!! study hasn't been long enough, cannot be any that are ending in dormant!
+dorms <- do.call(c,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+}))
 
-table(asmi.2$year) #Oh! missing 2017 because that's fate, not stage!
 
-which(rle(as.numeric(asmi.2$stage))$lengths > (currentyr-1995)) #first one is at 67  
-# all the places in asmi.2 where it goes from dormant in one tag to dormant in another
-#   67  833 1317 2542 2562 2586 2647 2887 2893 3081 3959
-sum(rle(as.numeric(asmi.2$stage))$lengths[1:67]) #206
-
-fromtodorms <- lapply(which(rle(as.numeric(asmi.2$stage))$lengths > (currentyr-1995)),
-                      function(x){
-                        rows <- sum(rle(as.numeric(asmi.2$stage))$lengths[1:x])
-                        out <- asmi.2[(rows-10):(rows+5),]
-                        out
-                      })
-
-fromtodorms[[1]]
-
-laststage <- do.call(rbind,lapply(unique(asmi.2$tag), function(tag){
-  currenttag <- asmi.2[asmi.2$tag == tag,] 
-  out <- currenttag[currenttag$year == max(currenttag$year),]
-  out
-})
-)
-
-nrow(laststage[laststage$fate == "dormant",]) # Well goodness! First off, tag 1 has 2017!
-laststage[laststage$fate == "dormant",]
+table(dorms) 
 
 ggplot(data.frame(Dormant = dorms), aes(Dormant))+
   geom_histogram(bins = 20)+
@@ -783,12 +771,12 @@ ggplot(data.frame(Dormant = dorms), aes(Dormant))+
 #only South beaver creek
 ```{r}
 median(dorms) #3
-length(dorms[dorms==1]) #305
-length(dorms[dorms==1])/length(dorms) # 37.7%
-length(dorms) #808
-length(dorms[dorms > 5]) #286
-length(dorms[dorms > 15]) #50
-length(dorms[dorms == 20]) #20
+length(dorms[dorms==1]) #347
+length(dorms[dorms==1])/length(dorms) # 37%
+length(dorms) #848
+length(dorms[dorms > 5]) #353
+length(dorms[dorms > 15]) #93
+length(dorms[dorms == 21]) #13
 ```
 
 Reproductive lengths - South Beaver Creek only   
