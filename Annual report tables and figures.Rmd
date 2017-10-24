@@ -437,7 +437,7 @@ pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 #x = t, y = t+1
 # X..Flowered.1 = density; X..Flowered = % reproductive  
 #Total.Alive = AGG; Total.Plants=AGG+Dormant
-write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
+#write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
 
 ```
 
@@ -482,6 +482,18 @@ ggplot(ps.cor, aes(x=Total.Alivelogtransformed.y,y=Total.Fruitlogtransformed.y) 
 
 # Herbivory section
 ```{r}
+
+table(asmi.raw$Browsing...Status)
+nrow(asmi.raw[grep("Mammal",asmi.raw$Browsing...Status),])
+nrow(asmi.raw[grep("Insect",asmi.raw$Browsing...Status),])
+nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+
+nrow(asmi.raw[grep("Mammal",asmi.raw$Browsing...Status),])/
+  nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+
+nrow(asmi.raw[grep("Insect",asmi.raw$Browsing...Status),])/
+  nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+
 
 summary(lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, 
            data = ps.cor)) #previous year
@@ -873,6 +885,13 @@ t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
 
 ```
 
+T-test for growth rate before and after fencing  
+```{r}
+t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
+       lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
+```
+
+
 # Table 4
 pattern is:          
 
@@ -1217,7 +1236,7 @@ lmall <- as.formula(paste("Prev12 ~",
 coefout <- summary(do.call("lm", list(lmall, quote(season))))$coefficients
 
 #coefout[order(coefout[,4]),]
-# exclude the one with the larger p-value
+# exclude the onze with the larger p-value
 excludeworse <- data[abs(data$Freq)>cutoff,]
 coefout <- data.frame(name = row.names(coefout),coefout)
 coefout$name <- as.character(coefout$name)
@@ -1240,7 +1259,7 @@ forpca <- season[,c(grep(paste(tomatch, collapse="|"),
 names(forpca)
 ```
 
-
+#Environmental Data
 T-tests for Creek from Figure 7
 ```{r}
 asmi.pca <- princomp(forpca,cor=TRUE)
@@ -1252,6 +1271,10 @@ asmi.pc <- data.frame(asmi.pc,season)
 
 t.test(Comp.1~Creek, data=asmi.pc)
 t.test(Comp.2~Creek, data=asmi.pc)
+
+write.csv(asmi.load, file=paste(savepath,"Table6_PCA.csv"), row.names=TRUE, 
+          col.names = TRUE)
+
 
 ```
 
@@ -1301,7 +1324,7 @@ LevelsComps
 
 ```
 
-Blarg@!!!!
+
 ```{r}
 for(j in 1:nrow(LevelsComps)){
   x <- LevelsComps[j,]
@@ -1481,16 +1504,35 @@ dev.off()
 
 
 ```{r}
+
+percentAGG <- do.call(rbind,lapply(unique(ps.asmi.t$Year),function(x){
+  thisyear <- ps.asmi.t[ps.asmi.t$Year==x & ps.asmi.t$Site>3,]
+  percentalive <- sum(thisyear$Total.Alive)/sum(thisyear$Total.Plants)
+  out <- data.frame(percentalive,year=x)
+  out
+}))
+
+percentAGGCebollaandBeaver <- do.call(rbind,lapply(unique(ps.asmi.t$Year),function(x){
+  thisyear <- ps.asmi.t[ps.asmi.t$Year==x,]
+  percentalive <- sum(thisyear$Total.Alive)/sum(thisyear$Total.Plants)
+  out <- data.frame(percentalive,year=x)
+  out
+}))
+
 #Total.Plants - AGG and dormant
-AGGDorm <- summarySE(ps.asmi.t, measurevar="Total.Plants", groupvars=c("Fence","Year","Site","Creek"))
+AGGDorm <- summarySE(ps.asmi.t, measurevar="Total.Plants",
+                     groupvars=c("Fence","Year","Site","Creek"))
 #Total.Alive - AGG
-AGG <- summarySE(ps.asmi.t, measurevar="Total.Alive", groupvars=c("Fence","Year","Site","Creek"))
+AGG <- summarySE(ps.asmi.t, measurevar="Total.Alive",
+                 groupvars=c("Fence","Year","Site","Creek"))
 
 #Total.Fruit
-Fruit <- summarySE(ps.asmi.t, measurevar="Total.Fruit", groupvars=c("Fence","Year","Site","Creek"))
+Fruit <- summarySE(ps.asmi.t, measurevar="Total.Fruit",
+                   groupvars=c("Fence","Year","Site","Creek"))
 
 #X..Flowered - %flowered
-Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered", groupvars=c("Fence","Year","Site","Creek"))
+Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered",
+                   groupvars=c("Fence","Year","Site","Creek"))
 
 ```
 
@@ -2143,7 +2185,8 @@ ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
   ggtitle("d)")+
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Percent Dormant", 
-                     labels = c("<=45.4%",">45.4%","First and Last Year"), 
+                     labels = c(paste("<=", round(avgdorm[2,2],2)*100,"%",sep=""),
+                                paste(">", round(avgdorm[2,2],2)*100,"%",sep="")), 
                      values = c("grey50","black","red"))+
   theme(legend.justification=c(0,0), legend.position=c(0,0),
         legend.background = element_rect(fill=alpha('white', 0.1)))
@@ -2296,40 +2339,40 @@ seasonallydorm <- lapply(1:nrow(seqXclass),function(x){
 })
 
 foo <- do.call(rbind,seasonallydorm)
-
+length(unique(foo$tag))
 
 #What is the stage before and after dormancy?
+b4nafter <- lapply(1:nrow(seqXclass),function(x){
+    # if the first and last are removed from rle and there's still some lengths of dormant
+    teststages <- rle(seqXclass[x,])
+    teststages <- data.frame(teststages$lengths,teststages$values,tag=x)
+    teststages <- teststages[-c(1,nrow(teststages)),]
+    before <- teststages[grep("0",teststages$teststages.values)-1,]
+    after <- teststages[grep("0",teststages$teststages.values)+1,]
+    out <- list(before,after)
+    out
+})
 
+b4 <- do.call(rbind,lapply(b4nafter,"[[",1))
+b4 <- b4[complete.cases(b4),]
+aft3r <- do.call(rbind,lapply(b4nafter,"[[",2))
+aft3r <- aft3r[complete.cases(aft3r),]
 
-beforeandafterstage <- do.call(rbind,apply(seqXclass, 1, function(x){
-  dormant <- which(x == x[(x=="0")])
-  dormant <- dormant[dormant>1&dormant<length(x)]
-  if(length(dormant)>0){
-    outbefore <- x[dormant-1]
-    outafter <- x[dormant+1]
-    if(length(outbefore[outbefore!="0"])==0){
-      outbefore <- NA
-    } else {
-      outbefore <- outbefore[outbefore!="0"]
-    }
-    
-    if(length(outafter[outafter!="0"])==0){
-      outafter<-NA
-    } else {
-      outafter <- outafter[outafter!="0"]
-    }
-    
-    cbind(outbefore,outafter)
-    }
-  }))
+mean(nrow(b4[b4$teststages.values=="V",])/nrow(b4))
+mean(nrow(b4[b4$teststages.values=="R",])/nrow(b4))
 
-beforeandafterstage<-data.frame(survey=dimnames(beforeandafterstage)[[1]],beforeandafterstage)
-str(beforeandafterstage)
+mean(nrow(aft3r[aft3r$teststages.values=="V",])/nrow(aft3r))
+mean(nrow(aft3r[aft3r$teststages.values=="R",])/nrow(aft3r))
+
 
 ##Factor w/ 4 levels "0","D","R","V":
 #percent of time goes from Vegetative to dormant
-nrow(beforeandafterstage[beforeandafterstage$outbefore=="V",])/
-  nrow(beforeandafterstage)
+byplantbefore <- lapply(split(b4, b4$tag), function(x){
+  nrow(x[x$teststages.values=="V",])/
+    nrow(x)
+
+})
+
 
 nrow(beforeandafterstage[beforeandafterstage$outbefore=="R",])/
   nrow(beforeandafterstage)
