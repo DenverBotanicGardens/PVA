@@ -1895,6 +1895,31 @@ mean(lifelength$Yearsalive)
 Dormancy    
 repeat lengths   
 ```{r}
+# how many individuals are dormant at some point
+ind_dorm <- do.call(rbind,lapply(split(asmi.raw,asmi.raw$AsMi_tag_id), function(x){
+  if(length(grep("dormant",x$status))>0){
+    data.frame(Site = unique(x$AsMi_site_id), 
+               Fence = unique(x$fence), 
+               Plot = unique(x$AsMi_plot_id), 
+               Dorm = 1)
+  } else {
+    data.frame(Site = unique(x$AsMi_site_id), 
+               Fence = unique(x$fence), 
+               Plot = unique(x$AsMi_plot_id), 
+               Dorm = 0)
+    }
+  }))
+
+perc_ind_dorm <- aggregate(Dorm~Site+Plot+Fence, data=ind_dorm,
+                           function(x) sum(x)/length(x))
+
+#percent dormant individuals by site
+aggregate(Dorm~Site, data=ind_dorm, function(x) sum(x)/length(x))
+#percent individuals with any length of dormancy from SBC
+sum(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])/length(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])
+
+
+
 #in Raw, #2 is dormant
 
 dorms <- do.call(c,lapply(unique(asmi.raw$AsMi_tag_id), function(x){
@@ -1932,6 +1957,36 @@ ggplot(smya, aes(YrsD, Yearsalive))+
 
 ```
 
+#Episodic fruit production paragraph   
+```{r}
+noreproductiveyears <- aggregate(flower~AsMi_site_id+year, data=asmi.raw,
+                                 function(x) if(sum(x)>0){
+                                   1
+                                 } else {
+                                   0
+                                 })
+
+ggplot(noreproductiveyears, aes(year,flower,colour=as.factor(AsMi_site_id)))+
+  geom_point()+
+  facet_grid(~AsMi_site_id)
+
+#how many years are there no reproductive indiviudals per site
+1-aggregate(flower~AsMi_site_id, data=noreproductiveyears,
+          function(x) sum(x)/length(x))
+
+#On average, no reproductive individuals how many years?  in 2016
+mean(c(1-aggregate(flower~AsMi_site_id,
+                   data=noreproductiveyears[noreproductiveyears$year<2017,],
+          function(x) sum(x)/length(x))[-(1:2),2]))*(length(1995:(currentyr-1)))
+
+#On average, no reproductive individuals how many years?  in current year
+mean(c(1-aggregate(flower~AsMi_site_id, data=noreproductiveyears,
+          function(x) sum(x)/length(x))[-(1:2),2]))*(length(1995:currentyr))
+
+#Number of years of no reproductive for South Beaver Creek (not correct for Cebolla)
+length(1995:currentyr)-aggregate(flower~AsMi_site_id, data=noreproductiveyears,sum)
+```
+
 #Plot summary for demographic data per year
 
 Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
@@ -1940,6 +1995,7 @@ Figure 7: Principal component analysis of nine environmental factors separating 
 avgfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi.t, mean)
 SEfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi.t, std.error)
 avgfruit[,2]+SEfruit[,2]
+#make column that is 1 if more than average total fruit that year, 0 if less than average
 pcafruit <- aggregate(Total.Fruit ~ Year, 
                       data = ps.asmi.t[ps.asmi.t$Creek == "South Beaver",], function(x){
   if(mean(x) > avgfruit$Total.Fruit[avgfruit$Creek == "South Beaver"]){
@@ -2115,39 +2171,29 @@ asmi.pc14 <- data.frame(asmi.pc14,season)
 
 
 ### Intraannual visits    
-Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA    
+Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA      
+### What is the most common stage class of individuals that were dormant for some portion of the growing season? 
 
 ```{r}
 intra <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2015 datasheets/2015_intrayear_asmi.csv"), na.strings="")
 
-head(intra)
-names(intra)
-str(intra)
+intra$UniqueID <- 1:nrow(intra)
 
-intra[intra$Plot == 8,"LnJune22.24"]
-
-intra <- transform(intra, LnJune22.24 = as.numeric(as.character(LnJune22.24)))
-table(intra$LnJune22.24)
-
-demo.only <- intra[,-c(1:7,13,99)]
+demo.only <- intra[,-c(1:7,13,99:100)]
 names(demo.only)
 
 # need to name the same before binding...
 surname <- names(demo.only[,grep("Ln",names(demo.only))])
 
 demo.only.bydate <- lapply(1:18, function(x){
-  df <- data.frame(intra[,c(1:7,13,99)], demo.only[,((5*x-4):(5*x))],Survey = surname[x])
-  names(df) <- c(names(intra[,c(1:7,13,99)]), "Ln","Fl","Fr","Br","Comment","Survey")
+  df <- data.frame(intra[,c(1:7,13,99:100)], demo.only[,((5*x-4):(5*x))],Survey = surname[x])
+  names(df) <- c(names(intra[,c(1:7,13,99:100)]), "Ln","Fl","Fr","Br","Comment","Survey")
   df[!is.na(df$Ln),]
 })
 
 head(demo.only.bydate[[15]])
 
 dm <- do.call(rbind, demo.only.bydate)
-names(Filter(is.character, dm))
-dm[,names(Filter(is.character, dm))] <- sapply(dm[,names(Filter(is.character, dm))], 
-                                               function(x) as.numeric(x))
-str(dm)
 
 dm$Site[dm$Plot <= 610 & dm$Plot >= 606] <- "5"
 dm$Site[dm$Plot == 8 | dm$Plot == 578 | dm$Plot == 581 | dm$Plot == 799] <- "15"
@@ -2186,6 +2232,67 @@ ggplot(dm, aes(Survey, Ln, group = Site))+
   xlab("Average Length")+
 	theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
 
+```
+
+#dormancy within a season is preceded or followed by what stage class
+```{r}
+markrecapture <- dm
+markrecapture$Mark <- 0
+markrecapture$Mark[markrecapture$Ln>0] <- 1
+table(markrecapture$Mark,markrecapture$Survey)
+
+byplant <- sapply(split(markrecapture,markrecapture$UniqueID), function(x){
+  table(x$Mark,x$Survey)
+  })
+
+byplantall <- do.call(rbind,byplant)
+head(byplantall)
+
+markrecapture$Stage <- "D" #dormant
+markrecapture$Stage[markrecapture$Ln > 0] <- "V" #vegetative
+markrecapture$Stage[markrecapture$Ln > 0 & markrecapture$Fl == 1] <- "R" #Reproductive
+
+stagebyplant <- sapply(split(markrecapture, markrecapture$UniqueID), function(x){
+  out <- table(x$Stage,x$Survey)
+  if(!is.null(names(out[,1]))){
+    out[1,][out[1,]==1] <- names(out[,1][1])
+    if(length(names(foo[,1])>1)){
+      out[2,][out[2,]==1] <- names(out[,1][2])
+      }
+    out
+    }
+  })
+
+nonullstagebyplant <- stagebyplant[!sapply(stagebyplant,is.null)]
+length(which(stagebyplant[[1]][,1]!="0"))
+data.frame(nonullstagebyplant[[1]])
+str(data.frame(nonullstagebyplant[[1]]))
+
+seqclass <- lapply(nonullstagebyplant, function(x){
+  df <- data.frame(x)
+  out <- sapply(split(df,df$Var2),function(r){
+    if(nrow(r[r$Freq=="0",])==2){
+      "0" 
+      } else {
+        as.character(r$Freq[r$Freq!="0"])
+    }
+      })
+  out
+})
+
+seqXclass <- do.call(rbind,seqclass)
+
+head(seqXclass)
+
+foo <- apply(seqXclass,1,function(x){
+  rle(x)
+})
+
+##START HERE!! FIND THE preceeding and following stages
+valesbeforedormant <- lapply(foo, function(x){
+  wd <- which(x[x$values == "0"])
+  
+})
 ```
 
 
