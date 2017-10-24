@@ -2221,7 +2221,7 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 
 ```
 
-
+length over the surveys 
 ```{r}
 
 ggplot(dm, aes(Survey, Ln, group = Site))+
@@ -2229,7 +2229,8 @@ ggplot(dm, aes(Survey, Ln, group = Site))+
   stat_summary(fun.data='mean_cl_normal', geom="errorbar", fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
-  xlab("Average Length")+
+  ylab("Average Length")+
+  xlab("Survey")+
 	theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
 
 ```
@@ -2248,15 +2249,16 @@ byplant <- sapply(split(markrecapture,markrecapture$UniqueID), function(x){
 byplantall <- do.call(rbind,byplant)
 head(byplantall)
 
-markrecapture$Stage <- "D" #dormant
+markrecapture$Stage <- "D" #dormant #only 4 rows
 markrecapture$Stage[markrecapture$Ln > 0] <- "V" #vegetative
 markrecapture$Stage[markrecapture$Ln > 0 & markrecapture$Fl == 1] <- "R" #Reproductive
 
+#When you make a table, only a very few are actually marked dead, most are missing data
 stagebyplant <- sapply(split(markrecapture, markrecapture$UniqueID), function(x){
   out <- table(x$Stage,x$Survey)
   if(!is.null(names(out[,1]))){
     out[1,][out[1,]==1] <- names(out[,1][1])
-    if(length(names(foo[,1])>1)){
+    if(length(names(out[,1])>1)){
       out[2,][out[2,]==1] <- names(out[,1][2])
       }
     out
@@ -2282,17 +2284,56 @@ seqclass <- lapply(nonullstagebyplant, function(x){
 
 seqXclass <- do.call(rbind,seqclass)
 
-head(seqXclass)
-
-foo <- apply(seqXclass,1,function(x){
-  rle(x)
+nrow(seqXclass)
+##how many individuals were dormant some portion of the surveys?
+seasonallydorm <- lapply(1:nrow(seqXclass),function(x){
+    # if the first and last are removed from rle and there's still some lengths of dormant
+    teststages <- rle(seqXclass[x,])
+    teststages <- data.frame(teststages$lengths,teststages$values,tag=x)
+    teststages <- teststages[-c(1,nrow(teststages)),]
+    out <- teststages[teststages$teststages.values=="0",]
+    out 
 })
 
-##START HERE!! FIND THE preceeding and following stages
-valesbeforedormant <- lapply(foo, function(x){
-  wd <- which(x[x$values == "0"])
-  
-})
+foo <- do.call(rbind,seasonallydorm)
+
+
+#What is the stage before and after dormancy?
+
+
+beforeandafterstage <- do.call(rbind,apply(seqXclass, 1, function(x){
+  dormant <- which(x == x[(x=="0")])
+  dormant <- dormant[dormant>1&dormant<length(x)]
+  if(length(dormant)>0){
+    outbefore <- x[dormant-1]
+    outafter <- x[dormant+1]
+    if(length(outbefore[outbefore!="0"])==0){
+      outbefore <- NA
+    } else {
+      outbefore <- outbefore[outbefore!="0"]
+    }
+    
+    if(length(outafter[outafter!="0"])==0){
+      outafter<-NA
+    } else {
+      outafter <- outafter[outafter!="0"]
+    }
+    
+    cbind(outbefore,outafter)
+    }
+  }))
+
+beforeandafterstage<-data.frame(survey=dimnames(beforeandafterstage)[[1]],beforeandafterstage)
+str(beforeandafterstage)
+
+##Factor w/ 4 levels "0","D","R","V":
+#percent of time goes from Vegetative to dormant
+nrow(beforeandafterstage[beforeandafterstage$outbefore=="V",])/
+  nrow(beforeandafterstage)
+
+nrow(beforeandafterstage[beforeandafterstage$outbefore=="R",])/
+  nrow(beforeandafterstage)
+
 ```
 
 
