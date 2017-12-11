@@ -155,7 +155,48 @@ Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek
 ```{r}
 #AGG
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
-                  data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
+                  data = asmi.raw, function(x) length(x[x>0 & !is.na(x)])) #length of group when the plant had a length greater than zero
+
+
+alive2 <- do.call(rbind, lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id,asmi.raw$year)), 
+                                function(x){
+                                  if(nrow(x)==0){
+                                    out <- c(Plot=NA,Year=NA,Site=NA,Fence=NA,AGG=NA,Alive=NA)
+                                    out
+                                  } else {
+                                  AGG <- nrow(x[x$length>0,])
+                                  Alive <- length(x$status[x$status!="dead"])
+                                  out <- data.frame(Plot = unique(x$AsMi_plot_id),
+                                                    Year = unique(x$year),
+                                                    Site = unique(x$AsMi_site_id),
+                                                    Fence = unique(x$fence),
+                                                    AGG, Alive)
+                                  out}
+                                  }))
+
+alive2<- alive2[complete.cases(alive2),]
+
+totalyr <- aggregate(length~AsMi_site_id, data = alive[alive$year == currentyr,], sum)
+sum(totalyr$length[1:2])
+sum(totalyr$length[3:6])
+
+# What percent of original size are all plots?
+totalPerOriginal <- lapply(split(alive2,alive2$Plot),
+                                  function(plot){
+                                    first <- plot$AGG[plot$Year==min(plot$Year)]
+                                    last <- plot$AGG[plot$Year==max(plot$Year)]
+                                    percent <- last/first
+                                    out <- data.frame(plot[plot$Year==min(plot$Year),],
+                                                      plot[plot$Year==max(plot$Year),
+                                                           c("Year","AGG","Alive")],
+                                                      percent)
+                                    out
+                                    })
+totPOrig <- do.call(rbind,totalPerOriginal)
+
+outdata <- (aggregate(percent~Site+Fence, data=totPOrig, mean))
+outdata[with(outdata, order(percent,Site,Fence)),]
+
 
 #AGG and dormant
 aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
