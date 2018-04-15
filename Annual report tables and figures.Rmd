@@ -118,7 +118,7 @@ lmdSD <- function(x,y,z){
 Save all sites, all data, and set to 20 years allowed dormant (or all possible years)    
 Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
-currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y")) -1
 rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
                      currentyr,"_asmi/RawData_",
                      currentyr, ".csv", collapse = '', sep = '')
@@ -483,7 +483,7 @@ pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 ```
 
 
-
+#Order still too much of a factor, should use model selection instead of stepwise regression
 Backwards stepwise multiple linear regressions   
 Herbivory   
 Browsing is already arcsine aquare root transformed
@@ -1199,6 +1199,7 @@ ggplot(clim_agg_long[clim_agg_long$variable%in% c("Precipitation (mm)","Individu
   theme_bw()
 
 ```
+
 ```{r}
 ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individuals per plot") & clim_agg_long$Site>3,], 
        aes(Year, value))+
@@ -1207,6 +1208,7 @@ ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individ
   facet_wrap(~variable, scales="free", ncol=1)+
   theme_bw()
 ```
+
 ```{r}
 ggplot(clim_agg_long[clim_agg_long$Site>3,], 
        aes(as.factor(Year), value))+
@@ -2253,7 +2255,7 @@ asmi.pc14 <- data.frame(asmi.pc14,season)
 ```
 
 
-
+#Intraannual visits
 ### Intraannual visits    
 Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA      
 ### What is the most common stage class of individuals that were dormant for some portion of the growing season? 
@@ -2305,19 +2307,148 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 
 ```
 
+#Tags with growth at any time during the early or late seasons 
+```{r}
+tagsintrayear <- split(dm, dm$tag)
+unique(dm$Survey) #aprl 2014 ... Oct6_2015
+
+tagsintrayear[[2]]
+
+dm$TagperPlot <- paste(dm$tag,dm$Plot,dm$Dir, sep="")
+asmi.raw$TagperPlot <- paste(asmi.raw$tag_no,asmi.raw$AsMi_plot_id,asmi.raw$direction,sep="")
+
+
+
+head(asmi.raw$TagperPlot)
+head(asmi.raw)
+head(dm)
+
+
+
+tagsAGG <- unique(dm$tag[dm$Ln >0])
+length(tagsAGG)
+tagsAGG2 <- unique(dm$TagperPlot[dm$Ln >0])
+length(tagsAGG2)
+
+unique(asmi.raw$AsMi_tag_id)
+
+head(asmi.raw)
+tagsperplotperyear <- lapply( split(asmi.raw, asmi.raw$year), function(x){
+  out <- data.frame(table(x$tag_no,x$AsMi_plot_id))
+  out[out[,3]>1,]
+  })
+
+oopstags <- do.call(rbind,tagsperplotperyear)
+oopstags
+
+sort(unique(asmi.raw$year))
+
+#how many double tags per plot were ones seen in intrayear surveys?  
+#Need to link by tag number, plot, and distance
+double.intra.tags <- unique(dm$tag[dm$tag %in% oopstags$Var1])
+
+length(unique(asmi.raw$tag_no)) #2529
+length(unique(dm$tag)) #1746
+
+#for 2015, tag entered same, won't get tags 'fixed to 0.01 from 0.1
+dm.match.raw <- lapply(1:nrow(dm),function(row){
+  out <- asmi.raw[asmi.raw$AsMi_site_id==dm$Site[row]&
+                    asmi.raw$AsMi_plot_id==dm$Plot[row]&
+                    asmi.raw$distance==dm$Dist..m.[row]&
+                                asmi.raw$year==2016,]
+  })
+
+dm.all <- do.call(rbind,dm.match.raw)
+head(dm.all)
+
+#Just tags with above ground growth in other times of the year
+dm.agg <- dm[dm$Ln>0,]
+dm.agg.match.raw <- lapply(1:nrow(dm.agg),function(row){
+  out <- asmi.raw[asmi.raw$AsMi_site_id==dm.agg$Site[row]&
+                    asmi.raw$AsMi_plot_id==dm.agg$Plot[row]&
+                    asmi.raw$distance==dm.agg$Dist..m.[row],]
+  })
+
+dm.all.agg <- do.call(rbind,dm.agg.match.raw)
+head(unique(dm.all.agg))
+dm.all.agg <- unique(dm.all.agg)
+
+tags.AGG <- split(dm.all.agg[dm.all.agg$length==0 & dm.all.agg$year>2015,],
+                  dm.all.agg$AsMi_tag_id[dm.all.agg$length==0 & dm.all.agg$year>2015])
+
+tags.AGG[[1]]
+tags.AGG <- do.call(rbind,tags.AGG)
+tags.AGG[tags.AGG$length>0,]
+
+
+
+
+#tags with flowering plants
+dm.flfr <- dm[dm$Fl==1,]
+dm.flfr.match.raw <- lapply(1:nrow(dm.flfr),function(row){
+  out <- asmi.raw[asmi.raw$AsMi_site_id==dm.flfr$Site[row]&
+                    asmi.raw$AsMi_plot_id==dm.flfr$Plot[row]&
+                    asmi.raw$distance==dm.flfr$Dist..m.[row],]
+  })
+
+dm.all.flfr <- do.call(rbind,dm.flfr.match.raw)
+head(unique(dm.all.flfr))
+dm.all.flfr <- unique(dm.all.flfr)
+
+tags.flfr <- split(dm.all.flfr[dm.all.flfr$length==0 & dm.all.flfr$year>2015,],
+                  dm.all.flfr$AsMi_tag_id[dm.all.flfr$length==0 & dm.all.flfr$year>2015])
+
+tags.flfr[[1]]
+tags.flfr <- do.call(rbind,tags.flfr)
+tags.flfr[tags.flfr$length>0,]
+
+
+
+dm[dm$tag %in% double.intra.tags,]
+asmi.raw[asmi.raw$tag_no %in% double.intra.tags,]
+
+#For dm, Survey is like year in asmi.raw 
+dm.2merge <- dm[,c("X","Plot","Site","Survey","TagperPlot")] #poop, but sometimes these don't match because of a 0.1 or 0.01 difference! 
+
+```
+
+
 length over the surveys 
 ```{r}
 
 ggplot(dm, aes(Survey, Ln, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom="errorbar", fun.args = list(mult=1))+
-  facet_grid(~Site)+
+  stat_summary(fun.data='mean_sdl', geom="errorbar", fun.args = list(mult=2))+
+  facet_wrap(~Site, ncol=2)+
   theme_bw()+
   ylab("Average Length")+
   xlab("Survey")+
 	theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
 
 ```
+
+```{r}
+sites <- unique(dm$Site)
+plot(dm$Survey[dm$Site == sites[1]], dm$Ln[dm$Site == sites[1]])
+plot(dm$Survey[dm$Site == sites[2]], dm$Ln[dm$Site == sites[2]], add=TRUE ,col="red")
+plot(dm$Survey[dm$Site == sites[3]], dm$Ln[dm$Site == sites[3]], add=TRUE ,col="orange")
+plot(dm$Survey[dm$Site == sites[4]], dm$Ln[dm$Site == sites[4]], add=TRUE ,col="yellow")
+plot(dm$Survey[dm$Site == sites[5]], dm$Ln[dm$Site == sites[5]], add=TRUE ,col="green")
+plot(dm$Survey[dm$Site == sites[6]], dm$Ln[dm$Site == sites[6]], add=TRUE ,col="blue")
+
+```
+
+```{r}
+stripchart(Ln~Survey+Site,data=dm, 
+           method="jitter",vertical=TRUE, col=1:6, pch=16,
+           group.names=
+             apply(expand.grid(c(paste("Site",1:6,sep="")),c(1:9,1:9)),
+                   1, function(x){
+                     paste(x[1],x[2])
+                   }))
+
+```
+
 
 #dormancy within a season is preceded or followed by what stage class
 ```{r}
@@ -2421,12 +2552,65 @@ nrow(beforeandafterstage[beforeandafterstage$outbefore=="R",])/
 ```
 
 
-Total AGG per plot
+Total AGG per plot per year
 ```{r}
+
+#dm is any tags with some length at some point
 
 #levels(dm$Site) <- gsub("Cebolla Mid", "1", levels(dm$Site))
 #levels(dm$Site) <- gsub("Cebolla North", "2",levels(dm$Site))
 
+surveys <- unique(dm$Survey)
+surveys[1:9]
+surveys[10:18]
+
+dm.2014 <- dm[dm$Survey %in% surveys[1:9],]
+dm.2015 <- dm[dm$Survey %in% surveys[10:18],]
+
+
+sum.agg.2014 <- lapply(split(dm.2014,dm.2014$Site), function(y){
+  out <- lapply(split(y,y$Survey), function(x){
+     c(PercentAGG = length(unique(x$tag[x$Ln>0]))/length(unique(y$tag)),
+    PercentFl = length(unique(x$tag[x$Fl == 1]))/length(unique(y$tag)),
+    PercentBr = length(unique(x$tag))/length(unique(y$tag)),
+    TotalFr = sum(x$Fr),
+    Site = unique(y$Site),
+    Survey = unique(x$Survey))
+  })
+  do.call(rbind,out)
+})
+sum.agg.2014[[1]]
+
+sum.agg.2015 <- lapply(split(dm.2015,dm.2015$Site), function(y){
+  out <- lapply(split(y,y$Survey), function(x){
+     c(PercentAGG = length(unique(x$tag[x$Ln>0]))/length(unique(y$tag)),
+    PercentFl = length(unique(x$tag[x$Fl == 1]))/length(unique(y$tag)),
+    PercentBr = length(unique(x$tag))/length(unique(y$tag)),
+    TotalFr = sum(x$Fr),
+    Site = unique(y$Site),
+    Survey = unique(x$Survey))
+  })
+  do.call(rbind,out)
+})
+sum.agg.2015[[1]]
+
+all.summary14 <- do.call(rbind, sum.agg.2014)
+all.summary15 <- do.call(rbind, sum.agg.2015)
+all.summary <- data.frame(rbind(all.summary14,all.summary15))
+all.summary <- all.summary[all.summary$PercentAGG>0,]
+
+all.sum.mean <- tapply(all.summary$PercentAGG, all.summary$Survey, mean)
+```
+
+```{r}
+plot(all.summary$Survey, all.summary$PercentAGG, pch=16, las=2,xlab="",ylab="Percent")
+points(all.summary$Survey, all.summary$PercentFl,col="red")
+
+
+stripchart(all.summary$Survey, all.summary$PercentAGG, method="jitter")
+```
+
+```{r}
 sum.agg <- aggregate(dm$X, dm[,c("Plot","Site","Survey")],
           FUN = function(x){
             length(x)
@@ -2447,7 +2631,7 @@ plotnum$x[plotnum$Site == "15"] <- 4
 ```{r}
 ggplot(sum.agg, aes(Survey, x, group = Site))+
   stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
+ # stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
   facet_grid(~Site)+
   theme_bw()+
   ylab("Average AGG per plot")+
@@ -2954,5 +3138,22 @@ ggplot(tags.seed, aes(Survey, Ln, group = Site))+
 
 dm.pva <- subset(merge(dm, dm, by = c("Site","Plot","X")), SurveyNum.x == SurveyNum.y - 1)
 
+
+```
+
+
+Figure for Becky annual report 01232018
+```{r}
+alive.byyear <- aggregate(length~year, data=alive[alive$AsMi_site_id>3,],
+                          FUN= sum)
+
+ggsave("Q:/Research/MEDL_folder/AsMi_yr.jpg",device="jpeg",
+ggplot(alive.byyear, aes(year,length))+
+  geom_line(colour="blue")+
+  ggtitle("Astragalus microcymbus")+
+  theme_classic()+
+  ylab("Total Population"))
+  
+write.csv(alive.byyear,"Q:/Research/MEDL_folder/AsMi_yr.csv")
 
 ```

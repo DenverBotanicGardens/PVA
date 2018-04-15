@@ -1,0 +1,372 @@
+---
+title: "GJAM_forAsMi"
+author: "Michelle DePrenger-Levin"
+date: "March 29, 2018"
+output: html_document
+---
+
+
+Yij ??? ?? ??? GiSiFi  ??? 
+X - -- > 
+
+Where i = life stage, seed < seedling < vegetative < reproductive and j = plot (5: 5 plots, 15: 4, 19: 5, 26: 5)
+X is environmental vector, soil covariates, 
+G is growth, S is survival, F is fecundity
+ 
+
+
+```{r}
+#install.packages("gjam")
+library(gjam)
+
+```
+
+```{r}
+require(rjags)
+require(coda)
+require(igraph)
+```
+
+#Subsample AsMi data for testing
+````{r}
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))-1
+rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
+                     currentyr,"_asmi/RawData_",
+                     currentyr, ".csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
+
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+
+table(asmi.raw$year, asmi.raw$AsMi_site_id)
+table(asmi.raw$year, asmi.raw$AsMi_plot_id)
+table(asmi.raw$Browsing...Status)
+#asmi.raw <- transform(asmi.raw, year = as.numeric(year))
+
+table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
+
+# one blank row at the end of the csv download
+asmi.raw[asmi.raw$status == "",]
+asmi.raw <- asmi.raw[asmi.raw$status != "",]
+asmi.raw$status <- factor(asmi.raw$status)
+table(asmi.raw$status)
+
+#reset factors of browsing to eliminate " "
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
+
+#reset factors for fence
+asmi.raw$fence <- factor(asmi.raw$fence)
+table(asmi.raw$fence)
+
+
+#select subset of tags from each plot
+tags <- split(asmi.raw$AsMi_tag_id, asmi.raw$AsMi_plot_id)
+str(tags)
+#Just keep 20% of 
+asmi.tagstokeep <- lapply(tags, function(x){
+  numkeep <- 0.2*length(x)
+  tagsout <- sample(x,numkeep, replace = FALSE)
+  tagsout
+})
+keeptags <- do.call(c,asmi.tagstokeep)
+asmi.toshare <- asmi.raw[asmi.raw$AsMi_tag_id %in% keeptags, -15]
+
+save(asmi.toshare, file="P:/My Documents/BDA_Spring2018/AsMi_subset.Rda")
+
+load("P:/My Documents/BDA_Spring2018/AsMi_subset.Rda")
+asmi.climate<-read.csv("P:/hackathon/GitPVA/datasets/asmi.c.csv")
+
+```
+
+
+Unkonwn mean and variance
+```{r}
+set.seed(123423)
+N <- 1000
+x <- rnorm(N, 0, 5)
+
+#JAGS syntax
+model1.string <-"
+  model {
+    for(i in 1:N){
+      x[i] ~ dnorm(mu, tau) # tau is precision, specify the model tau is reciprocol of the variation. 
+    }
+    mu ~ dnorm(0, 0.0001) #prior, non-informative, want below 100
+    tau <- pow(sigma, -2) #- 2, prior, deterministic instead of distribution, raise sigma to the -2 power
+    sigma~dunif(0,100) #prior
+  }
+"
+
+model1.spec <- textConnection(model1.string)
+
+#pass rjags (the model, data, and options) to run four MCMC chains 
+jags <- jags.model(model1.spec,
+                   data=list('x'=x,
+                             'N'=N),
+                   n.chains=4,
+                   n.adapt=100)
+
+update(jags, 1000)
+
+jags.samples(jags,
+             c('mu','tau'),
+             1000)
+
+```
+
+
+Example 2  
+```{r, eval=FALSE}
+sigma     <- c(15,10,16,11, 9,11,10,18)
+schoolobs <- c(28,8, -3, 7,-1, 1,18,12)
+model.sat.text<-"
+  model {
+    for(i in 1:N) {
+    schoolmean[i] ~ dnorm(mu,itau)
+    thes[i] <- 1/pow(sigma[i],2)
+    schoolobs[i] ~ dnorm(schoolmean[i],thes[i])
+    }
+ 
+  mu ~ dnorm(0,alpha)
+  alpha <- .01
+  itau   ~ dgamma(1e-3,pow(15,2)*1e-3)
+  tau <- pow(1/itau,1/2)
+}
+"
+model.sat.spec<-textConnection(model.sat.text)
+
+gr<-graph.formula("N(0,0.01)"-+"mu",
+                  "mu"-+"N(0,1/tau)", 
+                  "N(0,1/tau)"-+"m1", 
+                  "N(0,1/tau)"-+"m2", 
+                  "N(0,1/tau)"-+"m8",
+                  "m1"-+"N(0,1/simga21)", 
+                  "m2"-+"N(0,1/simga22)",
+                  "m8"-+"N(0,1/simga28)", 
+                  "N(0,1/simga21)"-+"y1",
+                  "N(0,1/simga22)"-+"y2",  
+                  "N(0,1/simga28)"-+"y8")
+
+
+lo<-data.frame(x=c(2,2,2,1,2,3,1,2,3,1,2,3),y=c(6,5,4,3,3,3,2,2,2,1,1,1))
+plot(gr, 
+     layout=layout.reingold.tilford(gr), 
+     edge.arrow.size=.25
+     )
+```
+
+
+<https://www4.stat.ncsu.edu/~reich/st740/Computing2.pdf>    
+Blocked Gibbs samples: put highly-correltated parameters in 'the block' improve convergence and mixing.   
+
+<https://github.com/nthobbs50/BayesLabs/blob/master/Labs/JAGS_Primer/JAGSPrimer.pdf>   
+    - linear: per-capita rate of population growth ~ size of population (to derive the logistic equation.)
+    
+r - intercept, intrinsic rate of increase,
+$\frac{r}{K}$ strngth of feedback from population size to population growth rate. K is carrying capcity is when $\frac{r}{K}$ = 0   
+
+for loops take place of product symbol, $\prod_{i=1}^n$, in the total likelihood   
+    mu[2] <- r-$\frac{r}{K} * x[1]    
+    y[1] ~ dnorm(mu[1], tau)   
+    mu[2] <- r-$\frac{r}{K} * x[2]     
+    ...    
+    mu[n] <- r-$\frac{r}{K} * x[n]   
+    y[n] ~ dnorm(mu[n], tau)
+    
+
+```{r}
+model.JAGSPrimer <- "
+model{
+  #priors
+  K ~ dgamma(0.001,0.001)
+  r ~ dgamma(0.001,0.001)
+  tau ~ dgamma(0.001, 0.001) #precision
+  sigma <- 1/sqrt(tau) #sd from precision
+  #likelihood
+  for(i in 1:n){
+    mu[i] <- r-r/k * x[i] #x is data on N #deterministic model
+    y[i] ~ dnorm(mu[i],tau)
+  }
+}"
+
+model.JAGSPrimer.out <-textConnection(model.JAGSPrimer)
+str(model.JAGSPrimer.out)
+```
+Exercise 3
+```{r}
+
+for(i in 1:length(x[])){
+  b[i] ~ dnorm(0, 10E-6)
+}
+
+```
+
+
+specify priors in JAGS   
+   
+randomVariable ~ distribution(parameter1, parameter2)    
+mu ~ dnorm(mean, tau) #must calculate sigma from tau if want posterior on sigma   
+for dlnorm tau is precision on log scale   
+    
+Can use    
+     sigma ~ dunif(0,100)
+     tau <- 1/sigma^2   
+   
+
+Difficult to converge $\tau$ using flat prior gamma($\tau$|.001,.001)   
+min() and max() to keep values from NA, divide by zero or something   
+
+
+
+
+#AsMi 
+
+v: left eigenvector associated with $\lambda$   
+w: right eigenvector associated with $\lambda$
+
+```{r}
+currentyr <- 2017
+rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
+                     currentyr,"_asmi/RawData_",
+                     currentyr, ".csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
+
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+
+table(asmi.raw$year, asmi.raw$AsMi_site_id)
+table(asmi.raw$year, asmi.raw$AsMi_plot_id)
+table(asmi.raw$Browsing...Status)
+table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
+
+# one blank row at the end of the csv download
+asmi.raw[asmi.raw$status == "",]
+asmi.raw <- asmi.raw[asmi.raw$status != "",]
+asmi.raw$status <- factor(asmi.raw$status)
+table(asmi.raw$status)
+
+#reset factors of browsing to eliminate " "
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
+
+#reset factors for fence
+asmi.raw$fence <- factor(asmi.raw$fence)
+table(asmi.raw$fence)
+```
+
+Ahh
+
+
+```{r}
+
+
+# Survival 
+
+sigma <- 1
+
+
+
+```
+
+
+Graham Frank's asmi data:   
+Do I need to zip it or something?
+<https://www.r-bloggers.com/processing-abi-fsa-files-in-r-part-1/>    
+<https://github.com/plantarum/binner>  AFLPs but microsats 'also planned' but stopped in 2014      
+<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4839125/> Fragman - r package for fragment analysis
+```{r}
+library(seqinr)
+
+read.fsa <- function(files = NULL, path = "./", sig.channel = 1:3, lad.channel = 105, pretrim = FALSE,
+                     posttrim = ".fsa", thresh = -100, verbose = TRUE){
+
+  if(is.null(files))
+    files <- list.files(path, pattern = "\\.fsa$", full.names = TRUE)
+  else
+    files <- paste(path, files, sep = "")
+
+  res <- do.call(rbind, lapply(files, function(file) {
+    if (verbose) message(file)
+    abif <- read.abif(file)
+    tag <- tag.trimmer(basename(file), pretrim, posttrim)
+    
+    lad.dat <- abif$Data[[paste('DATA.', lad.channel, sep='')]]
+    
+    res1 <- data.frame(tag = as.character(rep(tag, length(lad.dat))),
+                       chan = as.character(rep("standard", length(lad.dat))),
+                       time = as.numeric(1:length(lad.dat)),
+                       peak = as.numeric(lad.dat))
+    
+    for (i in sig.channel) {
+      chan.dat <- abif$Data[[paste('DATA.', i, sep='')]]
+      res1 <- rbind(res1, data.frame(tag = as.character(rep(tag, length(chan.dat))),
+                                     chan = as.character(rep(i, length(chan.dat))),
+                                     time = as.numeric(1:length(chan.dat)),
+                                     peak = as.numeric(chan.dat)))
+    }
+    res1
+  }))
+    
+  if (thresh > -10) res <- subset(res, peak > thresh)
+  return(res)
+}
+
+tag.trimmer <- function(x, pretrim = FALSE, posttrim = FALSE) {
+  if(! is.na(pretrim)) {
+    x <- sub(paste("^", pretrim, sep = ""), "", x)
+  }
+  if(! is.na(posttrim)){
+    x <- sub(paste(posttrim, "$", sep = ""), "", x)
+  }
+  x
+}
+
+#sig.channel is a vector of the DATA channels to read from the fsa file. I'm using FAM dye, which gets recorded in channel 1. lad.channel is the DATA channel where the size standard is found. We use the orange dye for the ladder, which is in channel 105. pretrim and posttrim are conveniences, for removing leading and trailing strings from the filenames, via tag.trimmer.
+
+fsa <- read.fsa(path ="Q:/Research/Lab/Microsatellites/Projects/Asmi/4-30-15 Graham diluted plate/even wells/",
+                sig.channel = 1,
+                pretrim = "AFLP.*AFLP_", posttrim = "-5_Frag.*fsa")   
+
+head(fsa)
+
+for(i in unique(fsa$tag)){
+  plot(peak ~ time, data = subset(fsa, tag == i & chan == "standard"), 
+       col = "orange", type = 'l', ylim = c(0, 4000), xlim = c(700, 4000))
+points(peak ~ time, data = subset(fsa, tag == i & chan == "1"), 
+           col = "blue", type = 'l')
+}
+
+plot(peak ~ time, data = subset(fsa, tag == "001_H02_A.17.fsa" & chan == "standard"), 
+       col = "orange", type = 'l', ylim = c(0, 4000), xlim = c(700, 4000))
+points(peak ~ time, data = subset(fsa, tag == "QCWR-25" & chan == "1"), 
+           col = "blue", type = 'l')
+
+#Next up is finding the peaks in each channel, matching up the size standard peaks to the known values, and using that to convert the rest of the peaks from time to base-pairs.
+```
+
+```{r}
+X<- matrix(c(rep(1,3),3,5,7),3,2)
+y<- c(3,6,2) 
+
+crossprod(X)
+crossprod(X,y)
+
+?solve
+solve(crossprod(X))
+
+solve(matrix(1:4,2,2))
+
+(10/14)*1.02
+
+(20*(10/14))/14
+
+solve(matrix(c(3,15,15,83),2,2))
+
+
+
+```
