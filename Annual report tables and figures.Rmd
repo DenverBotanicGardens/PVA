@@ -1347,6 +1347,98 @@ mean(creekyear$Precip[creekyear$Creek == "South Beaver"])
 mean(creekyear$Precip)
 ```
 
+#AIC with climate and biotic variables   
+```{r}
+#need wide asmi.c climate  
+library(data.table)
+asmi.c2 <-within(asmi.c, Date <- sprintf("%d-%02d", Prev12, Month))
+asmi.c2$Date <- as.Date(paste(asmi.c2$Date, 1, sep="-"), "%Y-%m-%d") 
+asmi.c.wide <- melt(asmi.c2, id = c("Site","Plot","Creek","Site.1","Date"))
+foo <- dcast(asmi.c.wide, Date+Site+Plot~variable, max )
+
+
+asmi.c.ps.asmi <- merge(foo, ps.asmi, by.x = c("Plot","Site","Prev12"),
+                        by.y = c("Plot","Site","Year"))
+logtrans <- c("Total.Alive", "X..Browsed",
+              "X..Flowered.1","X..Flowered","X..Dormant","Total.Fruit")
+
+log.t.cols <- do.call(data.frame, lapply(asmi.c.ps.asmi[,logtrans], function(x){
+  log(x + 1)
+}))
+names(log.t.cols) <- sapply(logtrans, function(x) paste(x, "log", sep=""))
+asmi.c.ps.asmi <- data.frame(asmi.c.ps.asmi, log.t.cols)
+                     
+
+head(asmi.c.ps.asmi)
+
+
+asmi.c.ps.asmi <- subset(merge(asmi.c.ps.asmi, asmi.c.ps.asmi,
+                               by = c("Plot","Site")),
+                         Year.x == Year.y -1)
+
+```
+
+
+
+```{r}
+#Candidate models  
+lm1 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
+            Total.Fruitlogtransformed.x +  # fruit previous year 
+            X..Flowered.y, # flowering current year (how many strong/big reproductive)
+          data=asmi.c.ps.asmi)
+#only fruit last year
+lm2 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x, data=asmi.c.ps.asmi)
+# only browsed last year
+lm3 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, data=asmi.c.ps.asmi)
+# nothing
+lm4 <- lm(Total.Alivelogtransformed.y ~ 1, data=asmi.c.ps.asmi)
+# lm1 also alive last year
+lm5 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
+            X..Browsedarcsinsqrttransformed.x +
+            Total.Fruitlogtransformed.x + X..Flowered.y, 
+          data=asmi.c.ps.asmi)
+# lm4 and browsed this year
+lm6 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
+            X..Browsedarcsinsqrttransformed.x +
+            Total.Fruitlogtransformed.x + X..Flowered.y +
+            X..Browsedarcsinsqrttransformed.y, data=asmi.c.ps.asmi)
+# and alive given browsed last year
+lm7 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+ #total AGG last year
+            X..Browsedarcsinsqrttransformed.x + #amount of damage last year (that would stress)
+            Total.Alivelogtransformed.x*X..Browsedarcsinsqrttransformed.x + #The total AGG given amount of stress
+            Total.Fruitlogtransformed.x + X..Flowered.y +
+            X..Browsedarcsinsqrttransformed.y, data=asmi.c.ps.asmi)
+# only fenced
+lm8 <- lm(Total.Alivelogtransformed.y ~ Fence.x, data=asmi.c.ps.asmi)
+# browsed last year, fruit this year
+lm9 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
+            Total.Fruitlogtransformed.x,  # fruit previous year 
+          data=asmi.c.ps.asmi)
+# browsed last year and fence
+lm10 <- lm(Total.Alivelogtransformed.y ~ 
+             X..Browsedarcsinsqrttransformed.x + Fence.x, # browse stress prev yr
+          data=asmi.c.ps.asmi)
+# fruit last year flower this year
+lm11 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
+            X..Flowered.y, # flowering current year (how many strong/big reproductive)
+          data=asmi.c.ps.asmi)
+# flower percentthis year
+lm12 <- lm(Total.Alivelogtransformed.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
+          data=asmi.c.ps.asmi)
+
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+
+```
+
+
 Seasons    
 Winter: December-March (12-3)    
 Spring/summer: April-July (4-7)    
