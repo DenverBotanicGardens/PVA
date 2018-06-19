@@ -1350,12 +1350,27 @@ mean(creekyear$Precip)
 #AIC with climate and biotic variables   
 ```{r}
 #need wide asmi.c climate  
+library(reshape2)
 library(data.table)
 asmi.c2 <-within(asmi.c, Date <- sprintf("%d-%02d", Prev12, Month))
 asmi.c2$Date <- as.Date(paste(asmi.c2$Date, 1, sep="-"), "%Y-%m-%d") 
-asmi.c.wide <- melt(asmi.c2, id = c("Site","Plot","Creek","Site.1","Date"))
-foo <- dcast(asmi.c.wide, Date+Site+Plot~variable, max )
+asmi.c.wide <- melt(asmi.c2, id = c("Site","Plot","Creek","Site.1","Date",
+                                    "Year","Month","Prev12","season"))
+foo <- dcast(asmi.c.wide, Date+Site+Plot+Creek+Year+Prev12+Month~variable, max )
 
+foo[,4:9] <- lapply(foo[,4:9], function(x) as.numeric(as.character(x)))
+
+foo1 <- melt(foo[,1:9], id.vars = c("Month","Prev12","Site","Plot","Date","Year"),
+                 variable.name = "climate", value.name = "climate_val")
+foo2 <- dcast(foo1, Plot+Prev12+Site+Month+Date~climate, max)
+
+# now have precip, tmin, and tmax as months over the years. Are the years for Prev12 correct?
+foo3.precip <- dcast(foo2, Plot+Prev12+Site~Month, max)
+foo3.tmin <- dcast(foo2[,-c(7:8)], Plot+Prev12+Site~Month, max)
+foo3.tmax <- dcast(foo2[,-c(6,8)], Plot+Prev12+Site~Month, max)
+
+
+ps.asmi$X..Flowered.1[is.na(ps.asmi$X..Flowered.1)] <- 0
 
 asmi.c.ps.asmi <- merge(foo, ps.asmi, by.x = c("Plot","Site","Prev12"),
                         by.y = c("Plot","Site","Year"))
@@ -1367,63 +1382,62 @@ log.t.cols <- do.call(data.frame, lapply(asmi.c.ps.asmi[,logtrans], function(x){
 }))
 names(log.t.cols) <- sapply(logtrans, function(x) paste(x, "log", sep=""))
 asmi.c.ps.asmi <- data.frame(asmi.c.ps.asmi, log.t.cols)
-                     
 
-head(asmi.c.ps.asmi)
-
+indx <- c(3,5:9)
+asmi.c.ps.asmi[indx] <- lapply(asmi.c.ps.asmi[indx], function(x) as.numeric(as.character(x)))
 
 asmi.c.ps.asmi <- subset(merge(asmi.c.ps.asmi, asmi.c.ps.asmi,
                                by = c("Plot","Site")),
                          Year.x == Year.y -1)
 
+head(asmi.c.ps.asmi)
 ```
 
 
-
+#Climate and monthly weather 
 ```{r}
 #Candidate models  
-lm1 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
+lm1 <- lm(Total.Alivelog.y ~ Total.Alivelog.y+X..Browsedlog.y+X..Floweredlog.y+
+            Fence.x+Total.Fruitlog.y+X..Flowered.1log.x+Total.Fruitlog.x,
           data=asmi.c.ps.asmi)
 #only fruit last year
-lm2 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x, data=asmi.c.ps.asmi)
+lm2 <- lm(Total.Alivelog.y ~ Total.Fruitlogtransformed.x, data=asmi.c.ps.asmi)
 # only browsed last year
-lm3 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, data=asmi.c.ps.asmi)
+lm3 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x, data=asmi.c.ps.asmi)
 # nothing
-lm4 <- lm(Total.Alivelogtransformed.y ~ 1, data=asmi.c.ps.asmi)
+lm4 <- lm(Total.Alivelog.y ~ 1, data=asmi.c.ps.asmi)
 # lm1 also alive last year
-lm5 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
+lm5 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+
             X..Browsedarcsinsqrttransformed.x +
             Total.Fruitlogtransformed.x + X..Flowered.y, 
           data=asmi.c.ps.asmi)
 # lm4 and browsed this year
-lm6 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
+lm6 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+
             X..Browsedarcsinsqrttransformed.x +
             Total.Fruitlogtransformed.x + X..Flowered.y +
             X..Browsedarcsinsqrttransformed.y, data=asmi.c.ps.asmi)
 # and alive given browsed last year
-lm7 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+ #total AGG last year
+lm7 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+ #total AGG last year
             X..Browsedarcsinsqrttransformed.x + #amount of damage last year (that would stress)
             Total.Alivelogtransformed.x*X..Browsedarcsinsqrttransformed.x + #The total AGG given amount of stress
             Total.Fruitlogtransformed.x + X..Flowered.y +
             X..Browsedarcsinsqrttransformed.y, data=asmi.c.ps.asmi)
 # only fenced
-lm8 <- lm(Total.Alivelogtransformed.y ~ Fence.x, data=asmi.c.ps.asmi)
+lm8 <- lm(Total.Alivelog.y ~ Fence.x, data=asmi.c.ps.asmi)
 # browsed last year, fruit this year
-lm9 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
+lm9 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
             Total.Fruitlogtransformed.x,  # fruit previous year 
           data=asmi.c.ps.asmi)
 # browsed last year and fence
-lm10 <- lm(Total.Alivelogtransformed.y ~ 
+lm10 <- lm(Total.Alivelog.y ~ 
              X..Browsedarcsinsqrttransformed.x + Fence.x, # browse stress prev yr
           data=asmi.c.ps.asmi)
 # fruit last year flower this year
-lm11 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
+lm11 <- lm(Total.Alivelog.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
             X..Flowered.y, # flowering current year (how many strong/big reproductive)
           data=asmi.c.ps.asmi)
 # flower percentthis year
-lm12 <- lm(Total.Alivelogtransformed.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
+lm12 <- lm(Total.Alivelog.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
           data=asmi.c.ps.asmi)
 
 lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
