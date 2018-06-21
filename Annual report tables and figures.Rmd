@@ -24,6 +24,7 @@ library(RCurl)
 library(prism)
 library(rgdal)
 library(raster)
+#library(data.table)
 ```
 
 Remove all variables, keep functions
@@ -1208,6 +1209,10 @@ get_prism_monthlys(type="ppt", mon = 5, keepZip = FALSE, years = 2002)
 get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 2006)
 get_prism_monthlys(type="ppt", mon = 10, keepZip = FALSE, years = 2006)
 get_prism_monthlys(type="ppt", mon = 12, keepZip = FALSE, years = 2012)
+
+#get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = 1981)
+#get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = 1981)
+#get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = 1981)
 ```
 
 
@@ -1220,9 +1225,6 @@ asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/
 asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
                                      proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
                        CRS("+proj=longlat +datum=WGS84"))
-
-#All AsMi plot points
-#coordinates(asmi.ll)
 
 asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
@@ -1273,7 +1275,7 @@ asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'),
 asmi.c <- asmi.climate[,-2]
 
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
-plots.site$Creek <- "South Beaver"
+plots.site$Creek <- "South Beaver"b
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
@@ -1282,6 +1284,11 @@ names(asmi.c) <- c("Plot","Site","Creek",names(asmi.c)[4:length(asmi.c)])
 #Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
 asmi.c$Prev12 <- asmi.c$Year
 asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
+
+head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)
+
+
+
 
 asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
@@ -1350,30 +1357,52 @@ mean(creekyear$Precip)
 #AIC with climate and biotic variables   
 ```{r}
 #need wide asmi.c climate  
-library(reshape2)
-library(data.table)
-asmi.c2 <-within(asmi.c, Date <- sprintf("%d-%02d", Prev12, Month))
-asmi.c2$Date <- as.Date(paste(asmi.c2$Date, 1, sep="-"), "%Y-%m-%d") 
-asmi.c.wide <- melt(asmi.c2, id = c("Site","Plot","Creek","Site.1","Date",
-                                    "Year","Month","Prev12","season"))
-foo <- dcast(asmi.c.wide, Date+Site+Plot+Creek+Year+Prev12+Month~variable, max )
+#asmi.c2 <-within(asmi.c, Date <- sprintf("%d-%02d", Prev12, Month))
+asmi.c2 <- asmi.c
+asmi.c2$Date <- as.Date(paste(sprintf("%d-%02d", asmi.c2$Prev12, asmi.c2$Month), 
+                              1, sep="-"), "%Y-%m-%d") 
 
-foo[,4:9] <- lapply(foo[,4:9], function(x) as.numeric(as.character(x)))
+names(asmi.c2) <- c(names(asmi.c2)[1:4], "SiteName", names(asmi.c2)[6:length(asmi.c2)])
 
-foo1 <- melt(foo[,1:9], id.vars = c("Month","Prev12","Site","Plot","Date","Year"),
-                 variable.name = "climate", value.name = "climate_val")
-foo2 <- dcast(foo1, Plot+Prev12+Site+Month+Date~climate, max)
+#Need to cast by month make years stick for Prev12 so 8:12 to with next year 
+# This gets me a 'variable' column with tmin, tmax, Precip, and a 'value' column with the value
+names(asmi.c2)
 
-# now have precip, tmin, and tmax as months over the years. Are the years for Prev12 correct?
-foo3.precip <- dcast(foo2, Plot+Prev12+Site~Month, max)
-foo3.tmin <- dcast(foo2[,-c(7:8)], Plot+Prev12+Site~Month, max)
-foo3.tmax <- dcast(foo2[,-c(6,8)], Plot+Prev12+Site~Month, max)
+
+## maybe need to cast 1:7 for the current year, 8:12 for the next year and cbind?
+asmi.c[asmi.c$Year<1982,]
+names(asmi.c)[5] <- "SiteName"
+asmi.cast <- melt(asmi.c, 
+                    id = c("Plot","Site","Creek","SiteName",
+                           "Year","Month","Prev12"))
+asmi.cast <- dcast(asmi.cast, Plot+Site+Creek+SiteName+Year+Prev12~Month+variable)
+
+asmi.cast1.7 <- asmi.cast[asmi.cast$Year==asmi.cast$Prev12,]
+asmi.cast8.12 <- asmi.cast[asmi.cast$Year!=asmi.cast$Prev12,]
+
+asmi.cast.foo <- merge(asmi.cast1.7[,1:27],
+                       asmi.cast8.12[,c(1:6,28:length(asmi.cast8.12))], 
+                       by= c("Plot", "Site", "Creek", "SiteName","Prev12"))
+
+#asmi.cast1.7 <- asmi.cast[!is.na(asmi.cast$`1_Precip`),]
+#asmi.cast8.12 <- asmi.cast[!is.na(asmi.cast$`10_Precip`),]
+
+# The first row of asmi.cast1.7 should go away beause I don't have matching 1979 data for the months 8:12. Get rid of first year for each plot of asmi.cast1.7 and last row of asmi.cast8:12 and cbind. 
+
+tail(asmi.cast1.7)
+tail(asmi.cast8.12)
+tail(asmi.cast.foo)
+
+```
+
+```{r}
 
 
 ps.asmi$X..Flowered.1[is.na(ps.asmi$X..Flowered.1)] <- 0
 
-asmi.c.ps.asmi <- merge(foo, ps.asmi, by.x = c("Plot","Site","Prev12"),
-                        by.y = c("Plot","Site","Year"))
+#Merging in two rows for each Plot and Site for months 1:7 and another for months 8:12! Yargg
+asmi.c.ps.asmi <- merge(ps.asmi, foo[,-6],  by.y = c("Plot","Site","Prev12"),
+                        by.x = c("Plot","Site","Year"))
 logtrans <- c("Total.Alive", "X..Browsed",
               "X..Flowered.1","X..Flowered","X..Dormant","Total.Fruit")
 
@@ -1383,12 +1412,9 @@ log.t.cols <- do.call(data.frame, lapply(asmi.c.ps.asmi[,logtrans], function(x){
 names(log.t.cols) <- sapply(logtrans, function(x) paste(x, "log", sep=""))
 asmi.c.ps.asmi <- data.frame(asmi.c.ps.asmi, log.t.cols)
 
-indx <- c(3,5:9)
-asmi.c.ps.asmi[indx] <- lapply(asmi.c.ps.asmi[indx], function(x) as.numeric(as.character(x)))
-
 asmi.c.ps.asmi <- subset(merge(asmi.c.ps.asmi, asmi.c.ps.asmi,
                                by = c("Plot","Site")),
-                         Year.x == Year.y -1)
+                         Prev12.x == Prev12.y -1)
 
 head(asmi.c.ps.asmi)
 ```
