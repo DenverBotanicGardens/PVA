@@ -1397,7 +1397,12 @@ ggplot(asmimerg, aes(as.factor(Site),X..Floweredlogtransformed))+
   geom_rug()+
   theme_bw()
 
-ggplot(asmimerg, aes(as.factor(Site),X..Flowered))+
+ggplot(asmimerg, aes(as.factor(Site),X..Browsedarcsinsqrttransformed))+
+  geom_boxplot()+
+  geom_rug()+
+  theme_bw()
+
+ggplot(asmimerg, aes(as.factor(Site),X..Browsed))+
   geom_boxplot()+
   geom_rug()+
   theme_bw()
@@ -1416,33 +1421,63 @@ asmimerglag <- subset(merge(asmimerg, asmimerg,
                       Year.x == Year.y-1)
 
 namesasmi <- names(asmimerglag)
-exclude <- c("Fence","Plot","Site","Year","Creek","SiteName",
-             "Mar","Apr","May","Jun","Jul","Aug","Sep","logtrans","Plants",
+exclude <- c("Fence","Plot","Site","Year","Creek","SiteName","Dormant",
+             "Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","logtrans","Plants",
+             "arcsinsqrttransformed","Browsed",
              "Flowered.1")  #flowered.1 is the number of reproductive, other is percent
 namesasmi[-grep(paste(exclude, collapse="|"),
                       namesasmi)]
 
-#All combinations
+#All combinations for Total.Alive.x
 x<-namesasmi[-grep(paste(exclude, collapse="|"),
                    namesasmi)]
-x<-x[]
-ind <- which(namesasmi %in% x)
-variables <- lapply(1:length(x), function(pick){
-  combn(x, pick)
-})
+x<-x[-1]
+#ind <- which(namesasmi %in% x)
+#variables <- lapply(1:length(x), function(pick) combn(x, pick))
 
 gc() #garbage collect, clean up memory
 
-variables
-
 # X..Flowered.x (current year); .y is previous year
-as.formula(paste("y~", paste(names(asmimerg)[25:28], collapse="+")))
+```
 
 
-(X..Flowered, data=asmimerg)
+```{r}
+lm5.alive <- lm(Total.Alive.x~.+.^2, asmimerglag[,c("Total.Alive.x",x)])
+lm1.alive <- lm(as.formula(paste("Total.Alive.x~", paste(x[5:16], collapse="+"))),
+                data=asmimerglag)
+lm2.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
+                                                x[-grep(paste(c("Flower","Fruit","Brow"),
+                                                              collapse="|"),x)])])
+lm3.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
+                                      x[-grep(paste(c("Flower","Fruit","Brow",".y"),
+                                                collapse="|"),x)])]) #Only prev 12 weather winter
+lm6.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",x)]) #Oct to Jan climate, percent flowered, fruit, percent browsed, and previous year
+lm4.alive <- lm(Total.Alive.x~.+.^2,asmimerglag[,c("Total.Alive.x",
+                                      x[-grep(paste(c("Flower","Fruit","Brow",".y"),
+                                                collapse="|"),x)])]) #only previous 12 and all interactions
+lm7.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",x[c(1:4,17:19)])]) #only biotic
+lm8.alive <- lm(Total.Alive.x~.+.^2,asmimerglag[,c("Total.Alive.x",
+                                      x[grep(paste(c("Flower","Fruit","Brow"),
+                                                collapse="|"),x)])]) #only abiotic current and last year and interactions
+lm9.alive <- lm(Total.Alive.x~.+.^2, asmimerglag[,c("Total.Alive.x",x[grep("Precip",x)])]) #only precip
+lm10.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
+          namesasmi[grep(paste(c("8_Precip","9_Precip","10_Precip","11_Precip", #fall precip
+                  "12_tmin","1_tmin","2_tmin","3_tmin", #winter min
+                  "4_Precip","5_Precip","6_Precip","7_Precip") # spring/sum precip 2015 PCA
+                  ,collapse="|"),namesasmi)])])
+
+#Winter Dec-March
+#Summer April-July
+#Fall Aug-Nov
+
+lm.list <- list(lm1.alive,lm2.alive,lm3.alive,lm4.alive,lm5.alive,
+                lm6.alive,lm7.alive,lm8.alive,lm9.alive,lm10.alive) #,lm11,lm12)
 
 
-
+(lm.results <- aictab(lm.list, modnames=c("lm1.alive","lm2.alive","lm3.alive",
+                                          "lm4.alive","lm5.alive","lm6,alive",
+                                          "lm7.alive","lm8.alive","lm9.alive",
+                                          "lm10.alive")))
 
 ```
 
@@ -3382,7 +3417,7 @@ ggplot(merge.num.season, aes(status, Percent, colour = status)) +
 
 July census     
 Size of seedlings in July, are all less than 10cm, can we use that as metric for future annual measurements?    
-Becky's comment: "For the july census…can we say that all seedlings were less than 10 cm and all re-emerging plants are greater than 10cm? I.e., can we use these data to have a cut off for the July census..kind of like we do with Scgl for reproductive vs non-reproductive? If so…then we could use this to back track and re-assess all prior years data and also use it going forward with just the July census."
+Becky's comment: "For the july census can we say that all seedlings were less than 10 cm and all re-emerging plants are greater than 10cm? I.e., can we use these data to have a cut off for the July census..kind of like we do with Scgl for reproductive vs non-reproductive? If so then we could use this to back track and re-assess all prior years data and also use it going forward with just the July census."
 
 ```{r}
 unique(merge.num.season$Survey)
