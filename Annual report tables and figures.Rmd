@@ -1713,17 +1713,16 @@ Winter: December-March (12-3)
 Spring/summer: April-July (4-7)    
 Fall: August-November (8-11)   
 ```{r}
-asmi.c$season <- "winter"
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
+asmi.c$season <- "winter"   #Dec t-1 to March t
+asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer" #April - July t
+asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"        #August to November t-1
 
-asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
-                                     grep(paste(c("tmin","tmax","Precip"),collapse="|"),
-                                          names(asmi.c), value=TRUE)], 
+asmi.c.summary <- aggregate(asmi.c[,grep(paste(c("tmin","tmax","Precip"),collapse="|"),
+                                          names(asmi.c))], 
                             asmi.c[,c("season","Creek","Prev12")],
-                            FUN = function(x) mean(x, na.rm = TRUE))
-
-head(asmi.c.summary)
+                            FUN = function(x) mean(x))
+head(asmi.c, 100)
+head(asmi.c.summary,100) #Should have spring/summer and one month for winter for 1980 :) 
 
 # currentyr-1? should it just be currentyr? or not less than currentyr? 
 season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
@@ -1736,6 +1735,59 @@ cor.plot(cor(season[,-(1:2)]), numbers=TRUE)
 
 pairs(season[,-(1:2)])
 ```
+
+
+#AIC variable selection with seasons instead of months
+```{r}
+
+meltclimateseason <- melt(asmi.c, 
+                          id = c("Plot","Site","Creek","SiteName",
+                                 "Year","season","Prev12","Month"))
+table(meltclimateseason$variable)
+
+asmi.cast.plot <- dcast(meltclimateseason, 
+                        Plot+Site+Creek+SiteName+Prev12~season+variable,mean)
+
+asmimerglagseason <- merge(ps.asmi.t, asmi.cast.plot[complete.cases(asmi.cast.plot),], 
+                           by.x = c("Plot","Site","Year"),
+                           by.y = c("Plot","Site","Prev12"))
+
+asmimerglagseason<- subset(merge(asmimerglagseason, asmimerglagseason,
+                                 by=c("Plot","Site")),
+                           Year.x == Year.y-1)
+
+```
+
+#AIC climate seasons only fo rpercent reproductive, not log transformed   
+```{r}
+per.fl <- grep("X..Flowered.1.y",names(asmimerglagseason))
+season2013 <- c("winter_t","Summer_t") #all split
+season2014 <- c("Precip") #All split
+season2015pc1 <- c("fall_P","winter_tmin","Summer_P") #non split
+season2015pc2 <- c("fall_t","winter_P") #Mast seeding
+season2016pc1 <- c("fall_tma","Summer_tmi")
+season2016pc2 <- c("fall_tma","fall_P","winter_P","winter_tma")
+season2017pc1 <- c("fall_t")
+season2017pc2 <- c("fall_P","winter_P")
+
+#Models
+# winter and summer high and low temperatures the last couple years, all interactions
+lm1 <- lm(X..Flowered.1.y ~ .+.^2, 
+          data=asmimerglagseason[,grep(paste(c("X..Flowered.1.y",season2013),
+                                             collapse="|"),names(asmimerglagseason))])
+lm2 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglagseason[,grep(paste(c("X..Flowered.1.y",season2013),
+                                             collapse="|"),names(asmimerglagseason))])
+lm3 <- lm(X..Flowered.1.y ~ .+.^2, 
+          data=asmimerglagseason[,grep(".y",
+                names(asmimerglagseason)[grep(paste(c("X..Flowered.1.y",
+                                                season2013),
+                                              collapse="|"),
+                                        names(asmimerglagseason))], value=TRUE
+                )])
+```
+
+
 
 ENM uses 75% correlated as cutoff.. what if I increased from 50% to 75%??
 ```{r}
