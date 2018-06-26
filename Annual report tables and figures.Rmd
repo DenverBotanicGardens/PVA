@@ -1777,9 +1777,11 @@ season2017pc2 <- c("fall_P","winter_P")
 lm1 <- lm(X..Flowered.1.y ~ .+.^2, 
           data=asmimerglagseason[,grep(paste(c("X..Flowered.1.y",season2013),
                                              collapse="|"),names(asmimerglagseason))])
+# winter sumer temps no interactions
 lm2 <- lm(X..Flowered.1.y ~ ., 
           data=asmimerglagseason[,grep(paste(c("X..Flowered.1.y",season2013),
                                              collapse="|"),names(asmimerglagseason))])
+# winter summer temps, only current year
 lm3 <- lm(X..Flowered.1.y ~ .+.^2, 
           data=asmimerglagseason[,grep(".y",
                 names(asmimerglagseason)[grep(paste(c("X..Flowered.1.y",
@@ -1787,6 +1789,42 @@ lm3 <- lm(X..Flowered.1.y ~ .+.^2,
                                               collapse="|"),
                                         names(asmimerglagseason))], value=TRUE
                 )])
+# winter summer temps, only current no interactions
+lm4 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglagseason[,grep(".y",
+                names(asmimerglagseason)[grep(paste(c("X..Flowered.1.y",
+                                                season2013),
+                                              collapse="|"),
+                                        names(asmimerglagseason))], value=TRUE
+                )])
+
+# winter summer temps, only last year
+lm3 <- lm(X..Flowered.1.y ~ .+.^2, 
+          data=asmimerglagseason[,c("X..Flowered.1.y",grep(".x",
+                names(asmimerglagseason)[grep(paste(season2013,
+                                              collapse="|"),
+                                        names(asmimerglagseason))], value=TRUE
+                ))])
+# winter summer temps, only last no interactions
+lm4 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglagseason[,c("X..Flowered.1.y",grep(".x",
+                names(asmimerglagseason)[grep(paste(season2013,
+                                              collapse="|"),
+                                        names(asmimerglagseason))))], value=TRUE
+                )])
+
+
+lm.list <- list(lm1,lm2,lm3,lm4) #,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+
+
 ```
 
 
