@@ -1481,6 +1481,172 @@ lm.list <- list(lm1.alive,lm2.alive,lm3.alive,lm4.alive,lm5.alive,
 
 ```
 
+#PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
+
+```{r}
+ggplot(asmimerglag, aes(X..Flowered.1.y))+
+  geom_histogram()+
+  facet_wrap(~Site)+
+  theme_bw()
+
+ggplot(asmimerglag, aes(X..Flowered.1logtransformed.y))+
+  geom_histogram()+
+  facet_wrap(~Site)+
+  theme_bw()
+
+
+head(asmimerglag[,grep("Year",names(asmimerglag))]) 
+# .x    = year t
+# .x.x  = year t
+# .y.x  = year t-1 <- refers to the actual year of the Aug:dec climate for .x 
+# .y    = year t+1
+# .x.y  = year t+1
+# .y.y  = year t <- for .y cliamte is the actual year
+
+```
+2013 report: winter temp, spring/summer temp - both PCs, all split   
+2014 report: winter precip, fall precip, spring/summer precip - both PCs, all split     
+2015 report: PC1: fall precip, winter min temp, spring/summer precip    
+             PC2: fall min, fall max, winter precip - mast seeding    
+2016 report: PC1: fall max temp, spring/summer min temp - nothing split   
+             PC2: fall min temp, fall precip, winter precip winter max temp    
+2017 report: PC1: fall min fall max    
+             PC2: fall precip, winter precip   nobody separated   
+             
+#Climate only for percent reproductive, not log transformed 
+```{r}  
+
+per.fl <- grep("X..Flowered.1.y",names(asmimerglag))
+climate.variables <- c("tmin","tmax","Precip") 
+current.climate.var <- c("tmin.y","tmax.y","Precip.y")
+climate.var.2013 <- c("12_t","1_t","2_t","3_t","4_t","5_t","6_t","7_t")
+climate.var.2014.cur <- c("Precip.y")
+climate.var.2014.both <- c("Precip")
+climate.var.2015.pc1 <- c("8_P","9_P","10_P","11_P",
+                      "12_tmi","1_tmi","2_tmi","3_tmi",
+                      "4_P","5_P","6_P","7_P")
+climate.var.2015.pc2 <- c("8_tma","9_tma","10_tma","11_tma",
+                      "8_tmi","9_tmi","10_tmi","11_tmi",
+                      "12_P","1_P","2_P","3_P")
+
+climate.var.2016.pc1 <- c("8_tma","9_tma","10_tma","11_tma",
+                          "4_tmi","5_tmi","6_tmi","7_tmi")
+
+climate.var.2016.pc2 <- c("8_tmi","9_tmi","10_tmi","11_tmi",
+                          "8_P","9_P","10_P","11_P",
+                          "12_P","1_P","2_P","3_P",
+                          "12__tma","1__tma","2__tma","3__tma")
+
+
+climate.var.2017.pc1 <- c("8_t","9_t","10_t","11_t")
+climate.var.2017.pc2 <- c("8_P","9_P","10_P","11_P",
+                          "12_P","1_P","2_P","3_P")
+
+
+#Candidate models  
+#lm1 is the current and previous year's monthly climate varaibles
+lm1 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.variables),collapse="|"),
+                                   names(asmimerglag))])
+#lm2 only recent climate
+lm2 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",current.climate.var),collapse="|"),
+                                   names(asmimerglag))])
+# only browsed last year
+#lm3 is the current and previous year's monthly climate varaibles and interactions
+lm3 <- lm(X..Flowered.1.y ~ .+.^2, 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.variables),collapse="|"),
+                                   names(asmimerglag))])
+# nothing
+#lm4 only recent climate and interactions
+lm4 <- lm(X..Flowered.1.y ~ .+.^2, 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",current.climate.var),collapse="|"),
+                                   names(asmimerglag))])
+# lm5 is 2013 variables for the last couple years
+lm5 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2013),collapse="|"),
+                                   names(asmimerglag))])
+# lm6 2013 only prev 12 months
+lm6 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,c(per.fl,grep(".y", names(asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2013),collapse="|"),
+                                   names(asmimerglag))])))])
+
+# lm6 2013 only prev 12 months of previous year, lag? 
+lm13 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,c(per.fl,grep(".x", names(asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2013),collapse="|"),
+                                   names(asmimerglag))])))])
+
+
+# lm7 2014 only prev 12
+lm7  <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2014.cur),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+# lm8 2014 both previous years
+lm8  <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2014.both),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+
+# 2015 pc1
+lm9 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2015.pc1),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+# 2015 pc2
+lm10 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2015.pc2),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+# 2016 pc1
+lm11 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2016.pc1),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+# 2016 pc2
+lm12 <- lm(X..Flowered.1.y ~ ., 
+          data=asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2016.pc2),
+                                       collapse="|"),
+                                   names(asmimerglag))])
+
+lm14 <- lm(X..Flowered.1.y ~ 1, data=asmimerglag)
+
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12,lm13, lm14)
+lm.names <- c("lm1","lm2","lm3","lm4","lm5","lm6","lm7","lm8","lm9","lm10",
+              "lm11","lm12","lm13","lm14")
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+
+```
+
+
+#Now explore model 13? Can't do all iterations. 
+```{r}
+varcol.lm6 <- grep(".y",names(asmimerglag[,grep(paste(c("X..Flowered.1.y",
+                                                 climate.var.2013),collapse="|"),
+                                                 names(asmimerglag))]))
+variables.lm6 <- lapply(1:length(varcol.lm6), function(pick) combn(varcol.lm6,pick))
+
+length(variables.lm6[[2]])
+
+
+varcol.lm13 <- grep(".x",names(asmimerglag[,grep(paste(c("X..Flowered.1.y",
+                                                 climate.var.2013),collapse="|"),
+                                                 names(asmimerglag))]))
+variables.lm13 <- lapply(1:length(varcol.lm13), function(pick) combn(varcol.lm13,pick))
+
+length(variables.lm13[[2]])
+gc()
+
+variables.lm13[[2]][,1]
+
+lm.list13 <- lapply()
+```
 
 
 #Climate and monthly weather 
