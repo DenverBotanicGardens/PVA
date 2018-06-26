@@ -1568,13 +1568,15 @@ lm5 <- lm(X..Flowered.1.y ~ .,
                                    names(asmimerglag))])
 # lm6 2013 only prev 12 months
 lm6 <- lm(X..Flowered.1.y ~ ., 
-          data=asmimerglag[,c(per.fl,grep(".y", names(asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2013),collapse="|"),
-                                   names(asmimerglag))])))])
+          data=asmimerglag[,grep(".y",grep(paste(c("X..Flowered.1.y",climate.var.2013),
+                                                 collapse="|"),
+                                   names(asmimerglag), value=TRUE), value=TRUE)])
 
 # lm6 2013 only prev 12 months of previous year, lag? 
 lm13 <- lm(X..Flowered.1.y ~ ., 
-          data=asmimerglag[,c(per.fl,grep(".x", names(asmimerglag[,grep(paste(c("X..Flowered.1.y",climate.var.2013),collapse="|"),
-                                   names(asmimerglag))])))])
+          data=asmimerglag[,c("X..Flowered.1.y",grep(".x",grep(paste(c("X..Flowered.1.y",climate.var.2013),
+                                                 collapse="|"),
+                                   names(asmimerglag), value=TRUE), value=TRUE))])
 
 
 # lm7 2014 only prev 12
@@ -1629,7 +1631,7 @@ for(i in 2:length(lm.list)){
 ```{r}
 varcol.lm6 <- grep(".y",names(asmimerglag[,grep(paste(c("X..Flowered.1.y",
                                                  climate.var.2013),collapse="|"),
-                                                 names(asmimerglag))]))
+                                                 names(asmimerglag))]), value = TRUE)
 variables.lm6 <- lapply(1:length(varcol.lm6), function(pick) combn(varcol.lm6,pick))
 
 length(variables.lm6[[2]])
@@ -1637,7 +1639,7 @@ length(variables.lm6[[2]])
 
 varcol.lm13 <- grep(".x",names(asmimerglag[,grep(paste(c("X..Flowered.1.y",
                                                  climate.var.2013),collapse="|"),
-                                                 names(asmimerglag))]))
+                                                 names(asmimerglag))]),value=TRUE)
 variables.lm13 <- lapply(1:length(varcol.lm13), function(pick) combn(varcol.lm13,pick))
 
 length(variables.lm13[[2]])
