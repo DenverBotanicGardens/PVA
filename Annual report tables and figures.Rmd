@@ -1758,6 +1758,7 @@ asmimerglagseason<- subset(merge(asmimerglagseason, asmimerglagseason,
                                  by=c("Plot","Site")),
                            Year.x == Year.y-1)
 
+save(asmimerglagseason, file = "P:/hackathon/GitPVA/datasets/asmimerglagseason.csv")
 ```
 
 #AIC climate seasons only for percent reproductive, not log transformed   
