@@ -1828,11 +1828,11 @@ for(i in 2:length(lm.list)){
 ```
 
 ```{r}
-seasonvariables <- grep(paste(c("_t","_P"), collapse="|"),
+seasonvariables.1 <- grep(paste(c("_t","_P"), collapse="|"),
                               names(asmimerglagseason), value=TRUE)
 
-seasonvariables <- lapply(1:(length(seasonvariables)-10), 
-                          function(pick) combn(seasonvariables, pick))
+seasonvariables <- lapply(1:(length(seasonvariables.1)-10), 
+                          function(pick) combn(seasonvariables.1, pick))
 
 (seasonvariables[[2]][,1])
 
@@ -1849,6 +1849,38 @@ lm.namesseason <- as.character(unlist(lapply(lm.listseason, formula)))
 for(i in 2:length(lm.listseason)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
+
+
+dim(seasonvariables[[3]])
+lm.listseason3 <- lapply(1:(dim(seasonvariables[[3]])[2]), function(x){
+  lm(X..Flowered.y ~ .,
+     data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[3]][,x])])
+})
+lm.namesseason3 <- as.character(unlist(lapply(lm.listseason3, formula)))
+(lm.results3 <- aictab(lm.listseason3, modnames=lm.namesseason3))
+
+dim(seasonvariables[[7]])
+
+
+dim(seasonvariables[[4]])
+lm.listseason4 <- lapply(1:(dim(seasonvariables[[4]])[2]), function(x){
+  lm(X..Flowered.y ~ .,
+     data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[4]][,x])])
+})
+lm.namesseason4 <- as.character(unlist(lapply(lm.listseason4, formula)))
+(lm.results4 <- aictab(lm.listseason4, modnames=lm.namesseason4))
+
+
+### TOO BIG NOW   Ctrl+Shift+C
+ dim(seasonvariables[[5]])
+# lm.listseason5 <- lapply(1:(dim(seasonvariables[[5]])[2]), function(x){
+#   lm(X..Flowered.y ~ .,
+#      data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[5]][,x])])
+# })
+# lm.namesseason5 <- as.character(unlist(lapply(lm.listseason5, formula)))
+# (lm.results5 <- aictab(lm.listseason5, modnames=lm.namesseason5))
+
+
 ```
 
 ENM uses 75% correlated as cutoff.. what if I increased from 50% to 75%??
