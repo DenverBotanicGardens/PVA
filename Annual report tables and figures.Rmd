@@ -273,12 +273,12 @@ Table1 <- data.frame(tbl1a[[3]],tbl1a[[4]],tbl1a[[5]],tbl1a[[6]])
 names(Table1) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
                    "Site 19 (5 plots)"," ","Site 26 (5 plots)"," ")
 
-#write.table(Table1, file=paste(savepath,"Table1a_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1, file=paste(savepath,"Table1a_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 Table1_Cebolla <- data.frame(tbl1a[[1]],tbl1a[[2]])
 names(Table1_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
-#write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 ```
 
@@ -328,12 +328,12 @@ Table1b <- data.frame(tbl1b[[3]],tbl1b[[4]],tbl1b[[5]],tbl1b[[6]])
 names(Table1b) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
                    "Site 19 (5 plots)"," ","Site 26 (5 plots)"," ")
 
-#write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
 Table1b_Cebolla <- data.frame(tbl1b[[1]],tbl1b[[2]])
 names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
-#write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 ```
 
 #Correlated biotic factors
@@ -485,12 +485,32 @@ AIC = -2L + 2k
   L is loglikelihood   
   k is number of parameters     
 Compare all models at the same time, instead of stepping through pairwise comparisons of tests. 
+Flawed still, too many factors/parameters, not enough data. 
+
+Just look at differences separating site and not, separate plot or not. 
+Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
 ```{r}
 
 names(ps.cor) #.x is year t, .y is t+1; Alive is AGG, Plants is AGG+dormant; X..Flowered is percent of alive flowered, X..Flowered.1 is the number of reproductive individuals 
+```
 
 
+```{r}
 require(AICcmodavg)
+
+lm1 <- lm(Total.Alivelogtransformed.y ~ Year.x, ps.cor)
+lm2 <- lm(Total.Alivelogtransformed.y ~ Year.x*Site, ps.cor)
+#lm3 <- lm(Total.Alivelogtransformed.y ~ Year.x*Creek, ps.cor) #Need add creek!
+
+
+lm.list <- list(lm1,lm2, lm3)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+
+```
+
+```{r}
 #Candidate models  
 lm1 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
             Total.Fruitlogtransformed.x +  # fruit previous year 
