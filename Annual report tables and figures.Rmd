@@ -243,8 +243,6 @@ PercentAlive <- lapply(split(alive.site, alive.site$AsMi_site_id), function(x){
 
 
 
-
-
 ```{r}
 tbl1a.1 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
 
@@ -352,6 +350,10 @@ plotdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/As
                       "_asmi/PlotSummary_",currentyr,".csv",
                       collapse = '', sep = '')
 ps.asmi <- read.csv(path.expand(plotdatapath))
+
+ps.asmi$Creek <- "SouthBeaver"
+ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla" 
+ps.asmi$Creek <- as.factor(ps.asmi$Creek)
 
 # Don't need the climate data from database, will download from PRISM
 ps.asmi <- ps.asmi[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(ps.asmi),
@@ -473,7 +475,7 @@ cortests <- apply(combn(1:cor.vars,2), 2, function(x){
 
 df.c <- do.call(rbind,cortests)
 
-#significant?
+#significant - don't worry about signficant alone or don't report at all
 df.c[df.c$P.val > 0.04,]
 
 ```
@@ -497,74 +499,61 @@ names(ps.cor) #.x is year t, .y is t+1; Alive is AGG, Plants is AGG+dormant; X..
 
 ```{r}
 require(AICcmodavg)
+library(lme4)
+library(lattice)
 
 lm1 <- lm(Total.Alivelogtransformed.y ~ Year.x, ps.cor)
-lm2 <- lm(Total.Alivelogtransformed.y ~ Year.x*Site, ps.cor)
-#lm3 <- lm(Total.Alivelogtransformed.y ~ Year.x*Creek, ps.cor) #Need add creek!
+lm2 <- lm(Total.Alivelogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
+lm3 <- lm(Total.Alivelogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
+lm4 <- lm(Total.Alivelogtransformed.y ~ Year.x*Fence.x, ps.cor)
 
-
-lm.list <- list(lm1,lm2, lm3)
+lm.list <- list(lm1,lm2, lm3, lm4)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
-
-
-```
-
-```{r}
-#Candidate models  
-lm1 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
-#only fruit last year
-lm2 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x, data=ps.cor)
-# only browsed last year
-lm3 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, data=ps.cor)
-# nothing
-lm4 <- lm(Total.Alivelogtransformed.y ~ 1, data=ps.cor)
-# lm1 also alive last year
-lm5 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y, 
-          data=ps.cor)
-# lm4 and browsed this year
-lm6 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=ps.cor)
-# and alive given browsed last year
-lm7 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x+ #total AGG last year
-            X..Browsedarcsinsqrttransformed.x + #amount of damage last year (that would stress)
-            Total.Alivelogtransformed.x*X..Browsedarcsinsqrttransformed.x + #The total AGG given amount of stress
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=ps.cor)
-# only fenced
-lm8 <- lm(Total.Alivelogtransformed.y ~ Fence.x, data=ps.cor)
-# browsed last year, fruit this year
-lm9 <- lm(Total.Alivelogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x,  # fruit previous year 
-          data=ps.cor)
-# browsed last year and fence
-lm10 <- lm(Total.Alivelogtransformed.y ~ 
-             X..Browsedarcsinsqrttransformed.x + Fence.x, # browse stress prev yr
-          data=ps.cor)
-# fruit last year flower this year
-lm11 <- lm(Total.Alivelogtransformed.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
-# flower percentthis year
-lm12 <- lm(Total.Alivelogtransformed.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
-
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
 
 #evidence ratio 
 for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
+
+
+lmer(Total.Alivelogtransformed.y ~ Year.x|Creek.x, ps.cor)  #random intercept
+xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor,
+       type = c("g","p","r"),
+       index = function(x,y) coef(lm(y~x))[1],
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
+```
+
+```{r}
+lmer(Total.Alivelogtransformed.y ~ Fence.x|Creek.x, ps.cor)  #random intercept
+xyplot(Total.Alivelogtransformed.x ~ Fence.x|as.factor(Site), ps.cor,
+       type = c("g","p"),
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
+xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor[ps.cor$Year.x > 2013,],
+       type = c("g","p","r"),
+       index = function(x,y) coef(lm(y~x))[1],
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
+#Since fencing put in, just beaver creek
+xyplot(Total.Alive.x ~ Year.x|Fence.x, 
+       ps.cor[ps.cor$Creek.x == "SouthBeaver" & ps.cor$Year.x > 2005,],
+       type = c("g","p","r"),
+       index = function(x,y) coef(lm(y~x))[1],
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
+#both sites since started Cebolla
+xyplot(Total.Alive.x ~ Year.x|Creek.x, ps.cor[ps.cor$Year.x > 2013,],
+       type = c("g","p","r"),
+       index = function(x,y) coef(lm(y~x))[1],
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
 
 ```
 
@@ -573,54 +562,15 @@ for(i in 2:length(lm.list)){
 ```{r}
 
 #Candidate models  
-lm1 <- lm(Total.Fruitlogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
-#only fruit last year
-lm2 <- lm(Total.Fruitlogtransformed.y ~ Total.Fruitlogtransformed.x, data=ps.cor)
-# only browsed last year
-lm3 <- lm(Total.Fruitlogtransformed.y ~ X..Browsedarcsinsqrttransformed.x, data=ps.cor)
-# nothing
-lm4 <- lm(Total.Fruitlogtransformed.y ~ 1, data=ps.cor)
-# lm1 also alive last year
-lm5 <- lm(Total.Fruitlogtransformed.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y, 
-          data=ps.cor)
-# lm4 and browsed this year
-lm6 <- lm(Total.Fruitlogtransformed.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=ps.cor)
-# and alive given browsed last year
-lm7 <- lm(Total.Fruitlogtransformed.y ~ Total.Alivelogtransformed.x+ #total AGG last year
-            X..Browsedarcsinsqrttransformed.x + #amount of damage last year (that would stress)
-            Total.Alivelogtransformed.x*X..Browsedarcsinsqrttransformed.x + #The total AGG given amount of stress
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=ps.cor)
-# only fenced
-lm8 <- lm(Total.Fruitlogtransformed.y ~ Fence.x, data=ps.cor)
-# browsed last year, fruit this year
-lm9 <- lm(Total.Fruitlogtransformed.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x,  # fruit previous year 
-          data=ps.cor)
-# browsed last year and fence
-lm10 <- lm(Total.Fruitlogtransformed.y ~ 
-             X..Browsedarcsinsqrttransformed.x + Fence.x, # browse stress prev yr
-          data=ps.cor)
-# fruit last year flower this year
-lm11 <- lm(Total.Fruitlogtransformed.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
-# flower percentthis year
-lm12 <- lm(Total.Fruitlogtransformed.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=ps.cor)
+lm1 <- lm(Total.Fruitlogtransformed.y ~  Year.x, ps.cor)
+lm2 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
+lm3 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
+lm4 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Fence.x, ps.cor)
+lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
+lm.list <- list(lm1,lm2,lm3,lm4,lm5)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
-
 
 #evidence ratio 
 for(i in 2:length(lm.list)){
@@ -802,7 +752,7 @@ table(cebolla$AsMi_site_id,cebolla$year)
 sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
 table(sbc$AsMi_site_id,sbc$year)
 
-#remove plot 598 from SBC, it was added so late.. or do all plots on their own instead of by sites? 
+#remove plot 598 from SBC, it was added late; Plot 598 was added in 2004, remove for this. .. or do all plots on their own instead of by sites? Or make sure the transitions are proportional, I think I need each plot on it's own since they start at different times, can't combine into one site. 
 sbc <- sbc[sbc$AsMi_plot_id != 598,]
 
 # the others added later: 238 & 300 @ 1996 - take out 1995
@@ -816,6 +766,12 @@ table(asmi.1$status)
 
 cebolla$status <- factor(cebolla$status)
 table(cebolla$status)
+
+#just keep all together go by plot
+asmi.all <- asmi.raw[order(asmi.raw$AsMi_site_id, 
+                           asmi.raw$AsMi_tag_id, asmi.raw$year),]
+table(asmi.all$status)
+
 ```
 
 Set order of classes
@@ -827,6 +783,8 @@ stages <- c("seedling", "vegetative", "reproductive", "dormant","dead")
 
 asmi.1$status <- ordered(asmi.1$status, levels = stages)
 cebolla$status <- ordered(cebolla$status, levels = stages)
+
+asmi.all$status <- ordered(asmi.all$status, levels = stages)
 ```
 
 check errors
@@ -837,17 +795,20 @@ table(cebolla$status)
 # should all be reproductive (status 4 in DBG phpMyAdmin)
 asmi.1[asmi.1$flower == 1 & asmi.1$status == "vegetative",]
 cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
+asmi.all[cebolla$flower == 1 & asmi.all$status == "vegetative",]
 
 
 table(asmi.1$year, asmi.1$AsMi_site_id)
 tail(table(asmi.1$length) )
 tail(table(cebolla$length))
+tail(table(asmi.all$length))
 
 table(asmi.1$status[is.na(asmi.1$length)])
 asmi.1[asmi.1$length > 100 & !is.na(asmi.1$length),]
 
 # One length that was recorded crazy
 asmi.1$length[asmi.1$length == 921] <- NA
+asmi.all$length[asmi.all$length == 921] <- NA
 
 asmi.1$browsed[asmi.1$browsing==0]<-FALSE  	
 asmi.1$browsed[asmi.1$browsing==1]<-TRUE
@@ -859,16 +820,26 @@ cebolla$browsed[cebolla$browsing==0]<-FALSE
 cebolla$browsed[cebolla$browsing==1]<-TRUE
 table(cebolla$browsed)
 table(cebolla$browsing)
+
+
+asmi.all$browsed[asmi.all$browsing==0]<-FALSE  	
+asmi.all$browsed[asmi.all$browsing==1]<-TRUE
+table(asmi.all$browsed)
+table(asmi.all$browsing)
 ```
 
 Merge year to year, year.x is year t, year.y is year t+1   
 remove dead from stages, just fate   
 ```{r}
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
-cebolla <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
+cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
+
+asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
 ```
 
+
+    
 Want    
 Narrow down to      
 [1] "AsMi_site_id.x" "AsMi_tag_id"    "year.x"             
@@ -889,10 +860,24 @@ asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-length(stages)])
 #fate down and stage across the top; These are the raw numbers combined for all years 
 table(Fate = asmi.2$fate, Stage = asmi.2$stage)
 
-cebolla.2 <- cebolla[, names(cebolla) %in% unique(grep(paste(cols,collapse="|"),
-                                                  names(cebolla), value = TRUE))]
+cebolla.2 <- cebolla1[, names(cebolla1) %in% unique(grep(paste(cols,collapse="|"),
+                                                  names(cebolla1), value = TRUE))]
 colnames(cebolla.2) <- c( "tag","year","length","fruits","stage","plot",
                        "site","fenced","browse","fate")
+
+#To just do plot at a time
+asmi.all1 <- asmi.all1[, names(asmi.all1) %in% unique(grep(paste(cols,collapse="|"),
+                                                  names(asmi.all1), value = TRUE))]
+colnames(asmi.all1) <- c( "tag","year","length","fruits","stage","plot",
+                       "site","fenced","browse","fate")
+## re-number
+rownames(asmi.all1) <- 1:nrow(asmi.all1)
+# Get rid of stage 'dead'
+asmi.all1$stage <- ordered(asmi.all1$stage, levels = stages[-length(stages)])
+# check transitions
+#fate down and stage across the top; These are the raw numbers combined for all years 
+table(Fate = asmi.all1$fate, Stage = asmi.all1$stage)
+
 ```
 
 bootstrap distributions of population growth rates (lambda), stage vectors, and projection matrix elements by randomly sampling with replacement from a stage-fate data frame of observed transitions   
@@ -900,7 +885,7 @@ bootstrap distributions of population growth rates (lambda), stage vectors, and 
 Doesn't make sense... shouldn't be so high... Because 26 had additional plots added in 1996?
 
 ```{r}
-asmi.boot <- asmi.2
+asmi.boot <- asmi.all1
 #add 'seedling' filed
 asmi.boot$seedling <- do.call(c,lapply(unique(asmi.boot$year),function(year){
   seedlings <- nrow(asmi.boot[asmi.boot$year == year & asmi.boot$stage == "seedling",])
@@ -908,9 +893,9 @@ asmi.boot$seedling <- do.call(c,lapply(unique(asmi.boot$year),function(year){
   seedlingsout
   }))
 
-boottrans <- lapply(unique(asmi.boot$site), function(x){
-  data.frame(cbind(Site = x,
-                   Boot = boot.transitions(asmi.boot[asmi.boot$site == x & 
+boottrans <- lapply(unique(asmi.boot$plot), function(x){
+  data.frame(cbind(Plot = x,
+                   Boot = boot.transitions(asmi.boot[asmi.boot$plot == x & 
                                                        asmi.boot$fenced == "n",], 
                                            1000,
                                            fertility = "fruits")$lambda))
@@ -919,19 +904,22 @@ boottrans <- lapply(unique(asmi.boot$site), function(x){
 bt <- do.call(rbind, boottrans)
 head(bt)
 #dev.off()
-ggplot(bt, aes(as.factor(Site), Boot, colour = as.factor(Site)))+
-  geom_boxplot()
+ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
 #Figure 2b 
 
+Check errors    
 ```{r}
 
 # sorted by tag and then year so....
 firststage <- asmi.2[!duplicated(asmi.2$tag),]
-table(firststage$stage[firststage$year != 1996]) # 11 times when first account of tagged individual is vegetative, not seedling, why?!
+table(firststage$stage[firststage$year != 1996]) # 11 times when first account of tagged individual is vegetative, not seedling, why?! Fixed by 2018
 
-firststage[firststage$stage=="vegetative" & firststage$year!=1996,]
+#firststage[firststage$stage=="vegetative" & firststage$year!=1996,]
 
 
 foo <- rle(as.numeric(asmi.2$stage))
@@ -939,8 +927,9 @@ foo$values[1:10]
 foo$lengths[1:10]
 sum(foo$lengths[1:10])
 asmi.2$stage[1:sum(foo$lengths[1:10])]
+```
 
-
+```{r}
 #dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
 levels(asmi.1$status) # 4 is dormant
 
@@ -985,7 +974,8 @@ ggplot(data.frame(Repro = repros), aes(Repro))+
 Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
 notfenced has 21 blank (each year)
 
-Dormancy can be set to 0-1   
+Dormancy can be set to 0-1     
+subscript out of bounds because stages still include dead=5 need to just go to dormant=4
 ```{r}
 asmi.pva <- StagePVA(asmi.2)
 cebolla.pva <- StagePVA(cebolla.2)
@@ -1322,6 +1312,46 @@ asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotani
 ```
 
 
+#autocorrelations   
+https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next 
+```{r}
+length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
+length_t <- split(alive.site$length[-nrow(alive.site)],
+                        alive.site$AsMi_site_id)
+length_tmin1
+length_t
+autocor <- mapply(cbind,length_t,length_tmin1)
+```
+
+```{r}
+plot(autocor[[1]], xlim=c(0,325), ylim=c(0,350), pch=20)
+for(i in 2:6){
+  points(autocor[[i]], col=i, pch=20)
+}
+```
+
+```{r}
+autocor1 <- do.call(rbind,autocor)
+# sample covariance in acf is scaled with 1/(n-1) instead of 1/n
+cor(autocor1[,1],autocor1[,2])*(nrow(autocor1)/(nrow(autocor1)+1))
+
+#but to combine all sites time series, need to keep steps separate by site
+lapply(split(alive.site$length,alive.site$AsMi_site_id), function(x){
+  acf(x, lag.max=15, plot=TRUE)
+})
+
+#Blue is the 95% CI around zero, different from zero correlation
+```
+Cross-correlation of weather and number of individuals with AGG in July
+```{r}
+
+
+
+```
+
+
+
+
 # 2017 June 2 for NCAR
 ```{r}
 
@@ -1374,156 +1404,11 @@ mean(creekyear$Precip[creekyear$Creek == "South Beaver"])
 mean(creekyear$Precip)
 ```
 
-#AIC with climate and biotic variables   
-#Need to cast each month on it's own to use in AIC
-```{r}
-#need wide asmi.c climate  
-#asmi.c2 <-within(asmi.c, Date <- sprintf("%d-%02d", Prev12, Month))
-asmi.c2 <- asmi.c
-asmi.c2$Date <- as.Date(paste(sprintf("%d-%02d", asmi.c2$Prev12, asmi.c2$Month), 
-                              1, sep="-"), "%Y-%m-%d") 
 
-names(asmi.c2) <- c(names(asmi.c2)[1:4], "SiteName", names(asmi.c2)[6:length(asmi.c2)])
-
-#Need to cast by month make years stick for Prev12 so 8:12 to with next year 
-# This gets me a 'variable' column with tmin, tmax, Precip, and a 'value' column with the value
-names(asmi.c)[5] <- "SiteName"
-asmi.cast <- melt(asmi.c, 
-                    id = c("Plot","Site","Creek","SiteName",
-                           "Year","Month","Prev12"))
-asmi.cast <- dcast(asmi.cast, Plot+Site+Creek+SiteName+Year+Prev12~Month+variable)
-
-#Need to rename 1:12 as Jan:Dec
-mons <- c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
-names(asmi.cast)[7:42] <- paste(rep(mons,each=3),names(asmi.cast)[7:42],sep="_")
-
-asmi.cast1.7 <- asmi.cast[asmi.cast$Year==asmi.cast$Prev12,]
-asmi.cast8.12 <- asmi.cast[asmi.cast$Year!=asmi.cast$Prev12,]
-
-asmi.cast.foo <- merge(asmi.cast1.7[,1:27],
-                       asmi.cast8.12[,c(1:6,28:length(asmi.cast8.12))], 
-                       by= c("Plot", "Site", "Creek", "SiteName","Prev12"))
-```
-
-```{r}
-#Merging in two rows for each Plot and Site for months 1:7 and another for months 8:12! Yargg
-asmimerg <- merge(ps.asmi.t, asmi.cast.foo,
-                        by.x = c("Year","Plot","Site"),
-                        by.y = c("Prev12","Plot","Site"))
-
-#Possible variables exlaining Percent reproductive; X..Flowered
-ggplot(asmimerg, aes(as.factor(Site),X..Floweredlogtransformed))+
-  geom_boxplot()+
-  geom_rug()+
-  theme_bw()
-
-ggplot(asmimerg, aes(as.factor(Site),X..Browsedarcsinsqrttransformed))+
-  geom_boxplot()+
-  geom_rug()+
-  theme_bw()
-
-ggplot(asmimerg, aes(as.factor(Site),X..Browsed))+
-  geom_boxplot()+
-  geom_rug()+
-  theme_bw()
-
-```
-
-
-```{r}
-#need apply all combination of numbers of variable columns that explain percent reproductive
-#Should merge for lag years too and then interaction with last and previous year
-
-
-#
-asmimerglag <- subset(merge(asmimerg, asmimerg,
-                      by=c("Plot","Site")),
-                      Year.x == Year.y-1)
-
-namesasmi <- names(asmimerglag)
-exclude <- c("Fence","Plot","Site","Year","Creek","SiteName","Dormant",
-             "Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","logtrans","Plants",
-             "arcsinsqrttransformed","Browsed",
-             "Flowered.1")  #flowered.1 is the number of reproductive, other is percent
-namesasmi[-grep(paste(exclude, collapse="|"),
-                      namesasmi)]
-
-#All combinations for Total.Alive.x
-x<-namesasmi[-grep(paste(exclude, collapse="|"),
-                   namesasmi)]
-x<-x[-1]
-#ind <- which(namesasmi %in% x)
-#variables <- lapply(1:length(x), function(pick) combn(x, pick))
-
-gc() #garbage collect, clean up memory
-
-# X..Flowered.x (current year); .y is previous year
-```
-
-
-```{r}
-lm5.alive <- lm(Total.Alive.x~.+.^2, asmimerglag[,c("Total.Alive.x",x)])
-lm1.alive <- lm(as.formula(paste("Total.Alive.x~", paste(x[5:16], collapse="+"))),
-                data=asmimerglag)
-lm2.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
-                                                x[-grep(paste(c("Flower","Fruit","Brow"),
-                                                              collapse="|"),x)])])
-lm3.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
-                                      x[-grep(paste(c("Flower","Fruit","Brow",".y"),
-                                                collapse="|"),x)])]) #Only prev 12 weather winter
-lm6.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",x)]) #Oct to Jan climate, percent flowered, fruit, percent browsed, and previous year
-lm4.alive <- lm(Total.Alive.x~.+.^2,asmimerglag[,c("Total.Alive.x",
-                                      x[-grep(paste(c("Flower","Fruit","Brow",".y"),
-                                                collapse="|"),x)])]) #only previous 12 and all interactions
-lm7.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",x[c(1:4,17:19)])]) #only biotic
-lm8.alive <- lm(Total.Alive.x~.+.^2,asmimerglag[,c("Total.Alive.x",
-                                      x[grep(paste(c("Flower","Fruit","Brow"),
-                                                collapse="|"),x)])]) #only abiotic current and last year and interactions
-lm9.alive <- lm(Total.Alive.x~.+.^2, asmimerglag[,c("Total.Alive.x",x[grep("Precip",x)])]) #only precip
-lm10.alive <- lm(Total.Alive.x~., asmimerglag[,c("Total.Alive.x",
-          namesasmi[grep(paste(c("8_Precip","9_Precip","10_Precip","11_Precip", #fall precip
-                  "12_tmin","1_tmin","2_tmin","3_tmin", #winter min
-                  "4_Precip","5_Precip","6_Precip","7_Precip") # spring/sum precip 2015 PCA
-                  ,collapse="|"),namesasmi)])])
-
-#Winter Dec-March
-#Summer April-July
-#Fall Aug-Nov
-
-lm.list <- list(lm1.alive,lm2.alive,lm3.alive,lm4.alive,lm5.alive,
-                lm6.alive,lm7.alive,lm8.alive,lm9.alive,lm10.alive) #,lm11,lm12)
-
-
-(lm.results <- aictab(lm.list, modnames=c("lm1.alive","lm2.alive","lm3.alive",
-                                          "lm4.alive","lm5.alive","lm6,alive",
-                                          "lm7.alive","lm8.alive","lm9.alive",
-                                          "lm10.alive")))
-
-```
 
 #PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
 
-```{r}
-ggplot(asmimerglag, aes(X..Flowered.y))+
-  geom_histogram()+
-  facet_wrap(~Site)+
-  theme_bw()
 
-ggplot(asmimerglag, aes(X..Floweredlogtransformed.y))+
-  geom_histogram()+
-  facet_wrap(~Site)+
-  theme_bw()
-
-
-head(asmimerglag[,grep("Year",names(asmimerglag))]) 
-# .x    = year t
-# .x.x  = year t
-# .y.x  = year t-1 <- refers to the actual year of the Aug:dec climate for .x 
-# .y    = year t+1
-# .x.y  = year t+1
-# .y.y  = year t <- for .y cliamte is the actual year
-
-```
 2013 report: winter temp, spring/summer temp - both PCs, all split   
 2014 report: winter precip, fall precip, spring/summer precip - both PCs, all split     
 2015 report: PC1: fall precip, winter min temp, spring/summer precip    
@@ -1533,376 +1418,14 @@ head(asmimerglag[,grep("Year",names(asmimerglag))])
 2017 report: PC1: fall min fall max    
              PC2: fall precip, winter precip   nobody separated   
              
-#Climate only for percent reproductive, not log transformed 
-```{r}  
-
-per.fl <- grep("X..Flowered.y",names(asmimerglag))
-climate.variables <- c("tmin","tmax","Precip") 
-current.climate.var <- c("tmin.y","tmax.y","Precip.y")
-climate.var.2013 <- c("12_t","1_t","2_t","3_t","4_t","5_t","6_t","7_t")
-climate.var.2014.cur <- c("Precip.y")
-climate.var.2014.both <- c("Precip")
-climate.var.2015.pc1 <- c("8_P","9_P","10_P","11_P",
-                      "12_tmi","1_tmi","2_tmi","3_tmi",
-                      "4_P","5_P","6_P","7_P")
-climate.var.2015.pc2 <- c("8_tma","9_tma","10_tma","11_tma",
-                      "8_tmi","9_tmi","10_tmi","11_tmi",
-                      "12_P","1_P","2_P","3_P")
-
-climate.var.2016.pc1 <- c("8_tma","9_tma","10_tma","11_tma",
-                          "4_tmi","5_tmi","6_tmi","7_tmi")
-
-climate.var.2016.pc2 <- c("8_tmi","9_tmi","10_tmi","11_tmi",
-                          "8_P","9_P","10_P","11_P",
-                          "12_P","1_P","2_P","3_P",
-                          "12__tma","1__tma","2__tma","3__tma")
 
 
-climate.var.2017.pc1 <- c("8_t","9_t","10_t","11_t")
-climate.var.2017.pc2 <- c("8_P","9_P","10_P","11_P",
-                          "12_P","1_P","2_P","3_P")
-
-
-#Candidate models  
-#lm1 is the current and previous year's monthly climate varaibles
-lm1 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.variables),collapse="|"),
-                                   names(asmimerglag))])
-#lm2 only recent climate
-lm2 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",current.climate.var),collapse="|"),
-                                   names(asmimerglag))])
-# only browsed last year
-#lm3 is the current and previous year's monthly climate varaibles and interactions
-lm3 <- lm(X..Flowered.y ~ .+.^2, 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.variables),collapse="|"),
-                                   names(asmimerglag))])
-# nothing
-#lm4 only recent climate and interactions
-lm4 <- lm(X..Flowered.y ~ .+.^2, 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",current.climate.var),collapse="|"),
-                                   names(asmimerglag))])
-# lm5 is 2013 variables for the last couple years
-lm5 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2013),collapse="|"),
-                                   names(asmimerglag))])
-# lm6 2013 only prev 12 months
-lm6 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(".y",grep(paste(c("X..Flowered.y",climate.var.2013),
-                                                 collapse="|"),
-                                   names(asmimerglag), value=TRUE), value=TRUE)])
-
-# lm6 2013 only prev 12 months of previous year, lag? 
-lm13 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,c("X..Flowered.y",grep(".x",grep(paste(c("X..Flowered.y",climate.var.2013),
-                                                 collapse="|"),
-                                   names(asmimerglag), value=TRUE), value=TRUE))])
-
-
-# lm7 2014 only prev 12
-lm7  <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2014.cur),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-# lm8 2014 both previous years
-lm8  <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2014.both),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-
-# 2015 pc1
-lm9 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2015.pc1),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-# 2015 pc2
-lm10 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2015.pc2),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-# 2016 pc1
-lm11 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2016.pc1),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-# 2016 pc2
-lm12 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglag[,grep(paste(c("X..Flowered.y",climate.var.2016.pc2),
-                                       collapse="|"),
-                                   names(asmimerglag))])
-
-lm14 <- lm(X..Flowered.y ~ 1, data=asmimerglag)
-
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12,lm13, lm14)
-lm.names <- c("lm1","lm2","lm3","lm4","lm5","lm6","lm7","lm8","lm9","lm10",
-              "lm11","lm12","lm13","lm14")
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-```
-
-
-#Now explore model 13? Can't do all iterations. 
-```{r}
-varcol.lm6 <- grep(".y",names(asmimerglag[,grep(paste(c("X..Flowered.y",
-                                                 climate.var.2013),collapse="|"),
-                                                 names(asmimerglag))]), value = TRUE)
-variables.lm6 <- lapply(1:length(varcol.lm6), function(pick) combn(varcol.lm6,pick))
-
-length(variables.lm6[[2]])
-
-
-varcol.lm13 <- grep(".x",names(asmimerglag[,grep(paste(c("X..Flowered.y",
-                                                 climate.var.2013),collapse="|"),
-                                                 names(asmimerglag))]),value=TRUE)
-variables.lm13 <- lapply(1:length(varcol.lm13), function(pick) combn(varcol.lm13,pick))
-
-length(variables.lm13[[2]])
-gc()
-
-variables.lm13[[2]][,1]
-
-lm.list13 <- lapply()
-```
-
-
-#Climate and monthly weather 
-```{r}
-#Candidate models  
-lm1 <- lm(Total.Alivelog.y ~ Total.Alivelog.y+X..Browsedlog.y+X..Floweredlog.y+
-            Fence.x+Total.Fruitlog.y+X..Flowered.1log.x+Total.Fruitlog.x,
-          data=asmimerg)
-#only fruit last year
-lm2 <- lm(Total.Alivelog.y ~ Total.Fruitlogtransformed.x, data=asmimerg)
-# only browsed last year
-lm3 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x, data=asmimerg)
-# nothing
-lm4 <- lm(Total.Alivelog.y ~ 1, data=asmimerg)
-# lm1 also alive last year
-lm5 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y, 
-          data=asmimerg)
-# lm4 and browsed this year
-lm6 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+
-            X..Browsedarcsinsqrttransformed.x +
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=asmimerg)
-# and alive given browsed last year
-lm7 <- lm(Total.Alivelog.y ~ Total.Alivelogtransformed.x+ #total AGG last year
-            X..Browsedarcsinsqrttransformed.x + #amount of damage last year (that would stress)
-            Total.Alivelogtransformed.x*X..Browsedarcsinsqrttransformed.x + #The total AGG given amount of stress
-            Total.Fruitlogtransformed.x + X..Flowered.y +
-            X..Browsedarcsinsqrttransformed.y, data=asmimerg)
-# only fenced
-lm8 <- lm(Total.Alivelog.y ~ Fence.x, data=asmimerg)
-# browsed last year, fruit this year
-lm9 <- lm(Total.Alivelog.y ~ X..Browsedarcsinsqrttransformed.x+ # browse stress prev yr
-            Total.Fruitlogtransformed.x,  # fruit previous year 
-          data=asmimerg)
-# browsed last year and fence
-lm10 <- lm(Total.Alivelog.y ~ 
-             X..Browsedarcsinsqrttransformed.x + Fence.x, # browse stress prev yr
-          data=asmimerg)
-# fruit last year flower this year
-lm11 <- lm(Total.Alivelog.y ~ Total.Fruitlogtransformed.x +  # fruit previous year 
-            X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=asmimerg)
-# flower percentthis year
-lm12 <- lm(Total.Alivelog.y ~ X..Flowered.y, # flowering current year (how many strong/big reproductive)
-          data=asmimerg)
-
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-```
 
 
 Seasons    
 Winter: December-March (12-3)    
 Spring/summer: April-July (4-7)    
 Fall: August-November (8-11)   
-```{r}
-asmi.c$season <- "winter"   #Dec t-1 to March t
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer" #April - July t
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"        #August to November t-1
-
-asmi.c.summary <- aggregate(asmi.c[,grep(paste(c("tmin","tmax","Precip"),collapse="|"),
-                                          names(asmi.c))], 
-                            asmi.c[,c("season","Creek","Prev12")],
-                            FUN = function(x) mean(x))
-head(asmi.c, 100)
-head(asmi.c.summary,100) #Should have spring/summer and one month for winter for 1980 :) 
-
-# currentyr-1? should it just be currentyr? or not less than currentyr? 
-season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
-                  idvar=c("Creek","Prev12"),
-                  timevar = "season",
-                  direction="wide")
-head(season)
-
-cor.plot(cor(season[,-(1:2)]), numbers=TRUE)
-
-pairs(season[,-(1:2)])
-```
-
-
-#AIC variable selection with seasons instead of months
-```{r}
-
-meltclimateseason <- melt(asmi.c, 
-                          id = c("Plot","Site","Creek","SiteName",
-                                 "Year","season","Prev12","Month"))
-table(meltclimateseason$variable)
-
-asmi.cast.plot <- dcast(meltclimateseason, 
-                        Plot+Site+Creek+SiteName+Prev12~season+variable,mean)
-
-asmimerglagseason <- merge(ps.asmi.t, asmi.cast.plot[complete.cases(asmi.cast.plot),], 
-                           by.x = c("Plot","Site","Year"),
-                           by.y = c("Plot","Site","Prev12"))
-
-asmimerglagseason<- subset(merge(asmimerglagseason, asmimerglagseason,
-                                 by=c("Plot","Site")),
-                           Year.x == Year.y-1)
-
-save(asmimerglagseason, file = "P:/hackathon/GitPVA/datasets/asmimerglagseason.csv")
-```
-
-#AIC climate seasons only for percent reproductive, not log transformed   
-```{r}
-per.fl <- grep("X..Flowered.y",names(asmimerglagseason))
-season2013 <- c("winter_t","Summer_t") #all split
-season2014 <- c("Precip") #All split
-season2015pc1 <- c("fall_P","winter_tmin","Summer_P") #non split
-season2015pc2 <- c("fall_t","winter_P") #Mast seeding
-season2016pc1 <- c("fall_tma","Summer_tmi")
-season2016pc2 <- c("fall_tma","fall_P","winter_P","winter_tma")
-season2017pc1 <- c("fall_t")
-season2017pc2 <- c("fall_P","winter_P")
-
-#Models
-# winter and summer high and low temperatures the last couple years, all interactions
-lm1 <- lm(X..Flowered.y ~ .+.^2, 
-          data=asmimerglagseason[,grep(paste(c("X..Flowered.y",season2013),
-                                             collapse="|"),names(asmimerglagseason))])
-# winter sumer temps no interactions
-lm2 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglagseason[,grep(paste(c("X..Flowered.y",season2013),
-                                             collapse="|"),names(asmimerglagseason))])
-# winter summer temps, only current year
-lm3 <- lm(X..Flowered.y ~ .+.^2, 
-          data=asmimerglagseason[,grep(".y",
-                names(asmimerglagseason)[grep(paste(c("X..Flowered.y",
-                                                season2013),
-                                              collapse="|"),
-                                        names(asmimerglagseason))], value=TRUE
-                )])
-# winter summer temps, only current no interactions
-lm4 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglagseason[,grep(".y",
-                names(asmimerglagseason)[grep(paste(c("X..Flowered.y",
-                                                season2013),
-                                              collapse="|"),
-                                        names(asmimerglagseason))], value=TRUE
-                )])
-
-# winter summer temps, only last year
-lm3 <- lm(X..Flowered.y ~ .+.^2, 
-          data=asmimerglagseason[,c("X..Flowered.y",grep(".x",
-                names(asmimerglagseason)[grep(paste(season2013,
-                                              collapse="|"),
-                                        names(asmimerglagseason))], value=TRUE
-                ))])
-# winter summer temps, only last no interactions
-lm4 <- lm(X..Flowered.y ~ ., 
-          data=asmimerglagseason[,c("X..Flowered.y",
-                  grep(".y",grep(paste(season2013,collapse="|"),
-                     names(asmimerglagseason),value=TRUE),invert=TRUE, 
-                     value=TRUE))])
-
-
-lm.list <- list(lm1,lm2,lm3,lm4) #,lm5,lm6,lm7,lm8,lm9,lm10,lm11,lm12)
-lm.names <- c("lm1","lm2","lm3","lm4")
-#,"lm5","lm6","lm7","lm8","lm9","lm10","lm11","lm12","lm13","lm14")
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-
-```
-
-```{r}
-seasonvariables.1 <- grep(paste(c("_t","_P"), collapse="|"),
-                              names(asmimerglagseason), value=TRUE)
-
-seasonvariables <- lapply(1:(length(seasonvariables.1)-10), 
-                          function(pick) combn(seasonvariables.1, pick))
-
-(seasonvariables[[2]][,1])
-
-lm.listseason <- lapply(1:(length(seasonvariables[[2]])/2), function(x){
-  lm(X..Flowered.y ~ .,
-     data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[2]][,x])])
-})
-
-lm.namesseason <- as.character(unlist(lapply(lm.listseason, formula)))
-(lm.results <- aictab(lm.listseason, modnames=lm.namesseason))
-
-
-#Evidence ratio
-for(i in 2:length(lm.listseason)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-
-dim(seasonvariables[[3]])
-lm.listseason3 <- lapply(1:(dim(seasonvariables[[3]])[2]), function(x){
-  lm(X..Flowered.y ~ .,
-     data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[3]][,x])])
-})
-lm.namesseason3 <- as.character(unlist(lapply(lm.listseason3, formula)))
-(lm.results3 <- aictab(lm.listseason3, modnames=lm.namesseason3))
-
-dim(seasonvariables[[7]])
-
-
-dim(seasonvariables[[4]])
-lm.listseason4 <- lapply(1:(dim(seasonvariables[[4]])[2]), function(x){
-  lm(X..Flowered.y ~ .,
-     data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[4]][,x])])
-})
-lm.namesseason4 <- as.character(unlist(lapply(lm.listseason4, formula)))
-(lm.results4 <- aictab(lm.listseason4, modnames=lm.namesseason4))
-
-
-### TOO BIG NOW   Ctrl+Shift+C
- dim(seasonvariables[[5]])
-# lm.listseason5 <- lapply(1:(dim(seasonvariables[[5]])[2]), function(x){
-#   lm(X..Flowered.y ~ .,
-#      data=asmimerglagseason[,c("X..Flowered.y",seasonvariables[[5]][,x])])
-# })
-# lm.namesseason5 <- as.character(unlist(lapply(lm.listseason5, formula)))
-# (lm.results5 <- aictab(lm.listseason5, modnames=lm.namesseason5))
-
-
-```
 
 ENM uses 75% correlated as cutoff.. what if I increased from 50% to 75%??
 ```{r}
@@ -2949,6 +2472,29 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
                        substr(levels(dm$Survey)[14],3,7),
                        substr(levels(dm$Survey)[15:18],3,6)),paste0, "_2015"))
 
+
+#Add actual date to surveys
+table(dm$Survey)
+dm$Date <- as.Date("2014-04-21")
+dm$Date[dm$Survey=="May1_2014"] <- as.Date("2014-05-13")
+dm$Date[dm$Survey=="Jun1_2014"] <- as.Date("2014-06-02")
+dm$Date[dm$Survey=="Jun2_2014"] <- as.Date("2014-06-25")
+dm$Date[dm$Survey=="Jul1_2014"] <- as.Date("2014-07-15")
+dm$Date[dm$Survey=="Aug14_2014"] <- as.Date("2014-08-05")
+dm$Date[dm$Survey=="Sep1_2014"] <- as.Date("2014-09-07")
+dm$Date[dm$Survey=="Oct1_2014"] <- as.Date("2014-10-08")
+dm$Date[dm$Survey=="Oct2_2014"] <- as.Date("2014-10-28")
+dm$Date[dm$Survey=="Apr2_2015"] <- as.Date("2015-04-20")
+dm$Date[dm$Survey=="May11_2015"] <- as.Date("2015-05-11")
+dm$Date[dm$Survey=="May2_2015"] <- as.Date("2015-05-26")
+dm$Date[dm$Survey=="June_2015"] <- as.Date("2015-06-08")
+dm$Date[dm$Survey=="June2_2015"] <- as.Date("2015-06-22")
+dm$Date[dm$Survey=="July_2015"] <- as.Date("2015-07-22")
+dm$Date[dm$Survey=="Aug1_2015"] <- as.Date("2015-08-11")
+dm$Date[dm$Survey=="Sept_2015"] <- as.Date("2015-09-01")
+dm$Date[dm$Survey=="Oct6_2015"] <- as.Date("2015-10-06")
+table(dm$Date)
+
 ```
 
 #Tags with growth at any time during the early or late seasons 
@@ -2958,11 +2504,62 @@ unique(dm$Survey) #aprl 2014 ... Oct6_2015
 
 tagsintrayear[[2]]
 
-dm$TagperPlot <- paste(dm$tag,dm$Plot,dm$Dir, sep="")
-asmi.raw$TagperPlot <- paste(asmi.raw$tag_no,asmi.raw$AsMi_plot_id,asmi.raw$direction,sep="")
+
+dm$TagperPlot <- paste(dm$tag,dm$Plot,sep="_") #dm$Dir, 
+asmi.raw$TagperPlot <- paste(asmi.raw$tag_no,asmi.raw$AsMi_plot_id,sep="_") #asmi.raw$direction,
+
+head(dm)
+head(table(dm$TagperPlot))
+
+#Add rows for dm for dates when the plant wasn't seen
+tagsbydate <- data.frame(table(dm$TagperPlot, dm$Date))
+sort(rowSums(table(dm$TagperPlot, dm$Date))) #all were seen at least once
+tagsbydate[tagsbydate$Freq==1,]
+notalive2014July <- tagsbydate[tagsbydate$Var2 == "2014-07-15" & tagsbydate$Freq == 0,]
+notalive2015July <- tagsbydate[tagsbydate$Var2 == "2015-07-22" & tagsbydate$Freq == 0,]
 
 
 
+ggplot(dm[dm$TagperPlot %in% notalive2015July$Var1,], 
+       aes(Date,Ln, colour=TagperPlot))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Site)+
+  theme(legend.position = "none")
+
+ggplot(asmi.raw[asmi.raw$TagperPlot %in% notalive2015July$Var1,],
+       aes(year,length, colour=TagperPlot))+
+  geom_point()+
+  geom_line()+
+  labs(title="Individuals with growth sometime other than July 2015")+
+  facet_wrap(~AsMi_site_id)+
+  theme(legend.position = "none")
+
+#The number of individuals that were alive sometime in 2015, just not the July census
+table(asmi.raw$AsMi_site_id[asmi.raw$TagperPlot %in% notalive2015July$Var1],
+      asmi.raw$year[asmi.raw$TagperPlot %in% notalive2015July$Var1])
+
+#The number of individuals that were alive sometime in 2014, just not the July census
+table(asmi.raw$AsMi_site_id[asmi.raw$TagperPlot %in% notalive2014July$Var1],
+      asmi.raw$year[asmi.raw$TagperPlot %in% notalive2014July$Var1])
+
+
+head(asmi.raw)
+head(table(asmi.raw$TagperPlot),100)
+
+
+ggplot(dm[dm$Date<"2015-01-01",], aes(Date,Ln,group=as.factor(Plot), 
+                                      colour=as.factor(Plot)))+
+  geom_point()+
+  geom_smooth(se=FALSE)+
+  theme_bw()
+
+ggplot(asmi.raw[dm$TagperPlot %in% asmi.raw$TagperPlot,], aes()
+```
+
+
+
+```{r}
 head(asmi.raw$TagperPlot)
 head(asmi.raw)
 head(dm)

@@ -11,6 +11,9 @@
 #	table The whole data frame that has (1) site, (2) tag, (3) year, (4) measurment, (5) fruit, (6) browsed/measurment
 #							(7) stage, (8) fate (9) plot - in some other order...
 
+df <- asmi.2
+table(asmi.2$plot,asmi.2$year)
+
 StagePVA <- function(df,dormancy = 1){
   
   years <- sort(unique(df$year)) #start years of each transition
@@ -70,19 +73,19 @@ StagePVA <- function(df,dormancy = 1){
     # Add some survival to dormant individuals other than 100% since we only note dormat indivdiuals when they are
     #seen above ground again so 100% survive # the column sums to 1, want some to transition to dead, 
     # lowering dormant to dormant
-    death.to.dormants_fert <- projection.matrix(fert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
-    death.to.dormants_fencedfert <- projection.matrix(fencedfert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
-    death.to.dormants_notfencedfert <- projection.matrix(notfencedfert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
+    death.to.dormants_fert <- projection.matrix(fert)[length(levels(df$stage)),length(levels(df$stage))]*dormancy
+    death.to.dormants_fencedfert <- projection.matrix(fencedfert)[length(levels(df$stage)),length(levels(df$stage))]*dormancy
+    death.to.dormants_notfencedfert <- projection.matrix(notfencedfert)[length(levels(df$stage)),length(levels(df$stage))]*dormancy
     
     #alter the surviving dormants to something less than one
-    pro.matrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(unique(df$stage)),
-                                                                     length(unique(df$stage)), 
+    pro.matrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(levels(df$stage)),
+                                                                     length(levels(df$stage)), 
                                                                      death.to.dormants_fert))
-    fenced.pro.matrix[[as.character(i)]] <- projection.matrix(fencedfert, add = c(length(unique(df$stage)),
-                                                                                  length(unique(df$stage)), 
+    fenced.pro.matrix[[as.character(i)]] <- projection.matrix(fencedfert, add = c(length(levels(df$stage)),
+                                                                                  length(levels(df$stage)), 
                                                                                   death.to.dormants_fencedfert))
-    notfenced.pro.matrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(length(unique(df$stage)),
-                                                                                        length(unique(df$stage)), 
+    notfenced.pro.matrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(length(levels(df$stage)),
+                                                                                        length(levels(df$stage)), 
                                                                                         death.to.dormants_notfencedfert))
   }
  
@@ -146,15 +149,15 @@ StagePVA <- function(df,dormancy = 1){
       notfencedfert$seedling[is.nan(notfencedfert$seedling)] <- 0
       notfencedfert$seedling[is.na(notfencedfert$seedling)] <- 0		 
       
-      death.to.dormants <- projection.matrix(fert)[length(unique(df$stage)),length(unique(df$stage))]*dormancy
+      death.to.dormants <- projection.matrix(fert)[length(levels(df$stage)),length(levels(df$stage))]*dormancy
       
       promatrix[[as.character(i)]] <- projection.matrix(fert, 
-                                                        add = c(length(unique(df$stage)),
-                                                                length(unique(df$stage)), 
+                                                        add = c(length(levels(df$stage)),
+                                                                length(levels(df$stage)), 
                                                                 death.to.dormants))
       notfenced.promatrix[[as.character(i)]] <- projection.matrix(notfencedfert, 
-                                                                  add = c(length(unique(df$stage)),
-                                                                          length(unique(df$stage)), 
+                                                                  add = c(length(levels(df$stage)),
+                                                                          length(levels(df$stage)), 
                                                                           death.to.dormants))
     }
     Site.matrix[[as.character(j)]] <- promatrix
@@ -199,10 +202,10 @@ StagePVA <- function(df,dormancy = 1){
       fertplot$seedling <- seedlings * (fertplot$fruits / sum(fertplot$fruits, na.rm = T))
       
       ## error, missing a fertility column with individual fertility rates, where's seedling?
-      death.to.dormants <- projection.matrix(fertplot)[length(unique(df$stage)),length(unique(df$stage))]*dormancy 
+      death.to.dormants <- projection.matrix(fertplot)[length(levels(df$stage)),length(levels(df$stage))]*dormancy 
       
-      plotpromatrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(unique(df$stage)),
-                                                                          length(unique(df$stage)), 
+      plotpromatrix[[as.character(i)]] <- projection.matrix(fert, add = c(length(levels(df$stage)),
+                                                                          length(levels(df$stage)), 
                                                                           death.to.dormants))
       
     }
