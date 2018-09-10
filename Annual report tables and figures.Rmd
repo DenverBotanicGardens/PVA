@@ -950,12 +950,12 @@ ggplot(data.frame(Dormant = dorms), aes(Dormant))+
 #only South beaver creek
 ```{r}
 median(dorms) #3
-length(dorms[dorms==1]) #347
+length(dorms[dorms==1]) #347 -> 358
 length(dorms[dorms==1])/length(dorms) # 37%
-length(dorms) #848
-length(dorms[dorms > 5]) #353
-length(dorms[dorms > 15]) #93
-length(dorms[dorms == 21]) #13
+length(dorms) #848 -> 959
+length(dorms[dorms > 5]) #353 -> 355
+length(dorms[dorms > 15]) #93 -> 82??
+length(dorms[dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20 I think!
 ```
 
 Reproductive lengths - South Beaver Creek only   
@@ -970,12 +970,79 @@ ggplot(data.frame(Repro = repros), aes(Repro))+
 
 ```
 
+#Stage based PVA   
+```{r}
+#is survival associate diwht a continutous classifying variable?
+surv.asmi <- asmi.2
+surv.asmi$surv <- 1
+surv.asmi$surv[surv.asmi$fate=="dead"] <- 0
+table(surv.asmi$surv)
+
+str(surv.asmi)
+
+#stages are L, Q, and C? linear, quadractic, cubic - because of the ordinal factor, just factor it
+summary(glm(surv~ as.factor(as.numeric(stage)) +as.factor(site), family=binomial(link = "logit"), surv.asmi))
+
+surv.asmi$stage <- factor(surv.asmi$stage, levels=levels(surv.asmi$stage), ordered=FALSE)
+str(surv.asmi)
+summary(glm(surv~ stage +as.factor(site), family=binomial(link = "logit"), surv.asmi))
+
+
+#survival as a cox proportional hazards regression model
+library(survival)
+
+# interval data, the starting time for the interval (so the year is the stage year and survival is based on fate, next year); "righ censoring" means date of death is unknown, which it is actually! 
+#Survival curve is probability that time of death is greater than some specified time
+survObj <- Surv(time = surv.asmi$year, event=as.logical(surv.asmi$surv))
+model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
+
+
+#plotting time to death
+
+
+```
+
+Errors!
+```{r}
+#plot survival of a given year by size
+for(i in unique(surv.asmi$year)){
+  logi.hist.plot(surv.asmi$length[surv.asmi$year==i],
+                 surv.asmi$surv[surv.asmi$year==i], 
+                 boxp=FALSE,type="hist",col="gray")
+}
+
+```
+
+https://rpubs.com/daspringate/survival    
+https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-same-lines-many-times-why    
+
+
+```{r}
+#plot survival of a given year by size
+for(i in unique(surv.asmi$year)){
+  plot(surv.asmi$length[surv.asmi$year==i], 
+       surv.asmi$surv[surv.asmi$year==i], xlab="length",ylab="Probability of survival")
+  g<- glm(surv~length, family=binomial,surv.asmi[surv.asmi$year==i,])
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
+  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
+}
+
+```
+
+
+
+```{r}
+plot(10,10, type="n")
+matplot(contr.poly(15)[,1:4], type="b") 
+```
+
+
 
 Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
 notfenced has 21 blank (each year)
 
 Dormancy can be set to 0-1     
-subscript out of bounds because stages still include dead=5 need to just go to dormant=4
+
 ```{r}
 asmi.pva <- StagePVA(asmi.2)
 cebolla.pva <- StagePVA(cebolla.2)

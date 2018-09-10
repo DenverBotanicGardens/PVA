@@ -11,10 +11,15 @@
 #	table The whole data frame that has (1) site, (2) tag, (3) year, (4) measurment, (5) fruit, (6) browsed/measurment
 #							(7) stage, (8) fate (9) plot - in some other order...
 
-df <- asmi.2
-table(asmi.2$plot,asmi.2$year)
+#http://www.noamross.net/blog/2013/4/4/oleary-popbio-presentation.html   
+#df <- asmi.2
+#table(asmi.2$plot,asmi.2$year)
 
 StagePVA <- function(df,dormancy = 1){
+  
+  require(dplyr)
+  #Starting point vector, select amoung numbers each year
+  n_options <- ddply(df, c("year","site"), function(x) return(table(x$stage)))
   
   years <- sort(unique(df$year)) #start years of each transition
   
