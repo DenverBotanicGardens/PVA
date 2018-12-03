@@ -24,6 +24,7 @@ library(RCurl)
 library(prism)
 library(rgdal)
 library(raster)
+library(Rmisc)
 #library(data.table)
 ```
 
@@ -35,55 +36,6 @@ rm(list = setdiff(ls(), lsf.str()))
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/  
 Function for t.tests, for annual lambdas
 ```{r}
-summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
-                      conf.interval=.95, .drop=TRUE) {
-    library(plyr)
-
-    # New version of length which can handle NA's: if na.rm==T, don't count them
-    length2 <- function (x, na.rm=FALSE) {
-        if (na.rm) sum(!is.na(x))
-        else       length(x)
-    }
-
-    # This does the summary. For each group's data frame, return a vector with
-    # N, mean, and sd
-    datac <- ddply(data, groupvars, .drop=.drop,
-      .fun = function(xx, col) {
-        c(N    = length2(xx[[col]], na.rm=na.rm),
-          mean = mean   (xx[[col]], na.rm=na.rm),
-          sd   = sd     (xx[[col]], na.rm=na.rm)
-        )
-      },
-      measurevar
-    )
-
-    # Rename the "mean" column    
-    datac <- rename(datac, c("mean" = measurevar))
-
-    datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
-
-    # Confidence interval multiplier for standard error
-    # Calculate t-statistic for confidence interval: 
-    # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
-    ciMult <- qt(conf.interval/2 + .5, datac$N-1)
-    datac$ci <- datac$se * ciMult
-
-    return(datac)
-}
-
-#Function for t.tests, for annual lambdas
-
-lmdAn <- function(x,y,z){
-
-  yrs <- 1995:z
-	st <- match(c(y,z),yrs)
-	
-	lambdaAll <- c()
-	for(i in c(y:z)){
-		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
-	}	
-	lambdaAll
-}	
 
 # StagePVA_Function.R
 script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
@@ -209,13 +161,21 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
 ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
 #  geom_point()+
   stat_smooth(se=FALSE)+
+  ylab("Individuals per plot")+
+  xlab("Year")+
   theme_bw()+
   scale_color_manual("Sites",labels = c("Cebolla Mid", 
-                                          "Cebolla South",
+                                          "Cebolla North",
                                           "5","15","19","26"),
                      values = c("cyan", "darkblue",
                                 "olivedrab","olivedrab1",
                                 "mediumseagreen","mistyrose3"))
+```
+
+```{r}
+table(alive$AsMi_site_id, alive$length)
+
+table(alive$AsMi_site_id, alive$year) # 2 is cebolla north, 1 is mid
 ```
 
 #Fluctuations  
@@ -516,7 +476,9 @@ for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
 
+str(ps.cor)
 
+lmer(Total.Alivelogtransformed.x ~ Year.x|Site, ps.cor)  #random intercept
 lmer(Total.Alivelogtransformed.y ~ Year.x|Creek.x, ps.cor)  #random intercept
 xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor,
        type = c("g","p","r"),
@@ -524,8 +486,17 @@ xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor,
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
+xyplot(Total.Alive.x ~ Year.x|as.factor(Creek.x), ps.cor,
+       type = c("g","p","r"),
+       index = function(x,y) coef(lm(y~x))[1],
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+
 ```
 
+
+# don't have first or last year when using ps.cor    
+shoud use ps.asmi.t instead
 ```{r}
 lmer(Total.Alivelogtransformed.y ~ Fence.x|Creek.x, ps.cor)  #random intercept
 xyplot(Total.Alivelogtransformed.x ~ Fence.x|as.factor(Site), ps.cor,
@@ -533,22 +504,22 @@ xyplot(Total.Alivelogtransformed.x ~ Fence.x|as.factor(Site), ps.cor,
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
-xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor[ps.cor$Year.x > 2013,],
+xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,],
        type = c("g","p","r"),
        index = function(x,y) coef(lm(y~x))[1],
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
 #Since fencing put in, just beaver creek
-xyplot(Total.Alive.x ~ Year.x|Fence.x, 
-       ps.cor[ps.cor$Creek.x == "SouthBeaver" & ps.cor$Year.x > 2005,],
+xyplot(Total.Alive ~ Year|Fence, 
+       ps.asmi.t[ps.asmi.t$Creek == "SouthBeaver" & ps.asmi.t$Year > 2005,],
        type = c("g","p","r"),
        index = function(x,y) coef(lm(y~x))[1],
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
 #both sites since started Cebolla
-xyplot(Total.Alive.x ~ Year.x|Creek.x, ps.cor[ps.cor$Year.x > 2013,],
+xyplot(Total.Alive ~ Year|Creek, ps.asmi.t[ps.asmi.t$Year > 2013,],
        type = c("g","p","r"),
        index = function(x,y) coef(lm(y~x))[1],
        xlab = "Year", 
@@ -579,7 +550,7 @@ for(i in 2:length(lm.list)){
 ```
 
 
-Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38° 27' 39.8" N, 106° 57' 37.6" W). 
+Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38? 27' 39.8" N, 106? 57' 37.6" W). 
 ```{r}
 
 cor.out <- round(cor(ps.cor[,forcor]),2)
@@ -1019,14 +990,33 @@ https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-sa
 
 ```{r}
 #plot survival of a given year by size
-for(i in unique(surv.asmi$year)){
+for(i in sort(unique(surv.asmi$year))){
   plot(surv.asmi$length[surv.asmi$year==i], 
-       surv.asmi$surv[surv.asmi$year==i], xlab="length",ylab="Probability of survival")
+       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of survival")
   g<- glm(surv~length, family=binomial,surv.asmi[surv.asmi$year==i,])
   curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
   #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
 }
 
+plot(surv.asmi$length, 
+       surv.asmi$surv, main= "1996 - 2017", xlab="length",ylab="Probability of survival")
+  g<- glm(surv~length, family=binomial,surv.asmi)
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
+
+# Plot survivial per year by fruit
+for(i in sort(unique(surv.asmi$year))){
+  plot(surv.asmi$fruits[surv.asmi$year==i], 
+       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="fruits",ylab="Probability of survival")
+  g<- glm(surv~fruits, family=binomial,surv.asmi[surv.asmi$year==i,])
+  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
+  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
+}
+  
+  
+plot(surv.asmi$fruits, 
+       surv.asmi$surv, main= "1996 - 2017", xlab="fruits",ylab="Probability of survival")
+  g<- glm(surv~fruits, family=binomial,surv.asmi)
+  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
 ```
 
 
@@ -1266,13 +1256,13 @@ Can go back to folder and delete old provisional data to replace with more curre
 options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 
 #Precipitation total, rain and snow
-get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
 
 #Maximum temperature (average)
-get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
 
 #Minimum temperature (average)
-get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = 1994:currentyr)
+get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
 
 ```
 
@@ -1304,6 +1294,14 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
                        CRS("+proj=longlat +datum=WGS84"))
 
 asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
+
+```
+
+
+```{r}
+library(ggmap)
+ggmap(get_map(c(-107.25,38.25,-106.75,38.75)))+
+  geom_point(data=asmiLL, aes(coords.x1,coords.x2))
 
 ```
 
@@ -1352,7 +1350,7 @@ asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'),
 asmi.c <- asmi.climate[,-2]
 
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
-plots.site$Creek <- "South Beaver"b
+plots.site$Creek <- "South Beaver"
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
@@ -2488,6 +2486,28 @@ asmi.pc14 <- predict(asmi.pca14)
 asmi.pc14 <- data.frame(asmi.pc14,season)
 ```
 
+```{r}
+
+asmi.c$season <- "winter"
+asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
+asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
+
+asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
+                                     grep(paste(c("tmin","tmax","Precip"),collapse="|"),
+                                          names(asmi.c), value=TRUE)], 
+                            asmi.c[,c("season","Creek","Prev12")],
+                            FUN = function(x) mean(x, na.rm = TRUE))
+
+head(asmi.c.summary)
+
+# currentyr-1? should it just be currentyr? or not less than currentyr? 
+season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
+                  idvar=c("Creek","Prev12"),
+                  timevar = "season",
+                  direction="wide")
+head(season)
+
+```
 
 #Intraannual visits
 ### Intraannual visits    
@@ -2621,7 +2641,7 @@ ggplot(dm[dm$Date<"2015-01-01",], aes(Date,Ln,group=as.factor(Plot),
   geom_smooth(se=FALSE)+
   theme_bw()
 
-ggplot(asmi.raw[dm$TagperPlot %in% asmi.raw$TagperPlot,], aes()
+#ggplot(asmi.raw[dm$TagperPlot %in% asmi.raw$TagperPlot,], aes()
 ```
 
 
