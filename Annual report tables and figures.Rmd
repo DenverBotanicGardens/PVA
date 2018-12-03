@@ -931,9 +931,29 @@ length(dorms[dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20 I think!
 
 Reproductive lengths - South Beaver Creek only   
 ```{r}
-repros <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==3]
-max(repros)
-ggplot(data.frame(Repro = repros), aes(Repro))+
+
+identical(asmi.2$fate, asmi.2$fate[with(asmi.2,order(tag,year))])
+
+# repros <- rle(as.numeric(asmi.2$fate[with(asmi.2,order(tag,year))]))$lengths[rle(as.numeric(asmi.2$fate[with(asmi.2, order(tag,year))]))$values ==3]
+
+x<- split(asmi.2, asmi.2$tag)
+x[[1000]]
+as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))])
+as.numeric(x[[1000]]$stage)
+
+asmi.2[asmi.2$tag==44,] # Seedling in 2011 but rows for all years
+
+rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$lengths[rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$values==3]
+
+repros <- do.call(rbind, lapply(split(asmi.2, asmi.2$tag), function(x){
+  reproslength <- rle(as.numeric(x$stage[with(x,order(year))]))$lengths[rle(as.numeric(x$stage[with(x,order(year))]))$values==3]
+  out <- data.frame(Tag=rep(unique(x$tag),length(reproslength)),
+             reproslength)
+  out[complete.cases(out),]
+}))
+
+max(repros$reproslength)
+ggplot(repros, aes(reproslength))+
   geom_histogram(bins=8)+
   theme_bw()+
   ylab("Frequency")+
