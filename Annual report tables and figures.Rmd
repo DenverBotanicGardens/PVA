@@ -26,6 +26,8 @@ library(rgdal)
 library(raster)
 library(Rmisc)
 #library(data.table)
+# install.packages('survminer')
+library(survminer)
 ```
 
 Remove all variables, keep functions
@@ -901,17 +903,20 @@ asmi.2$stage[1:sum(foo$lengths[1:10])]
 ```
 
 ```{r}
+# asmi.1 is already sorted by site, tag, year
 #dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
 levels(asmi.1$status) # 4 is dormant
 
-dorms <- do.call(c,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-  rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+  out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+  out
 }))
 
 
-table(dorms) 
+table(dorms$dorms) 
 
-ggplot(data.frame(Dormant = dorms), aes(Dormant))+
+ggplot(dorms, aes(dorms))+
   geom_histogram(bins = 20)+
   theme_bw()+
   ylab("Frequency")+
@@ -1055,21 +1060,89 @@ plot(surv.asmi$length,
   g<- glm(frYN~length, family=binomial,surv.asmi)
   curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)  
   
-  
-#Probability of being reproductive given years alive
-levels(asmi.1$status) # 3 is reproductive; 5 is dead
-notdeadyet <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-  data.frame(Tag=unique(x$AsMi_tag_id),
-             StageLength=sum(rle(as.numeric(x$status[with(x,order(year))]))$lengths[rle(as.numeric(x$status))$values!=5]))
-}))
-
-asmi.raw[asmi.raw$AsMi_tag_id==10,]
-asmi.1[asmi.1$AsMi_tag_id==10,] # Alive in 1995, not detected again until 2004 when big and flowering
-asmi.1[asmi.1$AsMi_tag_id==3,] # in 1996, maybe these were seen in 1995 but dead by 1996?
-asmi.1[asmi.1$AsMi_tag_id==11,] # Some tag made in error I guess
 ```
 
 
+# Another way to look at survival curves
+```{r}
+fit <- survfit(Surv(length, surv) ~ fenced, 
+               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
+
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length", conf.int = TRUE)
+```
+
+```{r}
+fit <- survfit(Surv(length, surv) ~ site, 
+               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
+
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length")
+
+```
+
+
+```{r}
+
+asmi.raw.1 <- asmi.raw[with(asmi.raw, order(AsMi_site_id,AsMi_plot_id,AsMi_tag_id,year)),]
+
+asmi.raw.1[asmi.raw.1$AsMi_tag_id==10,]
+asmi.1[asmi.1$AsMi_tag_id==10,] # Alive in 1995, not detected again until 2004 when big and flowering
+asmi.1[asmi.1$AsMi_tag_id==3,] # in 1996, maybe these were seen in 1995 but dead by 1996?
+asmi.1[asmi.1$AsMi_tag_id==11,] # Some tag made in error I guess
+
+#Probability of being reproductive given years alive
+levels(asmi.raw.1$status) # 3 is reproductive; 1 is dead
+# Should add at least 1 year to the years alive if reproductive 
+
+notdeadyet <- do.call(rbind,lapply(split(asmi.raw.1, asmi.raw.1$AsMi_tag_id), function(x){
+  if(nrow(x[x$status!="dead",])>0){
+    if(x$status[1] == "reproductive"){
+      addyear <- 1
+    } else {
+      addyear <- 0
+    }
+    StageLength <- nrow(x[x$status!="dead",])
+    data.frame(Tag=x$AsMi_tag_id[x$status!="dead"],
+               year = x$year[x$status!="dead"],
+               YrsAlive=(1+addyear):(StageLength+addyear))
+    }
+  }))
+
+surv.asmi.1 <- merge(asmi.raw, notdeadyet, by.x = c("AsMi_tag_id","year"), by.y = c("Tag","year"))
+surv.asmi.1[surv.asmi.1$AsMi_tag_id==10,]
+surv.asmi.1[surv.asmi.1$status=="reproductive"&surv.asmi.1$YrsAlive<3,]
+
+surv.asmi.1$frYN <- 0
+surv.asmi.1$frYN[surv.asmi.1$fruit>0] <- 1
+
+# Probability of being reproductive given length alive
+
+plot(surv.asmi.1$YrsAlive, 
+       surv.asmi.1$frYN, main= "1995 - 2018", xlab="Years alive",ylab="Probability of reproductive")
+  g<- glm(frYN~YrsAlive, family=binomial,surv.asmi.1)
+  curve(predict(g,data.frame(YrsAlive=x),type="resp"), col="green4",add=TRUE)  
+  
+
+```
+
+# This doesn't make sense! Can't substitude length for time? Is it cummulative? 
+```{r}
+surv.asmi.1 <- surv.asmi.1[surv.asmi.1$length < 99,]
+
+fit <- survfit(Surv(length, flower) ~ AsMi_site_id, 
+               data = surv.asmi.1[surv.asmi.1$length>0,]) 
+
+ggsurvplot(fit, data=surv.asmi.1[surv.asmi.1$length>0,], risk.table = FALSE, xlab = "length", ylab="Probability of Reproductive")
+
+```
+```{r}
+
+
+fit <- survfit(Surv(year, surv) ~ site, 
+               data = surv.asmi[surv.asmi$length>0,]) 
+
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0,], risk.table = FALSE, xlab = "length", ylab="Probability of Reproductive")
+
+```
 
 ```{r}
 plot(10,10, type="n")
