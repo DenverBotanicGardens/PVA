@@ -20,14 +20,45 @@ library(plyr)
 library(devtools)
 library(digest)
 library(RCurl)
-#install_github(repo = "prism", username = "ropensci")
+# install_github(repo = "prism", username = "ropensci")
 library(prism)
 library(rgdal)
 library(raster)
 library(Rmisc)
-#library(data.table)
+# library(data.table)
 # install.packages('survminer')
-library(survminer)
+# library(survminer)
+
+
+# A ggplot plot layout function 
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+ if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
 ```
 
 Remove all variables, keep functions
@@ -437,6 +468,8 @@ cortests <- apply(combn(1:cor.vars,2), 2, function(x){
 
 df.c <- do.call(rbind,cortests)
 
+write.csv(df.c, file=paste(savepath,"Table2_PCC.csv"), row.names=TRUE)
+
 #significant - don't worry about signficant alone or don't report at all
 df.c[df.c$P.val > 0.04,]
 
@@ -704,9 +737,9 @@ tbl3 <- lapply(sites, function(x){
 })
 
 #Cebolla Creek
-data.frame(tbl3[[1]],tbl3[[2]])
+write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table3_Cebolla.csv"), row.names=TRUE)
 #South Beaver Creek
-data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]])
+write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table3_SouthBeaver.csv"), row.names=TRUE)
 
 ```
 
@@ -883,7 +916,6 @@ ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
-#Figure 2b 
 
 Check errors    
 ```{r}
@@ -902,6 +934,7 @@ sum(foo$lengths[1:10])
 asmi.2$stage[1:sum(foo$lengths[1:10])]
 ```
 
+#Figure 3
 ```{r}
 # asmi.1 is already sorted by site, tag, year
 #dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
@@ -916,22 +949,30 @@ dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
 
 table(dorms$dorms) 
 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig2.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 130)
+
 ggplot(dorms, aes(dorms))+
   geom_histogram(bins = 20)+
   theme_bw()+
   ylab("Frequency")+
   xlab("Consecutive years dormant")
+
+dev.off()
 ```
 
 #only South beaver creek
 ```{r}
-median(dorms) #3
-length(dorms[dorms==1]) #347 -> 358
-length(dorms[dorms==1])/length(dorms) # 37%
-length(dorms) #848 -> 959
-length(dorms[dorms > 5]) #353 -> 355
-length(dorms[dorms > 15]) #93 -> 82??
-length(dorms[dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20 I think!
+median(dorms$dorms) #3
+length(dorms$dorms[dorms$dorms==1]) #347 -> 358
+length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37%
+
+length(dorms$dorms[dorms$dorms>0])/length(dorms$dorms) # 37%
+length(dorms$dorms) #848 -> 959
+length(dorms$dorms[dorms$dorms > 5]) #353 -> 355
+length(dorms$dorms[dorms$dorms > 15]) #93 -> 82??
+length(dorms$dorms[dorms$dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20 I think!
 ```
 
 Reproductive lengths - South Beaver Creek only   
@@ -1135,12 +1176,12 @@ ggsurvplot(fit, data=surv.asmi.1[surv.asmi.1$length>0,], risk.table = FALSE, xla
 
 ```
 ```{r}
+surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
 
+fit <- survfit(Surv(YrsAlive, surv) ~ site, 
+               data = surv.asmi.2[surv.asmi.2$length>0,]) 
 
-fit <- survfit(Surv(year, surv) ~ site, 
-               data = surv.asmi[surv.asmi$length>0,]) 
-
-ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0,], risk.table = FALSE, xlab = "length", ylab="Probability of Reproductive")
+ggsurvplot(fit, data=surv.asmi.2[surv.asmi.2$length>0,], risk.table = FALSE, xlab = "Age", ylab="Probability of Reproductive")
 
 ```
 
@@ -1197,14 +1238,22 @@ tbl4.allpost <- sapply(mats.list[-1], function(x){
         round(lmdSD(x, 2005,currentyr-2)[2],2),")", sep="")
 })
 
+write.csv(tbl4.allpost, file=paste(savepath,"Table4_allpost.csv"), row.names=TRUE)
+
+
 tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[1],2)," (",
                       round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[2],2),")", sep="")
+
+
+write.csv(tbl4.allopen, file=paste(savepath,"tbl4_allopen.csv"), row.names=TRUE)
 ```
 
 Cebolla all
 1:Mid
 2:North
 ```{r}
+
+# All
 lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
 # lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1) #in 2016, not enough data to exclude the last one
 #         lmda       SD
@@ -1227,16 +1276,16 @@ sapply(mats.list, function(x){
  
 T-test fenced vs. open after fencing installed
 ```{r T.test paired growth rates}
-t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
-       lmdAn(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
+t.test(lmdSD(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
+       lmdSD(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
        paired = TRUE)
 
 ```
 
 T-test for growth rate before and after fencing  
 ```{r}
-t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
-       lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
+t.test(lmdSD(asmi.pva$fenced.pro.matrix, 1996, 2004),
+       lmdSD(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
 ```
 
 
@@ -1421,19 +1470,13 @@ asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Comm
 ```
 
 
-```{r}
-library(ggmap)
-ggmap(get_map(c(-107.25,38.25,-106.75,38.75)))+
-  geom_point(data=asmiLL, aes(coords.x1,coords.x2))
-
-```
-
 
 # Want Site, Year, Month, ppt, tmin, tmax
 ```{r, eval = FALSE}
 maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
 mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
 ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
+
 
 avgTemps.max <- lapply(maxs, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
@@ -1658,7 +1701,7 @@ names(forpca)
 ```
 
 #Environmental Data
-T-tests for Creek from Figure 7
+T-tests for Creek from old PCA figures
 ```{r}
 asmi.pca <- princomp(forpca,cor=TRUE)
 summary(asmi.pca)
@@ -1868,9 +1911,6 @@ ggplot(asmi.env[asmi.env[,names(comp1[1])] < MidL,],
 
 
 
-
-
-Figure 7a
 ```{r}
 summary(asmi.pca)
 PoV <- asmi.pca$sdev^2/sum(asmi.pca$sdev^2)
@@ -2070,12 +2110,12 @@ South Beaver
 AGG
 ```{r}
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-           currentyr,"_asmi/","Fig8a.jpg", sep = ""),
-     units = "mm", res = 300, height = 181.03, width = 186.87)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#            currentyr,"_asmi/","Fig8a.jpg", sep = ""),
+#      units = "mm", res = 300, height = 181.03, width = 186.87)
 
 
-ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,], 
+p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Alive, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2100,18 +2140,18 @@ ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(0,0), legend.position=c(0,0),#upper right
         legend.background = element_rect(fill=alpha('white', 0.1))) 
-dev.off()
+# dev.off()
 
 ```
 
 Cebolla
 AGG
 ```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-           currentyr,"_asmi/","Fig8a-Cebolla.jpg", sep = ""),
-     units = "mm", res = 300, height = 181.03, width = 186.87)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#            currentyr,"_asmi/","Fig8a-Cebolla.jpg", sep = ""),
+#      units = "mm", res = 300, height = 181.03, width = 186.87)
 
-ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,], 
+p1CC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2137,7 +2177,7 @@ ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,],
   theme(legend.justification=c(0,1), legend.position=c(0,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
-dev.off()
+# dev.off()
 
 ```
 
@@ -2146,11 +2186,11 @@ dev.off()
 Fruit   
 South Beaver Creek
 ```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8c.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#               currentyr,"_asmi/","Fig8c.jpg", sep = ""),
+#          units = "mm", res = 300, height = 181.03, width = 186.87)
 
-ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,], 
+p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2175,7 +2215,7 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(1,1), legend.position=c(1,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
-dev.off()
+# dev.off()
 
 ```
 
@@ -2292,6 +2332,26 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
 dev.off()
 ```
 
+
+
+
+
+
+Figure 7
+```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig7-SouthBeaverCreek.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
+
+# Down each column
+multiplot(p1SBC, p3SBC, p2SBC, p4SBC)
+
+dev.off()
+
+
+```
+
+
 Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July
 
 ### Years alive    
@@ -2361,12 +2421,12 @@ sum(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])/length(perc_ind_dorm$Dorm[perc_ind
 
 
 #in Raw, #2 is dormant
-
-dorms <- do.call(c,lapply(unique(asmi.raw$AsMi_tag_id), function(x){
-  tag <- asmi.raw[asmi.raw$AsMi_tag_id == x,]
-  dormlns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==2]
-  dormlns
-}))
+# 
+# dorms <- do.call(c,lapply(unique(asmi.raw$AsMi_tag_id), function(x){
+#   tag <- asmi.raw[asmi.raw$AsMi_tag_id == x,]
+#   dormlns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==2]
+#   dormlns
+# }))
 
 #dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
 max(dorms) #21
@@ -2384,7 +2444,7 @@ length(dorms[dorms == max(dorms)]) # 13 with 21 years
 ```
 
 #SKIP!
-Figure 2(a) Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
+Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
 ```{r}
 ggplot(smya, aes(YrsD, Yearsalive))+
 #  stat_smooth()+
@@ -2429,6 +2489,7 @@ length(1995:currentyr)-aggregate(flower~AsMi_site_id, data=noreproductiveyears,s
 
 #Plot summary for demographic data per year
 
+# Old, not doing PCA anymore!!
 Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
 ```{r}
 # fruit above a SE above
@@ -2496,7 +2557,7 @@ t.test(Comp.1~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < current
 
 
 #South Beaver Creek Only
-```{r t-tests Figure 7}
+```{r t-tests}
 # Reproductive not signficantly different
 avgfl$X..Flowered[avgfl$Creek == "South Beaver"]
 t.test(Comp.1 ~ as.factor(Repro), data = ps.pc)
