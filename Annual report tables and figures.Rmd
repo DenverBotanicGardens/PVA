@@ -29,6 +29,8 @@ library(Rmisc)
 # install.packages('survminer')
 # library(survminer)
 
+library(car) # line 381
+
 
 # A ggplot plot layout function 
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
@@ -74,15 +76,14 @@ Function for t.tests, for annual lambdas
 script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
 eval(parse(text = script))
 
-```
 
-### Function for lambda and 
-requires library(popbio)    
-x is the list of matrices, i.e. notfenced.Site.matrix$"26",     
-					or fenced.Site.matrix$"19"[2:17])    
-y is the start year    
-z is the start of the last transition
-```{r}
+# ### Function for lambda and 
+# requires library(popbio)    
+# x is the list of matrices, i.e. notfenced.Site.matrix$"26",     
+# 					or fenced.Site.matrix$"19"[2:17])    
+# y is the start year    
+# z is the start of the last transition
+
 lmdSD <- function(x,y,z){
   
   startyr <- min(as.numeric(names(x)))
@@ -96,6 +97,17 @@ lmdSD <- function(x,y,z){
 	StandDev <- sqrt(var(c(lambdaAll)))	#Standard Deviation
 	cbind(lmda = lambda(mean(x[st[1]:st[2]])),SD = StandDev)
 }	
+
+lmdAn <- function(x,y,z){
+  yrs <- 1995:z
+	st <- match(c(y,z),yrs)
+	
+	lambdaAll <- c()
+	for(i in c(y:z)){
+		lambdaAll <- cbind(lambdaAll,eigen.analysis(x[[as.character(i)]])$lambda)
+	}	
+	lambdaAll
+}
 ```
 
 
@@ -271,13 +283,9 @@ names(Table1_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
 write.table(Table1_Cebolla, file=paste(savepath,"Table1a_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
 
-```
 
-
-
-Percent and total preproductive
-```{r}
-#precent reproductive, return 0 if no 
+# Percent and total preproductive
+# precent reproductive, return 0 if no 
 prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id +fence,
                   data = asmi.raw[asmi.raw$length > 0 & !is.na(asmi.raw$length),],
                   function(x){
@@ -384,7 +392,6 @@ ks.test(ps.asmi.t$Total.Alive, plnorm)
 hist(log(ps.asmi.t$Total.Alive+1))
 ks.test(log(ps.asmi.t$Total.Alive+1), pnorm)
 
-library(car)
 #log(ps.asmi.t$Total.Alive+1) right skew
 scatterplotMatrix(~Total.Alive+log(ps.asmi.t$Total.Alive+1), 
                  diagonal = "qqplot",
@@ -442,12 +449,6 @@ ps.asmi.t$X..Browsedarcsinsqrttransformed[is.na(ps.asmi.t$X..Browsedarcsinsqrttr
 
 ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
                        by = c("Site","Plot")), Year.x == Year.y - 1)
-```
-
-
-```{r}
-cor.plot(cor(ps.cor[,grep("transformed", names(ps.cor))]),
-         numbers=TRUE)
 ```
 
 cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"    
@@ -572,9 +573,29 @@ lm1 <- lm(Total.Fruitlogtransformed.y ~  Year.x, ps.cor)
 lm2 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
 lm3 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
 lm4 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Fence.x, ps.cor)
-lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
+# lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5)
+lm.list <- list(lm1,lm2,lm3,lm4) # ,lm5)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+```
+
+#AIC for reproductive
+```{r}
+
+#Candidate models  
+lm1 <- lm(X..Flowered.1logtransformed.x ~  Year.x, ps.cor)
+lm2 <- lm(X..Flowered.1logtransformed.x ~ Year.x*as.factor(Site), ps.cor)
+lm3 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Creek.x, ps.cor) #Need add creek!
+lm4 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Fence.x, ps.cor)
+# lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
+
+lm.list <- list(lm1,lm2,lm3,lm4) # ,lm5)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -603,11 +624,6 @@ pairs(ps.cor[,names(ps.cor) %in%
 
 pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 
-
-#x = t, y = t+1
-# X..Flowered.1 = density; X..Flowered = % reproductive  
-#Total.Alive = AGG; Total.Plants=AGG+Dormant
-#write.table(cor.out, file=paste(savepath,"Table2_correlations.csv"), sep=",",row.names = TRUE, col.names = TRUE)
 
 ```
 
@@ -967,8 +983,21 @@ dev.off()
 median(dorms$dorms) #3
 length(dorms$dorms[dorms$dorms==1]) #347 -> 358
 length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37%
+# How many tags had some amount of dormancy? How'd I get that before
+dormantsandnot <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+  if(length(dormlns)==0){
+    out <- data.frame(Tag=unique(x$AsMi_tag_id),dorms=0)
+  } else {
+    out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+  }
+  out
+}))
+dormantsandnot$dormYN <- 0
+dormantsandnot$dormYN[dormantsandnot$dorms>0] <- 1
+sum(dormantsandnot$dormYN)/nrow(dormantsandnot) # 0.3483473
 
-length(dorms$dorms[dorms$dorms>0])/length(dorms$dorms) # 37%
+
 length(dorms$dorms) #848 -> 959
 length(dorms$dorms[dorms$dorms > 5]) #353 -> 355
 length(dorms$dorms[dorms$dorms > 15]) #93 -> 82??
@@ -1274,18 +1303,18 @@ sapply(mats.list, function(x){
     })
 ```
  
-T-test fenced vs. open after fencing installed
+T-test fenced vs. open after fencing installed   
 ```{r T.test paired growth rates}
-t.test(lmdSD(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
-       lmdSD(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
+t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
+       lmdAn(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
        paired = TRUE)
 
 ```
 
 T-test for growth rate before and after fencing  
 ```{r}
-t.test(lmdSD(asmi.pva$fenced.pro.matrix, 1996, 2004),
-       lmdSD(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
+t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
+       lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
 ```
 
 
@@ -2825,7 +2854,26 @@ ggplot(dm[dm$Date<"2015-01-01",], aes(Date,Ln,group=as.factor(Plot),
   geom_smooth(se=FALSE)+
   theme_bw()
 
-#ggplot(asmi.raw[dm$TagperPlot %in% asmi.raw$TagperPlot,], aes()
+str(dm)
+
+# Only rows refering to cotyledons
+dm.coty <- dm[grep("coty",dm$Comment),]
+dm.aprcoty <- dm[dm$AprSeedlings==1,]
+# dm.coty <- rbind(dm.coty,dm.aprcoty)
+dm.coty$Comment <- droplevels(dm.coty$Comment)
+table(dm.coty$Comment)
+
+# Don't want
+c("cotyledon of non","no cotyledons")
+
+# dm.coty <- dm.coty[!grepl("cotyledon of non",dm.coty$Comment),]
+dm.coty <- dm.coty[!grepl("no cotyledon",dm.coty$Comment),]
+
+
+ggplot(dm.coty, aes(Date,Ln,colour=as.factor(Date)))+
+  geom_boxplot()
+
+table(dm$Comment[grep("coty",dm$Comment)],dm$Site[grep("coty",dm$Comment)])
 ```
 
 
