@@ -147,6 +147,9 @@ asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 #reset factors for fence
 asmi.raw$fence <- factor(asmi.raw$fence)
 table(asmi.raw$fence)
+
+asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] 
+asmi.raw$length[asmi.raw$length == 921] <- 21
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -219,6 +222,9 @@ ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
 
 ```{r}
 table(alive$AsMi_site_id, alive$length)
+asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] # Plot 238, tag 925, Ln '921' -> 21??
+
+
 
 table(alive$AsMi_site_id, alive$year) # 2 is cebolla north, 1 is mid
 ```
@@ -1068,16 +1074,6 @@ model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
 
 ```
 
-Errors!
-```{r}
-#plot survival of a given year by size
-for(i in unique(surv.asmi$year)){
-  logi.hist.plot(surv.asmi$length[surv.asmi$year==i],
-                 surv.asmi$surv[surv.asmi$year==i], 
-                 boxp=FALSE,type="hist",col="gray")
-}
-
-```
 
 https://rpubs.com/daspringate/survival    
 https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-same-lines-many-times-why    
