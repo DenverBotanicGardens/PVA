@@ -123,6 +123,8 @@ rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Ast
 
 asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
 
+asmi.raw$length[is.na(asmi.raw$length)] <- 0
+
 # No longer adding climate data to the database
 asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
                            value = TRUE, invert = TRUE)]
@@ -156,6 +158,7 @@ wrongAsMidataid <- asmi.raw$AsMi_data_id[asmi.raw$status=="vegetative" & asmi.ra
 asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
 asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
 asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
+
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -253,11 +256,6 @@ PercentAlive <- lapply(split(alive.site, alive.site$AsMi_site_id), function(x){
 
   })
 
-```
-
-
-
-```{r}
 tbl1a.1 <- summarySE(alive, measurevar="length", groupvars=c("AsMi_site_id", "year"))
 
 tbl1a.2 <- summarySE(aggdorm, measurevar="status", groupvars=c("AsMi_site_id", "year"))
@@ -369,11 +367,8 @@ ps.asmi$Creek <- as.factor(ps.asmi$Creek)
 ps.asmi <- ps.asmi[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(ps.asmi),
                            value = TRUE, invert = TRUE)]
 
-head(ps.asmi)
 
 cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
-
-
 
 ```
 
@@ -392,7 +387,6 @@ ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 300 & ps.asmi.t$Year < 1996),]
 ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 598 & ps.asmi.t$Year < 2004),]
 
 table(ps.asmi.t$Year,ps.asmi.t$Site) #no rows for years when some plots weren't in yet
-
 
 
 hist(ps.asmi.t$Total.Alive)
@@ -769,12 +763,14 @@ write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepa
 ```
 
 
-Table 4: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
+#Table 4: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
 
+
+### But if I add individuals not as seedlings (even though I know they aren't seedlings this year) then they aren't given credit for reproducing.. # could add a New2me category that is clearly not a seedling but a delayed/missed one. Then should add a seedling to the previous year as a stop gap? So count up number of seedlings and number of seedlings in the next year that are reproductive and subtract them from the current seedling number!
 ```{r}
 table(asmi.raw$browsing)
 table(asmi.raw$Browsing...Status) 
-nrow(asmi.raw) #13806->16377
+nrow(asmi.raw) #13806->16377->17817
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
@@ -815,10 +811,14 @@ Set order of classes
 
 stages <- c("seedling", "vegetative", "reproductive", "dormant","dead") 
 
+# SBC
+# Cebolla
 asmi.1$status <- ordered(asmi.1$status, levels = stages)
-cebolla$status <- ordered(cebolla$status, levels = stages)
+cebolla$status <- ordered(cebolla$status, levels = stages)N
 
+# Both
 asmi.all$status <- ordered(asmi.all$status, levels = stages)
+
 ```
 
 check errors
@@ -829,20 +829,10 @@ table(cebolla$status)
 # should all be reproductive (status 4 in DBG phpMyAdmin)
 asmi.1[asmi.1$flower == 1 & asmi.1$status == "vegetative",]
 cebolla[cebolla$flower == 1 & cebolla$status == "vegetative",]
-asmi.all[cebolla$flower == 1 & asmi.all$status == "vegetative",]
+asmi.all[asmi.all$flower == 1 & asmi.all$status == "vegetative",]
 
-
-table(asmi.1$year, asmi.1$AsMi_site_id)
-tail(table(asmi.1$length) )
-tail(table(cebolla$length))
-tail(table(asmi.all$length))
-
-table(asmi.1$status[is.na(asmi.1$length)])
-asmi.1[asmi.1$length > 100 & !is.na(asmi.1$length),]
-
-# One length that was recorded crazy
-# asmi.1$length[asmi.1$length == 921] <- NA
-# asmi.all$length[asmi.all$length == 921] <- NA
+# made all NA lengths 0
+# table(asmi.1$status[is.na(asmi.1$length)])
 
 asmi.1$browsed[asmi.1$browsing==0]<-FALSE  	
 asmi.1$browsed[asmi.1$browsing==1]<-TRUE
@@ -863,13 +853,18 @@ table(asmi.all$browsing)
 ```
 
 Merge year to year, year.x is year t, year.y is year t+1   
-remove dead from stages, just fate   
+remove dead from stages, just fate    
+At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together
 ```{r}
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
 asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
+# Which of these say dead to seedling, should get rid of these, or dead to dead
+asmi.all1[asmi.all1$status.x=="dead",]
+
+asmi.all1 <- asmi.all1[asmi.all1$status.x!="dead",]
 ```
 
 
@@ -888,8 +883,10 @@ colnames(asmi.2) <- c( "tag","year","length","fruits","stage","plot",
                        "site","fenced","browse","fate")
 ## re-number
 rownames(asmi.2) <- 1:nrow(asmi.2)
-# Get rid of stage 'dead'
+
+# Get rid of stage 'dead' because nothing starts as dead!
 asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-length(stages)])
+
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
 table(Fate = asmi.2$fate, Stage = asmi.2$stage)
@@ -925,6 +922,7 @@ Will change all seedling with fruit to reproductive
 ```{r}
 asmi.boot <- asmi.all1
 asmi.boot$fruits[is.na(asmi.boot$fruits)] <- 0
+table(asmi.boot$length[is.na(asmi.boot$stage)],asmi.boot$year[is.na(asmi.boot$stage)])
 
 table(asmi.boot$year, asmi.boot$site) # from 1995 transitions stage -> fate up to currentyr-1 stage->fate 
 # add 'seedling' column
