@@ -856,14 +856,10 @@ Merge year to year, year.x is year t, year.y is year t+1
 remove dead from stages, just fate    
 At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together
 ```{r}
-asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
-cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
-
 asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
 # Which of these say dead to seedling, should get rid of these, or dead to dead
 asmi.all1[asmi.all1$status.x=="dead",]
-
 asmi.all1 <- asmi.all1[asmi.all1$status.x!="dead",]
 ```
 
@@ -877,37 +873,19 @@ Narrow down to
 ```{r}
 cols <- c("AsMi_site_id.x","AsMi_tag_id","year.x","length.x",
           "fruit.x","browsed.x","fence.x","status.x","status.y","AsMi_plot_id.x")
-asmi.2 <- asmi.2[, names(asmi.2) %in% unique(grep(paste(cols,collapse="|"),
-                                                  names(asmi.2), value = TRUE))]
-colnames(asmi.2) <- c( "tag","year","length","fruits","stage","plot",
+asmi.all2 <- asmi.all1[, names(asmi.all1) %in% unique(grep(paste(cols,collapse="|"),
+                                                  names(asmi.all1), value = TRUE))]
+colnames(asmi.all2) <- c( "tag","year","length","fruits","stage","plot",
                        "site","fenced","browse","fate")
 ## re-number
-rownames(asmi.2) <- 1:nrow(asmi.2)
+rownames(asmi.all2) <- 1:nrow(asmi.all2)
 
 # Get rid of stage 'dead' because nothing starts as dead!
-asmi.2$stage <- ordered(asmi.2$stage, levels = stages[-length(stages)])
+asmi.all2$stage <- ordered(asmi.all2$stage, levels = stages[-length(stages)])
 
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
-table(Fate = asmi.2$fate, Stage = asmi.2$stage)
-
-cebolla.2 <- cebolla1[, names(cebolla1) %in% unique(grep(paste(cols,collapse="|"),
-                                                  names(cebolla1), value = TRUE))]
-colnames(cebolla.2) <- c( "tag","year","length","fruits","stage","plot",
-                       "site","fenced","browse","fate")
-
-#To just do plot at a time
-asmi.all1 <- asmi.all1[, names(asmi.all1) %in% unique(grep(paste(cols,collapse="|"),
-                                                  names(asmi.all1), value = TRUE))]
-colnames(asmi.all1) <- c( "tag","year","length","fruits","stage","plot",
-                       "site","fenced","browse","fate")
-## re-number
-rownames(asmi.all1) <- 1:nrow(asmi.all1)
-# Get rid of stage 'dead'
-asmi.all1$stage <- ordered(asmi.all1$stage, levels = stages[-length(stages)])
-# check transitions
-#fate down and stage across the top; These are the raw numbers combined for all years 
-table(Fate = asmi.all1$fate, Stage = asmi.all1$stage)
+table(Fate = asmi.all2$fate, Stage = asmi.all2$stage)
 
 ```
 
@@ -918,72 +896,53 @@ There are seedlings that go from 'seedling' to 'dead' that have values for $seed
 something is off.    
 Made some fixes to raw data where fruit were counted but confusion led to putting 0 for flower column    
 Will change all seedling with fruit to reproductive
-## START HERE
+
 ```{r}
-asmi.boot <- asmi.all1
+asmi.boot <- asmi.all2
 asmi.boot$fruits[is.na(asmi.boot$fruits)] <- 0
-table(asmi.boot$length[is.na(asmi.boot$stage)],asmi.boot$year[is.na(asmi.boot$stage)])
 
 table(asmi.boot$year, asmi.boot$site) # from 1995 transitions stage -> fate up to currentyr-1 stage->fate 
 # add 'seedling' column
-# change seedlings with length greater than 30 to 'vegetative'
-table(asmi.boot$stage[asmi.boot$length>30])
-table(asmi.boot$stage[asmi.boot$fruits>0])
+# give credit for reproductive seedlings to two years prior because must be more than one year old
 asmi.boot[asmi.boot$fruits>0 & asmi.boot$stage=="seedling" & asmi.boot$length<20,]
-hist(asmi.boot$length[asmi.boot$fruits>0])
-hist(asmi.boot$length[asmi.boot$fruits>0 & asmi.boot$stage=="seedling"])
-hist(asmi.boot$length[asmi.boot$fruits>0 & asmi.boot$stage=="reproductive"])
-asmi.boot[asmi.boot$stage=="vegetative" & asmi.boot$fruits>0,]
 
-asmi.boot$stage[asmi.boot$fruits>0 & asmi.boot$stage=="seedling"] <- "reproductive"
+# asmi.boot$stage[asmi.boot$fruits>0 & asmi.boot$stage=="seedling"] <- "reproductive"
 
-asmi.boot$seedling <- do.call(c,lapply(sort(unique(asmi.boot$year)),function(year){
+nrow(asmi.boot ) #13868
+
+asmi.boot$seedling <- unlist(lapply(split(asmi.boot, asmi.boot$plot), function(plot){
+  # [-length(sort(unique(plot$year)))] want all years to get correct length
+  out <- lapply(sort(unique(plot$year)),function(year){
   # For each next year, how many seedlings were there? 
-  seedlings <- nrow(asmi.boot[asmi.boot$year == year+1 & asmi.boot$stage == "seedling",])
+  seedlings.t1 <- nrow(asmi.boot[asmi.boot$year == year+1 &
+                                   asmi.boot$stage == "seedling" & 
+                                   asmi.boot$fruits==0,])
+  seedlings.t2 <- nrow(asmi.boot[asmi.boot$year == year+2 & 
+                                   asmi.boot$stage == "seedling" & 
+                                   asmi.boot$fruits>0,])
+  seedlings <- sum(seedlings.t1, seedlings.t2)
   # The number of fruit produced per individual divided by all fruit produced * seedlings in the next year
-  seedlingsout <- asmi.boot$fruits[asmi.boot$year==year]/sum(asmi.boot$fruits[asmi.boot$year==year],na.rm = TRUE) * seedlings
+  seedlingsout <- plot$fruits[plot$year==year]/sum(plot$fruits[plot$year==year],na.rm = TRUE) * seedlings
   seedlingsout
-  }))
+  })
+  out
+}))
 
-asmi.boot[asmi.boot$year==year,]
-asmi.boot[asmi.boot$seedling>0,]
-asmi.boot[is.na(asmi.boot$stage),]
-
-boottrans <- lapply(unique(asmi.boot$plot), function(x){
-  data.frame(cbind(Plot = x,
-                   Boot = boot.transitions(asmi.boot[asmi.boot$plot == x & 
-                                                       asmi.boot$fenced == "n",], 
-                                           1000,
-                                           fertility = "fruits")$lambda))
+boottrans <- lapply(split(asmi.boot, asmi.boot$plot), function(x){
+  data.frame(Plot = unique(x$plot),
+             Site = unique(x$site),
+             Boot = boot.transitions(x,1000,fertility = "fruits")$lambda)
   })
 
 bt <- do.call(rbind, boottrans)
-head(bt)
-#dev.off()
+
 ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
   geom_boxplot()+
-  facet_grid(~Site)+
+  facet_wrap(~Site, ncol=3)+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
-
-Check errors    
-```{r}
-
-# sorted by tag and then year so....
-firststage <- asmi.2[!duplicated(asmi.2$tag),]
-table(firststage$stage[firststage$year != 1996]) # 11 times when first account of tagged individual is vegetative, not seedling, why?! Fixed by 2018
-
-#firststage[firststage$stage=="vegetative" & firststage$year!=1996,]
-
-
-foo <- rle(as.numeric(asmi.2$stage))
-foo$values[1:10]
-foo$lengths[1:10]
-sum(foo$lengths[1:10])
-asmi.2$stage[1:sum(foo$lengths[1:10])]
-```
 
 #Figure 3
 ```{r}
