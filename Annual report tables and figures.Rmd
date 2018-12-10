@@ -2028,11 +2028,11 @@ p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
   
 ```
 
-Cebolla  
+Cebolla AGG and Dormant = Total.Plants 
 ```{r}
 
-p2CC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 & 
-                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "Cebolla",], 
+p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2013 & 
+                 ps.asmi$Year < currentyr & ps.asmi$Site < 3,], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2059,6 +2059,18 @@ p2CC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 &
   scale_x_continuous(breaks = c(2014:currentyr-1))
 
 ```
+
+#WTF is happening with AGG and Dormants at Cebolla Creek Mid?
+```{r}
+AGG_dorm <- ps.asmi[ps.asmi$Year > 2013 & 
+                 ps.asmi$Year < currentyr & ps.asmi$Site < 3,]
+
+AGG_only <- ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,]
+
+table(AGG_dorm$Total.Alive,AGG_dorm$Year)
+table(AGG_only$Total.Plants,AGG_only$Year)
+```
+
 
 #Gina Gleene suggestion   
 log transformed! 
@@ -2142,14 +2154,15 @@ p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
 
 ```
 
-Cebolla
-AGG
+Cebolla    
+AGG   Total.Alive     
+AGG + Dormant   Total.Plants
 ```{r}
 # jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
 #            currentyr,"_asmi/","Fig8a-Cebolla.jpg", sep = ""),
 #      units = "mm", res = 300, height = 181.03, width = 186.87)
 
-p1CC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,], 
+p1CC <- ggplot(ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2162,7 +2175,7 @@ p1CC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,],
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG per Site")+
+  ylab("Average AGG per Plot")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
@@ -2318,7 +2331,7 @@ p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
 
 
 
-Figure 7
+Figure 2
 ```{r}
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
               currentyr,"_asmi/","Fig7-SouthBeaverCreek.jpg", sep = ""),
