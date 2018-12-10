@@ -1996,13 +1996,9 @@ South Beaver Creek
                     fill="gray80", alpha=0.01) 
 ```{r}
 
-    jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8b.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
 
-
-ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 & 
-                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "South Beaver",], 
+p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
+                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "SouthBeaver",], 
        aes(Year, Total.Plants, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2028,20 +2024,14 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
   theme(legend.justification=c(0,0), legend.position=c(0,0),  #bottom left
         legend.background = element_rect(fill=alpha('white', 0.1)))
 
-dev.off()
+
   
 ```
 
 Cebolla  
 ```{r}
 
-
-    jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8b-Cebolla.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
-
-
-ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 & 
+p2CC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 & 
                  ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "Cebolla",], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
@@ -2067,8 +2057,7 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 2013 &
   theme(legend.justification=c(1,0), legend.position=c(1,0)) +
   scale_y_continuous(limits = c(0,68)) +
   scale_x_continuous(breaks = c(2014:currentyr-1))
-  
-dev.off()
+
 ```
 
 #Gina Gleene suggestion   
@@ -2123,10 +2112,6 @@ South Beaver
 AGG
 ```{r}
 
-# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-#            currentyr,"_asmi/","Fig8a.jpg", sep = ""),
-#      units = "mm", res = 300, height = 181.03, width = 186.87)
-
 
 p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Alive, shape = Fence, colour = Fence))+
@@ -2153,7 +2138,7 @@ p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(0,0), legend.position=c(0,0),#upper right
         legend.background = element_rect(fill=alpha('white', 0.1))) 
-# dev.off()
+
 
 ```
 
@@ -2199,9 +2184,6 @@ p1CC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site < 3,],
 Fruit   
 South Beaver Creek
 ```{r}
-# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-#               currentyr,"_asmi/","Fig8c.jpg", sep = ""),
-#          units = "mm", res = 300, height = 181.03, width = 186.87)
 
 p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,], 
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
@@ -2216,7 +2198,7 @@ p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,],
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Total Fruit per Site")+
+  ylab("Average Total Fruit per Plot")+
   ggtitle("c)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2228,7 +2210,6 @@ p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   theme(legend.justification=c(1,1), legend.position=c(1,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
-# dev.off()
 
 ```
 
@@ -2241,12 +2222,8 @@ aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Si
 aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
           std.error)
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8c-Cebolla.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
 
-
-ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,], 
+p3CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,], 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2257,7 +2234,7 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,],
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Total Fruit per Site")+
+  ylab("Average Total Fruit per Plot")+
   ggtitle("c)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site", 
@@ -2270,18 +2247,14 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,],
         legend.background = element_rect(fill=alpha('white', 0.1)))+
   scale_x_continuous(breaks = c(2014:currentyr))
 
-dev.off()
 ```
   
   
 X..Flowered - Percent Reproductive
 ```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8d.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
 
 
-ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",], 
+p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "SouthBeaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2307,16 +2280,12 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",],
   theme(legend.justification=c(1,1), legend.position=c(1,1),  #bottom left
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
-dev.off()
 ```
 
 Cebolla
 ```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig8d-Cebolla.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
 
-ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,], 
+p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,], 
        aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2342,7 +2311,6 @@ ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
   theme(legend.justification=c(0,1), legend.position=c(0,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
-dev.off()
 ```
 
 
@@ -2357,13 +2325,25 @@ jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_mi
          units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
 
 # Down each column
-multiplot(p1SBC, p3SBC, p2SBC, p4SBC)
+multiplot(p1SBC, p3SBC, p2SBC, p4SBC, cols=2)
 
 dev.off()
 
 
 ```
+Figure 2 Cebolla Creek
+```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig2-CebollaCreek.jpg", sep = ""),
+         units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
 
+# Down each column
+multiplot(p1CC, p3CC, p2CC, p4CC, cols=2)
+
+dev.off()
+
+
+```
 
 Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July
 
@@ -3726,3 +3706,22 @@ ggplot(alive.byyear, aes(year,length))+
 write.csv(alive.byyear,"Q:/Research/MEDL_folder/AsMi_yr.csv")
 
 ```
+
+# Indivdiuals, density at Cebolla from demography compared to point-in-time counts   
+```{r}
+circleplots <- pi*(3^2)
+
+pit1.north <- 441
+pit2.north <- 987
+
+densepit1.north <- 68/pit1.north
+densepit2.north <- 114/pit2.north
+
+mean(densepit1.north,densepit2.north) # 0.154 indv/sq meter
+
+densecebolla <- 40/circleplots
+
+ps.asmi
+```
+
+
