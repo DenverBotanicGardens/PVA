@@ -505,8 +505,9 @@ lm1 <- lm(Total.Alivelogtransformed.y ~ Year.x, ps.cor)
 lm2 <- lm(Total.Alivelogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
 lm3 <- lm(Total.Alivelogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
 lm4 <- lm(Total.Alivelogtransformed.y ~ Year.x*Fence.x, ps.cor)
+lm5 <- lm(Total.Alivelogtransformed.y ~ 1, ps.cor)
 
-lm.list <- list(lm1,lm2, lm3, lm4)
+lm.list <- list(lm1,lm2, lm3, lm4, lm5)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -576,9 +577,9 @@ lm1 <- lm(Total.Fruitlogtransformed.y ~  Year.x, ps.cor)
 lm2 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
 lm3 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
 lm4 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Fence.x, ps.cor)
-# lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
+ lm5 <- lm(Total.Fruitlogtransformed.y ~ 1, ps.cor)
 
-lm.list <- list(lm1,lm2,lm3,lm4) # ,lm5)
+lm.list <- list(lm1,lm2,lm3,lm4 ,lm5)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -596,9 +597,9 @@ lm1 <- lm(X..Flowered.1logtransformed.x ~  Year.x, ps.cor)
 lm2 <- lm(X..Flowered.1logtransformed.x ~ Year.x*as.factor(Site), ps.cor)
 lm3 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Creek.x, ps.cor) #Need add creek!
 lm4 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Fence.x, ps.cor)
-# lm5 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Plot), ps.cor)
+lm5 <- lm(X..Flowered.1logtransformed.x ~ 1, ps.cor)
 
-lm.list <- list(lm1,lm2,lm3,lm4) # ,lm5)
+lm.list <- list(lm1,lm2,lm3,lm4,lm5)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -2031,7 +2032,8 @@ p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
 Cebolla AGG and Dormant = Total.Plants 
 ```{r}
 
-p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2013 & 
+
+p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2014 & 
                  ps.asmi$Year < currentyr & ps.asmi$Site < 3,], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.05),
@@ -2045,8 +2047,8 @@ p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2013 &
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG and dormant per Site")+
-  ggtitle("b)") +
+  ylab("Average AGG and dormant per Plot")+
+  ggtitle("f)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
                      values=c("#000000","#7e7e7e"),
@@ -2054,21 +2056,12 @@ p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2013 &
   scale_shape_manual("Site",
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  theme(legend.justification=c(1,0), legend.position=c(1,0)) +
-  scale_y_continuous(limits = c(0,68)) +
-  scale_x_continuous(breaks = c(2014:currentyr-1))
+  theme(legend.justification=c(1,1), legend.position=c(0.95,0.99),
+        legend.background = element_rect(fill=alpha('white', 0.1))) 
+# +
+#   scale_y_continuous(limits = c(0,68)) +
+#   scale_x_continuous(breaks = c(2014:currentyr-1))
 
-```
-
-#WTF is happening with AGG and Dormants at Cebolla Creek Mid?
-```{r}
-AGG_dorm <- ps.asmi[ps.asmi$Year > 2013 & 
-                 ps.asmi$Year < currentyr & ps.asmi$Site < 3,]
-
-AGG_only <- ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,]
-
-table(AGG_dorm$Total.Alive,AGG_dorm$Year)
-table(AGG_only$Total.Plants,AGG_only$Year)
 ```
 
 
@@ -2092,7 +2085,7 @@ ggplot(ps.asmi1[ps.asmi1$Total.Alive>0 & ps.asmi1$Site > 3,],
 #              aes(color = NULL, group = factor(Site))) + 
   geom_line(stat='smooth', method = "lm", alpha=0.3)+
   theme_bw() +
-  ylab("Average AGG per Site")+
+  ylab("Average AGG per Plot")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
@@ -2111,7 +2104,7 @@ ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",],
 #              aes(color = NULL, group = factor(Plot))) +
   geom_line(stat='smooth', method = "lm")+
   theme_bw() +
-  ylab("Average AGG per Site")+
+  ylab("Average AGG per Plot")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75)+
@@ -2138,7 +2131,7 @@ p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
   stat_summary(fun.y = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG per Site")+
+  ylab("Average AGG per Plot")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2148,7 +2141,7 @@ p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0),#upper right
+  theme(legend.justification=c(1,1), legend.position=c(0.25,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 
@@ -2158,25 +2151,22 @@ Cebolla
 AGG   Total.Alive     
 AGG + Dormant   Total.Plants
 ```{r}
-# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-#            currentyr,"_asmi/","Fig8a-Cebolla.jpg", sep = ""),
-#      units = "mm", res = 300, height = 181.03, width = 186.87)
 
 p1CC <- ggplot(ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
   ylab("Average AGG per Plot")+
-  ggtitle("a)") +
+  ggtitle("e)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
                      values=c("#000000","#7e7e7e"),
@@ -2188,7 +2178,6 @@ p1CC <- ggplot(ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,],
   theme(legend.justification=c(0,1), legend.position=c(0,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
-# dev.off()
 
 ```
 
@@ -2208,7 +2197,7 @@ p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,],
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun.y = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
   ylab("Average Total Fruit per Plot")+
@@ -2238,17 +2227,17 @@ aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Si
 
 p3CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,], 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun.y = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
   ylab("Average Total Fruit per Plot")+
-  ggtitle("c)") +
+  ggtitle("g)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site", 
                      values=c("#000000","#7e7e7e"),
@@ -2277,10 +2266,10 @@ p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "SouthBe
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun.y = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
-  ylab("% Reproductive per Site")+
+  ylab("% Reproductive per Plot")+
   ggtitle("d)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2300,19 +2289,19 @@ Cebolla
 
 p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,], 
        aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
+  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
                fun.ymin = function(x) mean(x) - std.error(x),
                fun.ymax = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun.y = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
-  ylab("% Reproductive per Site")+
-  ggtitle("d)") +
+  ylab("% Reproductive per Plot")+
+  ggtitle("h)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
                      values=c("#000000","#7e7e7e"),
@@ -2334,7 +2323,7 @@ p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
 Figure 2
 ```{r}
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig7-SouthBeaverCreek.jpg", sep = ""),
+              currentyr,"_asmi/","Fig2-SouthBeaverCreek.jpg", sep = ""),
          units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
 
 # Down each column
@@ -2495,186 +2484,7 @@ length(1995:currentyr)-aggregate(flower~AsMi_site_id, data=noreproductiveyears,s
 
 #Plot summary for demographic data per year
 
-# Old, not doing PCA anymore!!
-Figure 7: Principal component analysis of nine environmental factors separating yearly demographic data on Astragalus microcymbus within the South Beaver Creek drainage near Gunnison, CO. Blue points are mast seeding years (top left), years with greater than the average reproductive individuals per plot (17%; top right), and years with greater than 28% dormant plants per plot (bottom) excluding the first and last years of the study, 1995 and 2015 (shown in gray). 
-```{r}
-# fruit above a SE above
-avgfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi.t, mean)
-SEfruit <- aggregate(Total.Fruit ~ Creek, data = ps.asmi.t, std.error)
-avgfruit[,2]+SEfruit[,2]
-#make column that is 1 if more than average total fruit that year, 0 if less than average
-pcafruit <- aggregate(Total.Fruit ~ Year, 
-                      data = ps.asmi.t[ps.asmi.t$Creek == "South Beaver",], function(x){
-  if(mean(x) > avgfruit$Total.Fruit[avgfruit$Creek == "South Beaver"]){
-    1
-    }else{
-      0
-      }
-  })
 
-# percent reproductive
-avgfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi.t, mean)
-SEfl <- aggregate(X..Flowered ~ Creek, data = ps.asmi.t, std.error)
-avgfl[,2]+SEfl[,2]
-pcarepro <- aggregate(X..Flowered ~ Year, 
-                      data = ps.asmi.t[ps.asmi.t$Creek == "South Beaver",], function(x){
-  if(mean(x) > avgfl$X..Flowered[avgfl$Creek == "South Beaver"]){
-    1
-    }else{
-      0
-      }
-  })
-
-# percent dormant
-avgdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = ps.asmi.t, mean)
-SEdorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Creek, data = ps.asmi.t, std.error)
-avgdorm[,2]+SEdorm[,2]
-pcadorm <- aggregate(((Total.Plants-Total.Alive)/Total.Plants) ~ Year, 
-                      data = ps.asmi.t[ps.asmi.t$Creek == "South Beaver",], function(x){
-  if(mean(x) > 
-     avgdorm$`((Total.Plants - Total.Alive)/Total.Plants)`[avgdorm$Creek == "South Beaver"]){
-    1
-    }else{
-      0
-      }
-  })
-pcadorm[pcadorm$Year == 1995 | pcadorm$Year == currentyr,2] <- 2
-
-
-ps.pc <- data.frame(asmi.pc[asmi.pc$Creek == "South Beaver",], 
-                    Fruit = pcafruit$Total.Fruit,
-                    Repro = pcarepro$X..Flowered,
-                    PerDorm = pcadorm[,2])
-
-
-ps.pc.2 <- merge(ps.asmi.t, asmi.pc, by.x = c("Creek","Year"), by.y = c("Creek","Prev12"))
-
-```
-
-T.tests for PCA
-```{r}
-t.test(Comp.2~Fruit, data = ps.pc)
-t.test(Comp.2~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
-
-t.test(Comp.1~Fruit, data = ps.pc)
-t.test(Comp.1~PerDorm, data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
-
-```
-
-
-#South Beaver Creek Only
-```{r t-tests}
-# Reproductive not signficantly different
-avgfl$X..Flowered[avgfl$Creek == "South Beaver"]
-t.test(Comp.1 ~ as.factor(Repro), data = ps.pc)
-t.test(Comp.2 ~ as.factor(Repro), data = ps.pc)
-
-# Mast Seeding
-#mast seeding years
-ps.pc$Prev12[ps.pc$Fruit ==1]
-#defined as above:
-avgfruit$Total.Fruit[avgfruit$Creek == "South Beaver"]
-t.test(Comp.1 ~ as.factor(Fruit), data = ps.pc)
-t.test(Comp.2 ~ as.factor(Fruit), data = ps.pc)
-t.test(Comp.3 ~ as.factor(Fruit), data = ps.pc)
-
-# Dormant
- avgdorm$`((Total.Plants - Total.Alive)/Total.Plants)`[avgdorm$Creek == "South Beaver"]
-t.test(Comp.1 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
-t.test(Comp.2 ~ as.factor(PerDorm), data = ps.pc[ps.pc$Prev12 > 1995 & ps.pc$Prev12 < currentyr,])
-```
-
-
-Souht Beaver Creek
-Percent reproductive
-```{r fruit}
-
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig7c.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
-
-
-
-ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Repro), label = Prev12))+
-  geom_text(alpha = 0.75, angle = 45, size = 3) +
-  stat_ellipse()+
-  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
-  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
-  theme_bw()+
-  ggtitle("c)")+
-  theme(plot.title=element_text(hjust=0))+
-  scale_color_manual("Percent Reproductive", 
-                     labels = c(paste("<=", round(avgfl[2,2],2)*100,"%",sep=""),
-                                paste(">", round(avgfl[2,2],2)*100,"%",sep="")), 
-                     values = c("grey50","black"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0),
-        legend.background = element_rect(fill=alpha('white', 0.1)))
-
-dev.off()
-```
-
-Mast seeding
-```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig7b.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
-
-ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(Fruit), label = Prev12))+
-  geom_text(alpha = 0.75, angle = 45, size = 3) +
-  stat_ellipse()+
-  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
-  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
-  theme_bw()+
-  ggtitle("b)")+
-  theme(plot.title=element_text(hjust=0))+
-  scale_color_manual("Mast Seeding", labels = c("Low/No Seed","Mast"), values = c("grey50","black"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1),
-        legend.background = element_rect(fill=alpha('white', 0.1))) 
-dev.off()
-  
-```
-
-Percent dormant
-```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig7d.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03, width = 186.87)
-
-
-ggplot(ps.pc, aes(Comp.1, Comp.2, colour = as.factor(PerDorm), label = Prev12))+
-  geom_text(alpha = 0.75, angle = 45, size = 3) +
-  stat_ellipse()+
-  xlab(paste("PC1 (",round(PoV[1],2)*100,"%)",sep=""))+
-  ylab(paste("PC2 (",round(PoV[2],2)*100,"%)",sep=""))+
-  theme_bw()+
-  ggtitle("d)")+
-  theme(plot.title=element_text(hjust=0))+
-  scale_color_manual("Percent Dormant", 
-                     labels = c(paste("<=", round(avgdorm[2,2],2)*100,"%",sep=""),
-                                paste(">", round(avgdorm[2,2],2)*100,"%",sep="")), 
-                     values = c("grey50","black","red"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0),
-        legend.background = element_rect(fill=alpha('white', 0.1)))
-dev.off()
-```
-
-Environmental Data    
-try using same variables as in 2014   
-```{r}
-exclude14 <- c("tmin.fall","tmax.fall","tmax.spring/summer","tmax.winter")
-tomatch14 <- c("Creek","Prev12",exclude14)
-
-forpca14 <- season[,c(grep(paste(tomatch14, collapse="|"),
-                            names(season), value=TRUE, invert=TRUE))]
-names(forpca14)
-
-asmi.pca14 <- princomp(forpca14,cor=TRUE)
-summary(asmi.pca14)
-asmi.load14 <- loadings(asmi.pca14)
-asmi.pc14 <- predict(asmi.pca14)
-
-asmi.pc14 <- data.frame(asmi.pc14,season)
-```
 
 ```{r}
 
@@ -3734,7 +3544,101 @@ mean(densepit1.north,densepit2.north) # 0.154 indv/sq meter
 
 densecebolla <- 40/circleplots
 
-ps.asmi
+AGG.CC <- aggregate(Total.Alive ~ Site + Year, ps.asmi[ps.asmi$Site<3 & ps.asmi$Year>2013,],
+                    function(x) mean(x))
+averageAGG <- aggregate(Total.Alive ~ Site, AGG.CC, function(x) mean(x))
+averageAGG$Total.Alive/circleplots
+
+
+
 ```
 
+# Annual percent of AGG+Dormant in 1996 (Year 2) compared to now, by plot (so compared to second year of plots that were added)   
+```{r}
+AGG.pplot <- aggregate(Total.Plants ~ Site + Plot + Creek + Year, ps.asmi, function(x) sum(x))
+AGG.pplot$PercentPlants <- as.numeric(NA)
+#Cebolla should all be from 2015
+AGG.pplot$PercentPlants[AGG.pplot$Site<3 & AGG.pplot$Year>2015] <-
+  AGG.pplot$Total.Plants[AGG.pplot$Site<3 & AGG.pplot$Year>2015]/
+  AGG.pplot$Total.Plants[AGG.pplot$Site<3 & AGG.pplot$Year==2015]
 
+# Do all ignoring that plot 238 and 300 need to be updated to having 1997 as the second year and 598 having 2005 as its second year
+'%ni%' <- Negate('%in%')
+originalplots <- sort(unique(ps.asmi$Plot))
+originalplots <- originalplots[originalplots %ni% c(238,300,598)]
+AGG.pplot$PercentPlants[AGG.pplot$Site>2 & AGG.pplot$Year>1996 & AGG.pplot$Plot %in% originalplots] <-
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year>1996 & AGG.pplot$Plot %in% originalplots]/
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year==1996 & AGG.pplot$Plot %in% originalplots]
+
+# 1996 added plots
+AGG.pplot$PercentPlants[AGG.pplot$Site>2 & AGG.pplot$Year>1997 & AGG.pplot$Plot %in% c(238,300)] <-
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year>1997 & AGG.pplot$Plot %in% c(238,300)]/
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year==1997 & AGG.pplot$Plot %in% c(238,300)]
+
+# 2004 addition
+AGG.pplot$PercentPlants[AGG.pplot$Site>2 & AGG.pplot$Year>2005 & AGG.pplot$Plot %in% c(598)] <-
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year>2005 & AGG.pplot$Plot %in% c(598)]/
+  AGG.pplot$Total.Plants[AGG.pplot$Site>2 & AGG.pplot$Year==2005 & AGG.pplot$Plot %in% c(598)]
+
+aggregate(PercentPlants ~ Site + Year, AGG.pplot, function(x) mean(x, na.rm=TRUE))
+```
+
+# Annual percent of AGG in 1995 compared to now, by plot (so compared to second year of plots that were added)   
+```{r}
+# AGG.pplot <- aggregate(Total.Alive ~ Site + Plot + Creek + Year, ps.asmi, function(x) sum(x))
+AGG.pplot$PercentAlive95 <- as.numeric(NA)
+#Cebolla should all be from 2015
+AGG.pplot$PercentAlive95[AGG.pplot$Site<3 & AGG.pplot$Year>2013] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site<3 & AGG.pplot$Year>2013]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site<3 & AGG.pplot$Year==2014]
+
+# Do all ignoring that plot 238 and 300 need to be updated to having 1997 as the second year and 598 having 2005 as its second year
+AGG.pplot$PercentAlive95[AGG.pplot$Site>2 & AGG.pplot$Year>1994] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>1994]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==1995]
+
+# 1996 added plots
+AGG.pplot$PercentAlive95[AGG.pplot$Site>2 & AGG.pplot$Year>1995 & AGG.pplot$Plot %in% c(238,300)] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>1995 & AGG.pplot$Plot %in% c(238,300)]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==1996 & AGG.pplot$Plot %in% c(238,300)]
+
+# 2004 addition
+AGG.pplot$PercentAlive95[AGG.pplot$Site>2 & AGG.pplot$Year>1995 & AGG.pplot$Plot %in% c(598)] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>1995 & AGG.pplot$Plot %in% c(598)]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==1996 & AGG.pplot$Plot %in% c(598)]
+
+aggregate(PercentAlive95 ~ Site + Year, AGG.pplot, function(x) mean(x, na.rm=TRUE))
+```
+
+# Annual percent of AGG in 1996 compared to each year, by plot (so compared to second year of plots that were added)   
+```{r}
+# AGG.pplot <- aggregate(Total.Alive ~ Site + Plot + Creek + Year, ps.asmi, function(x) sum(x))
+AGG.pplot$PercentAlive96 <- as.numeric(NA)
+#Cebolla should all be from 2015
+AGG.pplot$PercentAlive96[AGG.pplot$Site<3 & AGG.pplot$Year>2014] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site<3 & AGG.pplot$Year>2014]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site<3 & AGG.pplot$Year==2015]
+
+# Do all ignoring that plot 238 and 300 need to be updated to having 1997 as the second year and 598 having 2005 as its second year
+AGG.pplot$PercentAlive96[AGG.pplot$Site>2 & AGG.pplot$Year>1995] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>1995]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==1996]
+
+# 1996 added plots
+AGG.pplot$PercentAlive96[AGG.pplot$Site>2 & AGG.pplot$Year>1996 & AGG.pplot$Plot %in% c(238,300)] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>1996 & AGG.pplot$Plot %in% c(238,300)]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==1997 & AGG.pplot$Plot %in% c(238,300)]
+
+# 2004 addition
+AGG.pplot$PercentAlive96[AGG.pplot$Site>2 & AGG.pplot$Year>2004 & AGG.pplot$Plot %in% c(598)] <-
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year>2004 & AGG.pplot$Plot %in% c(598)]/
+  AGG.pplot$Total.Alive[AGG.pplot$Site>2 & AGG.pplot$Year==2005 & AGG.pplot$Plot %in% c(598)]
+
+ggplot(aggregate(PercentAlive96 ~ Site + Year, AGG.pplot, function(x) mean(x, na.rm=TRUE)), 
+       aes(Year, PercentAlive96, colour=as.factor(Site), shape = as.factor(Site)))+
+  geom_point()+
+  geom_line()+
+  theme_bw()
+
+
+```
