@@ -156,6 +156,8 @@ asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
 asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
 asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 
+# Years of study
+length(1995:2019)
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -238,6 +240,7 @@ table(alive$AsMi_site_id, alive$year) # 2 is cebolla north, 1 is mid
 #AGG
 alive.site <-aggregate(length ~ year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
+
 
 #AGG and dormant
 aggdorm.site <- aggregate(status ~ year + AsMi_site_id  + fence,
@@ -506,10 +509,6 @@ Flawed still, too many factors/parameters, not enough data.
 
 Just look at differences separating site and not, separate plot or not. 
 Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
-```{r}
-
-names(ps.cor) #.x is year t, .y is t+1; Alive is AGG, Plants is AGG+dormant; X..Flowered is percent of alive flowered, X..Flowered.1 is the number of reproductive individuals 
-```
 
 
 ```{r}
@@ -764,18 +763,31 @@ t.test(Total.Plants~Fence, data = ps.asmi.t)
 
 
 t.test(ps.asmi.t$Total.Plants[ps.asmi.t$Year<2006&
-                                ps.asmi.t$Fence=="y"],
+                                ps.asmi.t$Plot %in% fencedplots],
        ps.asmi.t$Total.Plants[ps.asmi.t$Year>=2006&
-                                ps.asmi.t$Fence=="y"])
+                                ps.asmi.t$Plot %in% fencedplots])
 
 
 #herbivory
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,]) #not signficantly different
-# allttestherb <- lapply(1995:currentyr, function(x){
-#   t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year == x,])
-#   })
+allttestherb <- lapply(1995:currentyr, function(x){
+  t.test(ps.asmi.t$X..Browsed[ps.asmi.t$Year == x & ps.asmi.t$Plot  %in% fencedplots],
+         ps.asmi.t$X..Browsed[ps.asmi.t$Year == x & ps.asmi.t$Plot  %ni% fencedplots])
+  })
 
-allttestherb[[22]]
+allttestherb[[length(1995:currentyr)]]
+allttestherb[[length(1995:2006)]] #Reduced fenced
+allttestherb[[length(1995:2007)]] #Reduced fenced 10% browsed in fenced plots to 70% browsed in open
+
+allttestherb[[length(1995:2008)]] # 36% fenced to 28% in open, probably not different
+allttestherb[[length(1995:2009)]] # 25% fenced to 53% in open, suprising if same p=0.048
+allttestherb[[length(1995:2010)]] # 15% fenced to 27% in open, suprising if same p=0.042
+allttestherb[[length(1995:2011)]] # 18% fenced to 43% in open, probably not different
+allttestherb[[length(1995:2012)]] # 0% fenced to 6% in open, probably not different
+allttestherb[[length(1995:2013)]] # 38% fenced to 45% in open, probably not different
+
+
+
 
 t.test(length~fence, data = asmi.raw[asmi.raw$AsMi_site_id > 2 & asmi.raw$year > 2005,])
 
@@ -859,7 +871,7 @@ stages <- c("seedling", "vegetative", "reproductive", "dormant","dead")
 # SBC
 # Cebolla
 asmi.1$status <- ordered(asmi.1$status, levels = stages)
-cebolla$status <- ordered(cebolla$status, levels = stages)N
+cebolla$status <- ordered(cebolla$status, levels = stages)
 
 # Both
 asmi.all$status <- ordered(asmi.all$status, levels = stages)
@@ -1046,32 +1058,57 @@ length(dorms$dorms[dorms$dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20
 Reproductive lengths - South Beaver Creek only   
 ```{r}
 
-identical(asmi.2$fate, asmi.2$fate[with(asmi.2,order(tag,year))])
+# identical(asmi.2$fate, asmi.2$fate[with(asmi.2,order(tag,year))])
 
 # repros <- rle(as.numeric(asmi.2$fate[with(asmi.2,order(tag,year))]))$lengths[rle(as.numeric(asmi.2$fate[with(asmi.2, order(tag,year))]))$values ==3]
 
-x<- split(asmi.2, asmi.2$tag)
-x[[1000]]
-as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))])
-as.numeric(x[[1000]]$stage)
+# x<- split(asmi.2, asmi.2$tag)
+# x[[1000]]
+# as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))])
+# as.numeric(x[[1000]]$stage)
+# 
+# asmi.2[asmi.2$tag==44,] # Seedling in 2011 but rows for all years
+# 
+# rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$lengths[rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$values==3]
+# 
+# repros <- do.call(rbind, lapply(split(asmi.2, asmi.2$tag), function(x){
+#   reproslength <- rle(as.numeric(x$stage[with(x,order(year))]))$lengths[rle(as.numeric(x$stage[with(x,order(year))]))$values==3]
+#   out <- data.frame(Tag=rep(unique(x$tag),length(reproslength)),
+#              reproslength)
+#   out[complete.cases(out),]
+# }))
 
-asmi.2[asmi.2$tag==44,] # Seedling in 2011 but rows for all years
+levels(asmi.1$status)
+# [1] "seedling"     "vegetative"   "reproductive" "dormant"      "dead"
 
-rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$lengths[rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$values==3]
-
-repros <- do.call(rbind, lapply(split(asmi.2, asmi.2$tag), function(x){
-  reproslength <- rle(as.numeric(x$stage[with(x,order(year))]))$lengths[rle(as.numeric(x$stage[with(x,order(year))]))$values==3]
-  out <- data.frame(Tag=rep(unique(x$tag),length(reproslength)),
-             reproslength)
-  out[complete.cases(out),]
+repros <- do.call(rbind, lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(tag){
+  reprolns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==3]
+  out <- data.frame(Tag=rep(unique(tag$AsMi_tag_id), length(reprolns)), 
+                    Site=rep(unique(tag$AsMi_site_id), length(reprolns)),
+                    Plot=rep(unique(tag$AsMi_plot_id), length(reprolns)),
+                    repros=reprolns)
+  out
 }))
 
-max(repros$reproslength)
-ggplot(repros, aes(reproslength))+
+# max(repros$reproslength)
+max(repros$repros) # 8
+repros[repros$repros == max(repros$repros),]
+
+repros[repros$repros == max(repros$repros)-4,]
+
+plotrepros <- data.frame(table(repros$Tag, repros$repros)) #Var1 is tag, Var2 is reprolenth, Freq times
+mean(plotrepros$Freq[plotrepros$Var2==1])
+
+ggplot(plotrepros, aes(x=Var2, y=Freq ))+
+  geom_boxplot()+ 
+  theme(legend.position="none")
+
+ggplot(repros, aes(repros, colour=as.factor(Tag)))+
   geom_histogram(bins=8)+
   theme_bw()+
   ylab("Frequency")+
-  xlab("Consecutive years reproductive")
+  xlab("Consecutive years reproductive")+ 
+  theme(legend.position="none")
 
 ```
 
@@ -1595,6 +1632,33 @@ head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)
 asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
 write.table(asmi.c, file = "P:/hackathon/GitPVA/datasets/asmi.c.csv", sep=",")
+
+aggregate(asmi.c, list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
+sort(unique(asmi.c$Year))
+
+# first add by all prev12 then average all by creek
+# Precipitation
+prev12clim <- aggregate(asmi.c$Precip, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
+                        function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
+aggregate(prev12clim$x, list(prev12clim$Creek), mean)
+aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
+
+# Temperature
+prev12clim <- aggregate(asmi.c$tmin, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
+                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
+aggregate(prev12clim$x, list(prev12clim$Creek), mean)
+aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
+
+prev12clim <- aggregate(asmi.c$tmax, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
+                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
+aggregate(prev12clim$x, list(prev12clim$Creek), mean)
+aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
+
+
+
 ```
 
 After create new climate dataset, can download it from GitHub
