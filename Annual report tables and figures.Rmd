@@ -27,9 +27,14 @@ library(raster)
 library(Rmisc)
 # library(data.table)
 # install.packages('survminer')
-# library(survminer)
+library(survminer)
 
 library(car) # line 381
+
+# AIC
+require(AICcmodavg)
+library(lme4)
+library(lattice)
 
 
 # A ggplot plot layout function 
@@ -304,6 +309,29 @@ prep <- aggregate(flower~AsMi_plot_id+year+AsMi_site_id +fence,
                   })
 tbl1b.1 <- summarySE(prep, measurevar="flower", groupvars=c("AsMi_site_id","year"))
 
+# Years when there were no reproductive individuals  
+# Episodic fruit production paragraph
+prep[prep$flower==0,]
+annual_SBC <- aggregate(flower~year, data=prep[prep$AsMi_site_id>3,], sum)
+zero_annual <- data.frame(num = nrow(annual_SBC[annual_SBC$flower == 0,]),
+                          percent = nrow(annual_SBC[annual_SBC$flower == 0,])/nrow(annual_SBC))
+
+
+do.call(rbind,zero_site)
+
+annual_site <- aggregate(flower~AsMi_site_id+year, data=prep, sum)
+zero_site <- lapply(split(annual_site, annual_site$AsMi_site_id), function(x){
+  numberof <- nrow(x[x$flower == 0,])
+  percent <- nrow(x[x$flower == 0,])/nrow(x)
+  data.frame(numberof,percent)
+})
+zero_all <- do.call(rbind,zero_site)
+mean(zero_all$numberof[3:6]) # average number of years with no reproduction
+
+```
+
+
+```{r}
 #sites above
 #percent reproductive 
 tbl1.3 <- lapply(sites, function(x){
@@ -344,7 +372,7 @@ write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), se
 
 #Correlated biotic factors
 
-Table 2: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995-2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
+Table 3: Biotic factors correlated among the percent browsed individuals in the current year, density of reproductive individuals in the current year, fruit production in the current year, and the percent of reproductive individuals and above ground growth (AGG) in the current and previous year of Astragalus microcymbus per year (1995-2014) within the South Beaver Creek drainage ....Significant PCC are indicated with an asterisk (p-value < 0.05).  
 
 Plot Summary (weather data is prev. Aug through currrent Jul)   
 Total.Plants are AGG and dormant    
@@ -414,9 +442,10 @@ ks.test(log(ps.asmi.t$Total.Alive+1), pnorm)
 #log(ps.asmi.t$Total.Alive+1) right skew
 scatterplotMatrix(~Total.Alive+log(ps.asmi.t$Total.Alive+1), 
                  diagonal = "qqplot",
-                 data=ps.asmi.t,
-                 reg.line=FALSE,
-                 smoother="")
+                 data=ps.asmi.t) 
+# ,
+#                  reg.line=FALSE,
+#                  smoother="")
 
 #Want percent herbivory
 ps.asmi.t$Percent..Browsing <- ps.asmi.t$X..Browsed/ps.asmi.t$Total.Alive
@@ -458,9 +487,9 @@ scatterplotMatrix(~X..Floweredarcsinsqrttransformed+X..Flowered.1logtransformed+
                     Percent..Dormantlogtransformed+X..Browsedarcsinsqrttransformed+
                     X..Browsed, 
                  diagonal = "qqplot",
-                 data=ps.asmi.t,
-                 reg.line=FALSE,
-                 smoother="")
+                 data=ps.asmi.t) #,
+                 # reg.line=FALSE) #,
+                 # smoother="")
 
 ps.asmi.t$X..Flowered.1logtransformed[is.na(ps.asmi.t$X..Flowered.1logtransformed)] <- 0
 ps.asmi.t$Percent..Dormantlogtransformed[is.na(ps.asmi.t$Percent..Dormantlogtransformed)] <- 0
@@ -501,6 +530,7 @@ df.c[df.c$P.val > 0.04,]
 
 
 #AIC  Information Criteria   
+Table 2: linear regression model performance 
 AIC = -2L + 2k   
   L is loglikelihood   
   k is number of parameters     
@@ -510,19 +540,19 @@ Flawed still, too many factors/parameters, not enough data.
 Just look at differences separating site and not, separate plot or not. 
 Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
 
-
+AGG 
 ```{r}
-require(AICcmodavg)
-library(lme4)
-library(lattice)
 
-lm1 <- lm(Total.Alivelogtransformed.y ~ Year.x, ps.cor)
-lm2 <- lm(Total.Alivelogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
-lm3 <- lm(Total.Alivelogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
-lm4 <- lm(Total.Alivelogtransformed.y ~ Year.x*Fence.x, ps.cor)
-lm5 <- lm(Total.Alivelogtransformed.y ~ 1, ps.cor)
+lm1 <- lm(Total.Alivelogtransformed ~ Year, ps.asmi.t)
+lm2 <- lm(Total.Alivelogtransformed ~ Year*as.factor(Site), ps.asmi.t)
+lm3 <- lm(Total.Alivelogtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
+lm4 <- lm(Total.Alivelogtransformed ~ Year*Fence, ps.asmi.t)
+lm5 <- lm(Total.Alivelogtransformed ~ 1, ps.asmi.t)
+lm6 <- lm(Total.Alivelogtransformed ~ as.factor(Site), ps.asmi.t)
+lm7 <- lm(Total.Alivelogtransformed ~ Creek, ps.asmi.t) 
+lm8 <- lm(Total.Alivelogtransformed ~ Fence, ps.asmi.t)
 
-lm.list <- list(lm1,lm2, lm3, lm4, lm5)
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -531,17 +561,16 @@ for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
 
-str(ps.cor)
 
-lmer(Total.Alivelogtransformed.x ~ Year.x|Site, ps.cor)  #random intercept
-lmer(Total.Alivelogtransformed.y ~ Year.x|Creek.x, ps.cor)  #random intercept
-xyplot(Total.Alive.x ~ Year.x|as.factor(Site), ps.cor,
+lmer(Total.Alivelogtransformed ~ Year|Site, ps.asmi.t)  #random intercept
+lmer(Total.Alivelogtransformed ~ Year|Creek, ps.asmi.t)  #random intercept
+xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
        type = c("g","p","r"),
        index = function(x,y) coef(lm(y~x))[1],
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
-xyplot(Total.Alive.x ~ Year.x|as.factor(Creek.x), ps.cor,
+xyplot(Total.Alive ~ Year|as.factor(Creek), ps.asmi.t,
        type = c("g","p","r"),
        index = function(x,y) coef(lm(y~x))[1],
        xlab = "Year", 
@@ -549,21 +578,81 @@ xyplot(Total.Alive.x ~ Year.x|as.factor(Creek.x), ps.cor,
 
 ```
 
+Only during censuses at both drainages
+```{r}
+lm1 <- lm(Total.Alivelogtransformed ~ Year, ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm2 <- lm(Total.Alivelogtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm3 <- lm(Total.Alivelogtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm4 <- lm(Total.Alivelogtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm5 <- lm(Total.Alivelogtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm6 <- lm(Total.Alivelogtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,])
+lm7 <- lm(Total.Alivelogtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year > 2013,]) 
+lm8 <- lm(Total.Alivelogtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year > 2013,])
+
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+```
 
 # don't have first or last year when using ps.cor    
 shoud use ps.asmi.t instead
 ```{r}
-lmer(Total.Alivelogtransformed.y ~ Fence.x|Creek.x, ps.cor)  #random intercept
-xyplot(Total.Alivelogtransformed.x ~ Fence.x|as.factor(Site), ps.cor,
+lmer(Total.Alivelogtransformed ~ Fence|Creek, ps.asmi.t)  #random intercept
+xyplot(Total.Alivelogtransformed ~ Fence|as.factor(Site), ps.asmi.t,
        type = c("g","p"),
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
+```
+
+```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 200)
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,],
        type = c("g","p","r"),
+       layout = c(3, 2),
        index = function(x,y) coef(lm(y~x))[1],
+                  panel = function(x, y) {
+        panel.grid(v=2)
+        panel.xyplot(x, y)
+        panel.loess(x, y, span = .8, degree = 1, family="gaussian")
+        panel.abline(lm(y~x))
+           },
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
+
+dev.off()
+
+```
+
+```{r}
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/","Fig2-latticeplot_6Sites.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 200)
+xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
+       type = c("g","p","r"),
+       layout = c(3, 2),
+       index = function(x,y) coef(lm(y~x))[1],
+           panel = function(x, y) {
+        panel.grid(v=2)
+        panel.xyplot(x, y)
+        panel.loess(x, y, span = .8, degree = 1, family="gaussian")
+        panel.abline(lm(y~x))
+           },
+       xlab = "Year", 
+       ylab = "Individuals with AGG", aspect = "xy")
+dev.off()
+```
+
+
+```{r}
 
 #Since fencing put in, just beaver creek
 xyplot(Total.Alive ~ Year|Fence, 
@@ -588,13 +677,16 @@ xyplot(Total.Alive ~ Year|Creek, ps.asmi.t[ps.asmi.t$Year > 2013,],
 ```{r}
 
 #Candidate models  
-lm1 <- lm(Total.Fruitlogtransformed.y ~  Year.x, ps.cor)
-lm2 <- lm(Total.Fruitlogtransformed.y ~ Year.x*as.factor(Site), ps.cor)
-lm3 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Creek.x, ps.cor) #Need add creek!
-lm4 <- lm(Total.Fruitlogtransformed.y ~ Year.x*Fence.x, ps.cor)
- lm5 <- lm(Total.Fruitlogtransformed.y ~ 1, ps.cor)
+lm1 <- lm(Total.Fruitlogtransformed ~  Year, ps.asmi.t)
+lm2 <- lm(Total.Fruitlogtransformed ~ Year*as.factor(Site), ps.asmi.t)
+lm3 <- lm(Total.Fruitlogtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
+lm4 <- lm(Total.Fruitlogtransformed ~ Year*Fence, ps.asmi.t)
+ lm5 <- lm(Total.Fruitlogtransformed ~ 1, ps.asmi.t)
+lm6 <- lm(Total.Fruitlogtransformed ~ as.factor(Site), ps.asmi.t)
+lm7 <- lm(Total.Fruitlogtransformed ~ Creek, ps.asmi.t) #Need add creek!
+lm8 <- lm(Total.Fruitlogtransformed ~ Fence, ps.asmi.t)
 
-lm.list <- list(lm1,lm2,lm3,lm4 ,lm5)
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -604,17 +696,66 @@ for(i in 2:length(lm.list)){
 }
 ```
 
+Only during the time both creeks were monitored? 
+```{r}
+
+#Candidate models  
+lm1 <- lm(Total.Fruitlogtransformed ~  Year, ps.asmi.t[ps.asmi.t$Year>2013,])
+lm2 <- lm(Total.Fruitlogtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
+lm3 <- lm(Total.Fruitlogtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
+lm4 <- lm(Total.Fruitlogtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+ lm5 <- lm(Total.Fruitlogtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year>2013,])
+lm6 <- lm(Total.Fruitlogtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
+lm7 <- lm(Total.Fruitlogtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
+lm8 <- lm(Total.Fruitlogtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+```
+
+
 #AIC for reproductive
 ```{r}
 
 #Candidate models  
-lm1 <- lm(X..Flowered.1logtransformed.x ~  Year.x, ps.cor)
-lm2 <- lm(X..Flowered.1logtransformed.x ~ Year.x*as.factor(Site), ps.cor)
-lm3 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Creek.x, ps.cor) #Need add creek!
-lm4 <- lm(X..Flowered.1logtransformed.x ~ Year.x*Fence.x, ps.cor)
-lm5 <- lm(X..Flowered.1logtransformed.x ~ 1, ps.cor)
+lm1 <- lm(X..Flowered.1logtransformed ~  Year, ps.asmi.t)
+lm2 <- lm(X..Flowered.1logtransformed ~ Year*as.factor(Site), ps.asmi.t)
+lm3 <- lm(X..Flowered.1logtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
+lm4 <- lm(X..Flowered.1logtransformed ~ Year*Fence, ps.asmi.t)
+lm5 <- lm(X..Flowered.1logtransformed ~ 1, ps.asmi.t)
+lm6 <- lm(X..Flowered.1logtransformed ~ as.factor(Site), ps.asmi.t)
+lm7 <- lm(X..Flowered.1logtransformed ~ Creek, ps.asmi.t) #Need add creek!
+lm8 <- lm(X..Flowered.1logtransformed ~ Fence, ps.asmi.t)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5)
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+```
+
+```{r}
+
+#Candidate models  
+lm1 <- lm(X..Flowered.1logtransformed ~  Year, ps.asmi.t[ps.asmi.t$Year>2013,])
+lm2 <- lm(X..Flowered.1logtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
+lm3 <- lm(X..Flowered.1logtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) 
+lm4 <- lm(X..Flowered.1logtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+lm5 <- lm(X..Flowered.1logtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year>2013,])
+lm6 <- lm(X..Flowered.1logtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
+lm7 <- lm(X..Flowered.1logtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
+lm8 <- lm(X..Flowered.1logtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+
+lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -797,7 +938,7 @@ t.test(X..Browsed~Fence, data=ps.asmi.t[ps.asmi.t$Year>2005,])
 ```
 
 
-Table 3: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
+Table 4: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
 ```{r}
 fruit <- aggregate(fruit ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) sum(x,na.rm = TRUE))
@@ -813,9 +954,9 @@ tbl3 <- lapply(sites, function(x){
 })
 
 #Cebolla Creek
-write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table3_Cebolla.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table4_Cebolla.csv"), row.names=TRUE)
 #South Beaver Creek
-write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table3_SouthBeaver.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table4_SouthBeaver.csv"), row.names=TRUE)
 
 ```
 
@@ -827,7 +968,7 @@ write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepa
 ```{r}
 table(asmi.raw$browsing)
 table(asmi.raw$Browsing...Status) 
-nrow(asmi.raw) #13806->16377->17817
+nrow(asmi.raw) #13806->16377->17817->19324
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
@@ -942,7 +1083,12 @@ asmi.all2$stage <- ordered(asmi.all2$stage, levels = stages[-length(stages)])
 
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
-table(Fate = asmi.all2$fate, Stage = asmi.all2$stage)
+table(Fate = asmi.all2$fate, Stage = asmi.all2$stage) #Nope, cannot have 2 seedlings stay seedlings! And Dormant never go dead!
+
+asmi.all2[asmi.all2$fate == "seedling" & asmi.all2$stage == "seedling",] # tag 3571 and 3946
+# asmi.raw[asmi.raw$AsMi_tag_id %in% c(3571,3946),]
+
+asmi.all2[asmi.all2$stage == "dormant" & asmi.all2$fate == "dead",]
 
 ```
 
@@ -1001,7 +1147,7 @@ ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
 ```
 
 
-#Figure 3
+#Figure 4 Distribution of consecutive years of dormancy
 ```{r}
 # asmi.1 is already sorted by site, tag, year
 #dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
@@ -1017,7 +1163,7 @@ dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
 table(dorms$dorms) 
 
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig2.jpg", sep = ""),
+              currentyr,"_asmi/Fig4.jpg", sep = ""),
          units = "mm", res = 300, height = 100, width = 130)
 
 ggplot(dorms, aes(dorms))+
@@ -1031,9 +1177,9 @@ dev.off()
 
 #only South beaver creek
 ```{r}
-median(dorms$dorms) #3
-length(dorms$dorms[dorms$dorms==1]) #347 -> 358
-length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37%
+median(dorms$dorms) #3-->2
+length(dorms$dorms[dorms$dorms==1]) #347 -> 358 -> 478
+length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37% -> 42%
 # How many tags had some amount of dormancy? How'd I get that before
 dormantsandnot <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
   dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
@@ -1046,13 +1192,16 @@ dormantsandnot <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), functi
 }))
 dormantsandnot$dormYN <- 0
 dormantsandnot$dormYN[dormantsandnot$dorms>0] <- 1
-sum(dormantsandnot$dormYN)/nrow(dormantsandnot) # 0.3483473
+sum(dormantsandnot$dormYN)/nrow(dormantsandnot) # 0.3483473 -> 0.359
 
 
-length(dorms$dorms) #848 -> 959
-length(dorms$dorms[dorms$dorms > 5]) #353 -> 355
-length(dorms$dorms[dorms$dorms > 15]) #93 -> 82??
-length(dorms$dorms[dorms$dorms == 21]) #13 -> 0, oh, I downloaded with dorm = 20 I think!
+length(dorms$dorms) #848 -> 959 -> 1136
+length(dorms$dorms[dorms$dorms > 5]) #353 -> 355 -> 380
+length(dorms$dorms[dorms$dorms > 15]) #93 -> 82?? -> 98
+length(dorms$dorms[dorms$dorms == 21]) #13 -> 13
+length(dorms$dorms[dorms$dorms > 20]) #13 -> 13
+
+
 ```
 
 Reproductive lengths - South Beaver Creek only   
@@ -1115,7 +1264,7 @@ ggplot(repros, aes(repros, colour=as.factor(Tag)))+
 #Stage based PVA   
 ```{r}
 #is survival associate diwht a continutous classifying variable?
-surv.asmi <- asmi.2
+surv.asmi <- asmi.all2  # asmi.2
 surv.asmi$surv <- 1
 surv.asmi$surv[surv.asmi$fate=="dead"] <- 0
 table(surv.asmi$surv)
@@ -1287,6 +1436,18 @@ matplot(contr.poly(15)[,1:4], type="b")
 
 
 
+# From previous versions
+cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
+sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
+
+asmi.1 <- sbc[order(sbc$AsMi_site_id, sbc$AsMi_tag_id, sbc$year),]
+cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
+
+asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
+cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
+
+
+
 Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
 notfenced has 21 blank (each year)
 
@@ -1295,25 +1456,25 @@ Dormancy can be set to 0-1
 ```{r}
 all.pva <- StagePVA(asmi.all2)
 
-
-# asmi.pva <- StagePVA(asmi.2)
-# cebolla.pva <- StagePVA(cebolla.2)
+asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2,])
+cebolla.pva <- StagePVA(asmi.all2[asmi.all2$site<3,])
 ```
 
 By plot, South Beaver Creek
+site is then a list of the plots per site
 ```{r}
-site <- sapply(unique(asmi.2$site), function(x){
-  as.character(unique(asmi.2$plot[asmi.2$site == x]))
+site <- sapply(unique(asmi.all2$site), function(x){
+  as.character(unique(asmi.all2$plot[asmi.all2$site == x]))
   }, simplify = FALSE)
-names(site)<-unique(asmi.2$site)
+names(site)<-unique(asmi.all2$site)
 site
 
-asmi.pva$plot.matrix[site$'15'[1]]
+all.pva$plot.matrix[site$'15'[1]]
 ```
 
-
-# Table 4: Growth rate    
-All
+# Matrix Models     
+## Table 5: Growth rate    
+SBC 
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
@@ -1331,19 +1492,20 @@ tbl4.all <- sapply(mats.list, function(x){
 
 t(tbl4.all)
 
+# Post-fencing (2005-year before current so currentyr-2:currentyr-1)
 tbl4.allpost <- sapply(mats.list[-1], function(x){
   paste(round(lmdSD(x, 2005,currentyr-2)[1],2)," (",
         round(lmdSD(x, 2005,currentyr-2)[2],2),")", sep="")
 })
 
-write.csv(tbl4.allpost, file=paste(savepath,"Table4_allpost.csv"), row.names=TRUE)
+write.csv(tbl4.allpost, file=paste(savepath,"Table5_allSBCpost.csv"), row.names=TRUE)
 
 
 tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[1],2)," (",
                       round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[2],2),")", sep="")
 
 
-write.csv(tbl4.allopen, file=paste(savepath,"tbl4_allopen.csv"), row.names=TRUE)
+write.csv(tbl4.allopen, file=paste(savepath,"tbl5_allSBCopen.csv"), row.names=TRUE)
 ```
 
 Cebolla all
@@ -1356,6 +1518,7 @@ lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
 # lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-1) #in 2016, not enough data to exclude the last one
 #         lmda       SD
 #[1,] 1.138889 1.038878
+#[1,] 1.318087 0.6141668  in 2019
 
 #Cebolla Mid = Site 1
 paste(round(lmdSD(cebolla.pva$Site$`1`, 2014, currentyr-2)[1],2)," (",
@@ -1386,7 +1549,7 @@ t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
        lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
 ```
 
-
+## BACK HERE START HERE
 # Table 4
 pattern is:          
 
@@ -1511,8 +1674,14 @@ paste(round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[1],2)," (",
 Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-currentyr-1 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
 
 ```{r}
+# SBC and Cebolla
+eigen.analysis(mean(all.pva$notfenced.pro.matrix))
+mean(all.pva$notfenced.pro.matrix)
+
+# Only SBC
 eigen.analysis(mean(asmi.pva$notfenced.pro.matrix))
 mean(asmi.pva$notfenced.pro.matrix)
+
 ```
 
 ###Environmental Data from PRISM:   
@@ -1575,20 +1744,23 @@ maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
 mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
 ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
 
+length(maxs)
+length(mins)
+length(ppt)
 
 avgTemps.max <- lapply(maxs, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 avgTemps.min <- lapply(mins, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 avgPrecip <- lapply(ppt, function(x){
   rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
 })
 
 mins.avg <- do.call(rbind, avgTemps.min)
@@ -1599,71 +1771,105 @@ mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
 maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
 ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
 
-asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
-names(asmi.climate) <- c("tmin","date","Plot","Site","tmax","Precip")
 
-#date is a factor
-asmi.climate$date <- as.character(asmi.climate$date)
-
-#split by _ select the YYYYMM numbers
-asmi.climate$Year <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
                                    function(x) x[5], character(1)), 1,4))
-asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
                                    function(x) x[5], character(1)), 5,6))
 
-asmi.c <- asmi.climate[,-2]
+maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
 
+ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+
+# Didn't get all the ppt for 2019
+asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
+                                                         "asmilatlong.Tag_Commen"))
+names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
+asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
+                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
+names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
+# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+```
+
+
+```{r}
+# names(asmi.climate) <- c("tmin","date","Plot","Site","tmax","Precip")
+
+# #date is a factor
+# asmi.climate$date <- as.character(asmi.climate$date)
+# 
+# #split by _ select the YYYYMM numbers
+# asmi.climate$Year <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+#                                    function(x) x[5], character(1)), 1,4))
+# asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
+#                                    function(x) x[5], character(1)), 5,6))
+
+# asmi.c <- asmi.climate[,-2]
+asmi.c <- asmi.climate
+
+# Get a list of sites and plots per Creek to merge with asmi.c
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
 plots.site$Creek <- "South Beaver"
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
-names(asmi.c) <- c("Plot","Site","Creek",names(asmi.c)[4:length(asmi.c)])
+names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
 
 #Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
 asmi.c$Prev12 <- asmi.c$Year
 asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
 
-head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)
+head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)  
+
+# so months after July go with the next year; t+1 is t month 8-12 and t+1 months 1-1
+```
 
 
+```{r}
 
 
 asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
-write.table(asmi.c, file = "P:/hackathon/GitPVA/datasets/asmi.c.csv", sep=",")
+write.table(asmi.c, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/" ,currentyr,"asmi.c.csv",sep=""), sep=",")
 
-aggregate(asmi.c, list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
+aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
 sort(unique(asmi.c$Year))
 
 # first add by all prev12 then average all by creek
-# Precipitation
-prev12clim <- aggregate(asmi.c$Precip, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
+# Precipitation: ppt
+prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
                         function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
-aggregate(prev12clim$x, list(prev12clim$Creek), mean)
-aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
+# 1980 to currentyr
+aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
 
-# Temperature
-prev12clim <- aggregate(asmi.c$tmin, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
+# over the study period 1995-currentyr
+aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
+          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
+
+# Temperature: tmin and tmax
+prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
                         function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
-aggregate(prev12clim$x, list(prev12clim$Creek), mean)
-aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
+# 1980 to currentyr
+aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
 
-prev12clim <- aggregate(asmi.c$tmax, list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, Year=asmi.c$Prev12),
-                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
-aggregate(prev12clim$x, list(prev12clim$Creek), mean)
-aggregate(prev12clim$x[prev12clim$Year>1995], list(prev12clim$Creek[prev12clim$Year>1995]), mean)
-
-
-
+# over the study period 1995-currentyr
+aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
+          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), mean)
+ 
 ```
 
 After create new climate dataset, can download it from GitHub
 ```{r}
-asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
+# asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
 
 ```
 
@@ -1671,14 +1877,22 @@ asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotani
 
 
 #autocorrelations   
-https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next 
+https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next    
+alive.site$length are the number of indiviudals with length>0 and that aren't na per site per year (and per fenced or not plots)
 ```{r}
-length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
-length_t <- split(alive.site$length[-nrow(alive.site)],
-                        alive.site$AsMi_site_id)
-length_tmin1
-length_t
-autocor <- mapply(cbind,length_t,length_tmin1)
+# Not sure what trying to do? Take away the first row each time?
+# length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
+length_tmin1 <- split(alive.site$length,alive.site$AsMi_site_id)
+length_tmin1.removed <- lapply(length_tmin1, function(x) x[-1])
+
+# length_t <- split(alive.site$length[-nrow(alive.site)],
+#                         alive.site$AsMi_site_id)
+
+length_t.removed <- lapply(length_tmin1, function(x) x[-length(x)])
+length_tmin1.removed
+length_t.removed
+
+autocor <- mapply(cbind,length_t.removed,length_tmin1.removed)
 ```
 
 ```{r}
@@ -1713,12 +1927,12 @@ Cross-correlation of weather and number of individuals with AGG in July
 # 2017 June 2 for NCAR
 ```{r}
 
-uniqclim <- unique(asmi.c[,c("Year","tmin","tmax","Precip")])
+uniqclim <- unique(asmi.c[,c("Year","tmin","tmax","ppt")])
 clim_agg <- merge(uniqclim, ps.asmi, by = "Year")
 
 
 library(reshape2)
-clim_agg_long <- melt(clim_agg[,c(1:6,8)], measure.vars = c("tmin","tmax","Precip","Total.Alive"))
+clim_agg_long <- melt(clim_agg[,c(1:6,8)], measure.vars = c("tmin","tmax","ppt","Total.Alive"))
 levels(clim_agg_long$variable) <- c("Minimum temperature","Maximum temperature",
                                     "Precipitation (mm)","Individuals per plot")
 
@@ -1753,16 +1967,16 @@ ggplot(clim_agg_long[clim_agg_long$Site>3,],
 
 # Annual precipiation average per year
 ```{r}
-creekyear.avg <- aggregate(Precip~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
-creekyear <- aggregate(Precip~Creek+Prev12, data = creekyear.avg, sum)
+creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
+creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
 
 #ppt mm
-mean(creekyear$Precip[creekyear$Creek == "Cebolla"])
-mean(creekyear$Precip[creekyear$Creek == "South Beaver"])
-mean(creekyear$Precip)
+mean(creekyear$ppt[creekyear$Creek == "Cebolla"])
+mean(creekyear$ppt[creekyear$Creek == "South Beaver"])
+mean(creekyear$ppt)
 ```
 
-
+# Set seasonal climate factors
 
 ```{r}
 
@@ -1771,7 +1985,7 @@ asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
 asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
 
 asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
-                                     grep(paste(c("tmin","tmax","Precip"),collapse="|"),
+                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
                                           names(asmi.c), value=TRUE)], 
                             asmi.c[,c("season","Creek","Prev12")],
                             FUN = function(x) mean(x, na.rm = TRUE))
@@ -1811,8 +2025,11 @@ Fall: August-November (8-11)
 # FRUIT
 Take highest 3 loadings and look at how one affects the other 
 ```{r}
+ps.asmi.t$Creek <- NA
+
 ps.asmi.t$Creek[ps.asmi.t$Site > 4] <- "South Beaver"
 ps.asmi.t$Creek[ps.asmi.t$Site < 3] <- "Cebolla"
+table(ps.asmi.t$Creek)
 
 asmi.env <- merge(season, ps.asmi.t, by.x = c("Creek","Prev12"), by.y = c("Creek","Year"))
 names(asmi.env)
@@ -1847,18 +2064,34 @@ season <- merge(season, lmdas.all, by = c("Prev12","Creek"))
 asmi.env
 table(season$Site)
 table(asmi.c$Site)
-aic.asmi <- merge(asmi.all1, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
+# aic.asmi <- merge(asmi.all1, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
+# .x is t and .y is t+1
+aic.asmi <- merge(asmi.all, season, by.x = c("year","AsMi_site_id"), by.y = c("Prev12","Site"))
 
-lm1 <- lm(Lmda ~ Precip.fall + Precip.winter + tmax.winter, aic.asmi)
-lm2 <- lm(Lmda ~ Precip.springSummer, aic.asmi)
+```
+
+!!!??? not really informative
+```{r}
+lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + ppt.springSummer +
+            tmax.winter + tmax.fall + tmax.springSummer +
+            tmin.springSummer + tmin.fall + tmin.winter, aic.asmi)
+lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi)
 lm3 <- lm(Lmda ~ tmin.winter + tmax.springSummer, aic.asmi) 
-lm4 <- lm(Lmda ~ Precip.winter, aic.asmi)
+lm4 <- lm(Lmda ~ ppt.winter, aic.asmi)
 lm5 <- lm(Lmda ~ 1, aic.asmi)
-lm6 <- lm(Lmda ~ Site, aic.asmi)
+lm6 <- lm(Lmda ~ AsMi_site_id, aic.asmi)
 
-lm7 <- lm(Lmda ~ Prev12, aic.asmi)
+# lm7 <- lm(Lmda ~ Prev12, aic.asmi)
+lm7 <- lm(Lmda ~ year, aic.asmi)
+lm8 <- lm(Lmda ~ ppt.fall + ppt.winter +
+            tmax.winter + tmax.fall +  tmax.springSummer +
+            tmin.fall + tmin.winter, aic.asmi)
+lm9 <- lm(Lmda ~ ppt.winter*tmax.winter*tmin.winter, aic.asmi)
+lm10 <- lm(Lmda ~ ppt.fall*tmax.fall*tmin.fall, aic.asmi)
+lm11 <- lm(Lmda ~ ppt.fall*ppt.winter*tmax.winter*tmax.fall*tmax.springSummer*tmin.fall*tmin.winter, aic.asmi)
 
-lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7)
+# lm1,
+lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
 
@@ -1866,28 +2099,55 @@ lm.names <- as.character(unlist(lapply(lm.list,formula)))
 for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
+```
+# if you were to pick one seasonal factor to describe annual growth rate, what would it be?
+```{r}
+lm1 <- lm(Lmda ~ ppt.fall, aic.asmi)
+lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi)
+lm3 <- lm(Lmda ~ ppt.winter, aic.asmi)
+lm4 <- lm(Lmda ~ tmin.winter, aic.asmi)
+lm5 <- lm(Lmda ~ tmin.springSummer, aic.asmi) 
+lm6 <- lm(Lmda ~ tmin.fall, aic.asmi)
+lm7 <- lm(Lmda ~ 1, aic.asmi)
+lm8 <- lm(Lmda ~ AsMi_site_id, aic.asmi)
+lm9 <- lm(Lmda ~ tmax.winter, aic.asmi)
+lm10 <- lm(Lmda ~ tmax.fall, aic.asmi)
+lm11 <- lm(Lmda ~ tmax.springSummer, aic.asmi)
 
+
+lm.list <- list(lm1, lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+```
+
+```{r}
 ggplot(asmi.env, aes(X..Dormant))+
   geom_histogram()+
   facet_grid(~Site)
 ```
 
+# When looking at combinations, no relationship just as good as the interaction of a bunch
 ```{r}
 
 
-lm1 <- lm(Lmda ~ Precip.fall + Precip.winter + tmax.winter, season)
-lm2 <- lm(Lmda ~ Precip.springSummer, season)
+lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
+lm2 <- lm(Lmda ~ ppt.springSummer, season)
 lm3 <- lm(Lmda ~ tmin.winter + tmax.springSummer, season) 
-lm4 <- lm(Lmda ~ Precip.winter, season)
+lm4 <- lm(Lmda ~ ppt.winter, season)
 lm5 <- lm(Lmda ~ 1, season)
 
-lm6 <- lm(Lmda ~ Precip.fall, season)
+lm6 <- lm(Lmda ~ ppt.fall, season)
 
 lm7 <- lm(Lmda ~ tmax.fall, season)
 
 lm8 <- lm(Lmda ~ tmax.springSummer, season)
 
-lm9 <- lm(Lmda ~ (Precip.fall + Precip.winter + tmax.winter)^2, season)
+lm9 <- lm(Lmda ~ (ppt.fall + ppt.winter + tmax.winter)^2, season)
 # lm6 <- lm(Lmda ~ Site, season)
 # 
 # lm7 <- lm(Lmda ~ Prev12, season)
@@ -1946,9 +2206,14 @@ South Beaver Creek
                     fill="gray80", alpha=0.01) 
 ```{r}
 
+ps.asmi.t[ps.asmi.t$Fence == "y",]
+table(ps.asmi.t$Total.Plants)
+table(ps.asmi.t$Fence, ps.asmi.t$Year) 
+# Swtich back? 
 
+# Total.Plants>0 should only have plots that have some plants per year so no plots from earlier than they were started
 p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
-                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "SouthBeaver",], 
+                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "South Beaver",], 
        aes(Year, Total.Plants, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2205,7 +2470,7 @@ X..Flowered - Percent Reproductive
 ```{r}
 
 
-p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "SouthBeaver",], 
+p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
   stat_summary(fun.y = mean, position=position_dodge(width=0.5),
                fun.ymin = function(x) mean(x) - std.error(x),
@@ -2307,7 +2572,7 @@ path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus
               "_asmi/", collapse = '', sep = '')
 
 #If a plant is still alive in the current year, there is no years alive calculated
-yrsalive <- lapply(1:dormyrs, function(x){ 
+yrsalive <- lapply(1:(dormyrs-1), function(x){ 
   path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
   ysal <- read.csv(path.expand(path2), na.strings="na")
   ysal <- cbind(ysal, YrsD = x)
@@ -2354,8 +2619,15 @@ ind_dorm <- do.call(rbind,lapply(split(asmi.raw,asmi.raw$AsMi_tag_id), function(
     }
   }))
 
+
+table(ind_dorm$Dorm)
+nrow(ind_dorm[ind_dorm$Dorm==1,]) # 1022
+
 perc_ind_dorm <- aggregate(Dorm~Site+Plot+Fence, data=ind_dorm,
                            function(x) sum(x)/length(x))
+
+aggregate(Dorm~Fence, data=ind_dorm,
+          function(x) sum(x)/length(x))
 
 #percent dormant individuals by site
 aggregate(Dorm~Site, data=ind_dorm, function(x) sum(x)/length(x))
@@ -2372,18 +2644,40 @@ sum(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])/length(perc_ind_dorm$Dorm[perc_ind
 #   dormlns
 # }))
 
-#dorms <- rle(as.numeric(asmi.2$stage))$lengths[rle(as.numeric(asmi.2$stage))$values ==4]
-max(dorms) #21
+names(asmi.all1)
+names(asmi.1)
+names(asmi.all2)
+
+#  But this could be multple times per individual
+levels(asmi.all2$stage)
+# dorms.1 <- rle(as.numeric(asmi.all2$stage))$lengths[rle(as.numeric(asmi.all2$stage))$values ==4]
+dorms.1 <- lapply(split(asmi.all2, asmi.all2$tag), function(x){
+  rle(as.numeric(x$stage))$lengths[rle(as.numeric(x$stage))$values == 4]
+})
+dorms.2 <- do.call(rbind, lapply(dorms.1, function(s) {
+  if(length(s) > 0) max(s, na.rm = TRUE)
+  })
+  )
+
+max(dorms.1) #21 -> 23
+max(dorms.2)
 
 Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
 
-Mode(dorms) #1
-length(dorms[dorms==1]) #441
-length(dorms[dorms==1])/length(dorms) #41.9%
-length(dorms[dorms == max(dorms)]) # 13 with 21 years
+# Does this really tell me the length of dormancy? It tells me every instanace of dormancy, not one per individual 
+Mode(dorms.1) #1
+length(dorms.1[dorms.1==1]) #441 -> 622
+length(dorms.1[dorms.1==1])/length(dorms.1) #41.9% --> 0.47
+length(dorms.1[dorms.1 == max(dorms.1)]) # 13 with 21 years -> 1 with 3887?? What now?!
+
+# Now have selected only the longest period of dormancy per individual
+Mode(dorms.2) #1
+length(dorms.2[dorms.2==1]) #441 -> 415
+length(dorms.2[dorms.2==1])/length(dorms.2) #41.9% --> 0.41
+length(dorms.1[dorms.2 == max(dorms.2)]) # 13 with 21 years -> 4 with 23 years
 
 ```
 
@@ -3679,4 +3973,277 @@ ps.asmi$PercentDorm <- ps.asmi$X..Dormant/sum(ps.asmi$Total.Alive,ps.asmi$Total.
 aggregate(PercentDorm~Year, ps.asmi, function(x) mean(x, na.rm=TRUE))  
 ```
 
+
+# Integral Projection Models    
+Janeiro et al. 2017 Towards robust evolutionary...
+Rees et al. 2014 Constructing IPMs when more than one census is available (Appendix S4) and others and the main paper, Building integral projeciton models: a user's guide
+
+# Mark-recapture
+<http://www.montana.edu/rotella/documents/502/lab07RMark.html>    
+Laake and Rexstad 2008
+Alexander et al. 2009 Detection, survival rates...
+Chen et al. 2009 Factors affecting detection...
+MacKenzie et al. 2009 Modeling species occurrence dynamics...
+Kellner and Swihart 2014 Accounting for Imperfect detection...
+Chandler et al. 2018 Estimating recruitment from capture-recapture data...
+Mark-recapture   
+```{r}
+
+library(RMark)
+
+# Convert dataset into capture histories  
+head(asmi.raw)
+table(asmi.raw$AsMi_tag_id[asmi.raw$length>0],asmi.raw$year[asmi.raw$length>0])
+
+
+```
+
+Autoregressive and moveing average modeling method   (Liu and Guo 2019)   
+     find the order p and q of the ARMA(p,q) from the autocorrelation and parial correlation coefficient 
+     Can find the time domain and frequency domain of data
+     Should be able to figure out the current priodic mast seeding and then model if it increases or decreases, the impact on future growth of AsMi    
+     tailing means that either ACF or PACF
+does not approach to 0 at each lag order, and truncation on
+order p and q means ACF and PACF   
+Fruit is episodic, mast seeding, would make sense to add a sin and/or cos wave to the fit    
+```{r}
+library(astsa)
+
+head(asmi.raw)
+ps.ts <- aggregate(Total.Fruitlogtransformed.x~Year.x, data=ps.cor, sum)
+asmi.raw.ts <- aggregate(fruit~year+AsMi_site_id, data=asmi.raw, sum)
+
+co2 <- ts(ps.ts$Total.Fruitlogtransformed.x, frequency = 1, start = c(1995,1))
+plot(co2, xlab="Year", ylab = "Fruit")
+
+co25 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==5], frequency=1, start=c(1995,1))
+plot(co25, xlab="Year", ylab = "Fruit")
+
+co215 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==15], frequency=1, start=c(1995,1))
+plot(co215, xlab="Year", ylab = "Fruit")
+
+
+co219 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==19], frequency=1, start=c(1995,1))
+plot(co219, xlab="Year", ylab = "Fruit")
+
+co226 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==26], frequency=1, start=c(1995,1))
+plot(co226, xlab="Year", ylab = "Fruit")
+
+co21 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==1], frequency=1, start=c(2014,1))
+co2_2 <- ts(asmi.raw.ts$fruit[asmi.raw.ts$AsMi_site_id==2], frequency=1, start=c(2014,1))
+
+
+plot(co25, xlab="Year", ylab = "Fruit", ylim=c(0,15050))
+lines(co215, col="red")
+lines(co219, col="cyan")
+lines(co226, col="blue")
+lines(co21, col="orange")
+lines(co2_2, col="green")
+
+```
+
+```{r}
+
+
+```
+
+
+Steps for model order selection   
+     1. residual vaiogram   
+     2. order determination using F test   
+     3. order estimation with AIC and BIC   
+     4. Parameter estimations with moment estimation and least square and maximum likelihood estimation    
+      
+      
+Low order moment estimation can be solved directly, high order obtained using linear iterative or Newton-Raphson method. 
+
+Autoregressive AR(p)
+Moving average MA(q)
+ARMA(p,q)      
+arima() estimates underlying mean of time series unless d?0
+x_t = mu + rho(x_t-1 - mu) + white noise  
+
+```{r}
+
+
+```
+
+
+Simulate stationary processes  
+```{r}
+## ARMA(2,2) description for arim.sim()
+ARMA22 <- list(order=c(2,0,2), ar=c(-0.7,0.2), ma=c(0.7,0.2))
+## mean of process
+mu <- 5
+## simulated process (+ mean) , big sample size
+ARMA.sim <- arima.sim(n=10000, model=ARMA22) + mu
+## estimate parameters
+arima(x=ARMA.sim, order=c(2,0,2))
+```
+
+<https://nwfsc-timeseries.github.io/atsa-labs/chap-tslab.html#data-and-packages-1> 
+```{r}
+# library(devtools)
+# devtools::install_github("nwfsc-timeseries/atsalibrary")
+
+```
+
+<https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc44a.htm>    
+```{r}
+# R commands and output:
+
+## Read the data and save as a time series object.
+table = read.table("G_SERIES.DAT", skip=25)
+vec = ts(table)
+
+## Load the necessary libraries.
+library(stats)
+library(lawstat)
+
+## Plot the data print summary statistics.
+par(mfrow=c(1,1), cex=1.2)
+plot(1:length(vec),vec, type="o", pch=18, col="blue",
+     xlab = "Observation", ylab="Series G")
+print(summary(vec))
+
+## Take natural log of original series and plot the results.
+lvec = log(vec)
+par(mfrow=c(1,1), cex=1.2)
+plot(1:length(vec),lvec, type="o", pch=18, col="red",
+	xlab = "Observation", ylab="ln(Series G)")
+
+## Take first differences of transformed series to remove trend 
+## and plot the transformed and differenced data.
+fd = diff(lvec)
+par(mfrow=c(1,1), cex=1.2)
+plot(fd, type="o", pch=18,  col="darkblue",
+	xlab = "Observation", ylab="Differenced ln(Series G)")
+
+## Compute the autocorrelation of the transformed and differenced series.
+ac <- acf(fd, type = c("correlation"), lag.max=36, main="Autocorrelation of Series G")
+
+## Print ACF for first 36 lags.
+round(c(ac$acf),4)
+
+##>  [1]  1.0000  0.1998 -0.1201 -0.1508 -0.3221 -0.0840  0.0258 -0.1110 -0.3367
+##> [10] -0.1156 -0.1093  0.2059  0.8414  0.2151 -0.1396 -0.1160 -0.2789 -0.0517
+##> [19]  0.0125 -0.1144 -0.3372 -0.1074 -0.0752  0.1995  0.7369  0.1973 -0.1239
+##> [28] -0.1027 -0.2110 -0.0654  0.0157 -0.1154 -0.2893 -0.1269 -0.0407  0.1474
+##> [37]  0.6574
+
+## Plot the ACF with 95 % confidence limits.
+par(mfrow=c(1,1), cex=1.2)
+plot(ac, ci=.95, ci.type="ma", main="ACF with 95 % Confidence Limits",
+     ylim=c(-1,1))
+
+##  Take seasonal differences of the transformed and differenced series.
+sfd = diff(fd, lag=12)
+
+## Plot final time series.
+par(mfrow=c(1,1), cex=1.2)
+plot(sfd, type="o", pch=18,  col="red", xlab = "Observation", 
+     ylab="Seasonal and First Differenced ln(Series G)")
+
+## Compute autocorrelation of final series.
+sac = acf(sfd, type = c("correlation"), lag.max=36, 
+           main="Autocorrelation of Series G")
+
+## Plot the ACF of differenced series with 95 % confidence limits.
+par(mfrow=c(1,1), cex=1.2)
+plot(sac, ci=.95, ci.type="ma", main="ACF with 95 % Confidence Limits",
+     ylim = c(-1,1))
+
+## Fit a MA model to original series.  The arima function will 
+## perform the necessary differences.
+ma = arima(log(vec), order = c(0, 1, 1), 
+            seasonal=list(order=c(0,1,1), period=12))
+ma
+
+##> Call:
+##> arima(x = log(vec), order = c(0, 1, 1), seasonal = list(order = c(0, 1, 1), 
+##>     period = 12))
+
+##> Coefficients:
+##>           ma1     sma1
+##>       -0.4018  -0.5569
+##> s.e.   0.0896   0.0731
+
+##> sigma^2 estimated as 0.001348:  log likelihood = 244.7,  aic = -483.4
+
+## Use the Box-Ljung test to determine if the residuals are 
+## random up to 30 lags.
+BT = Box.test(ma$residuals, lag=30, type = "Ljung-Box", fitdf=2)
+BT
+
+##>         Box-Ljung test
+##> 
+##> data:  ma$residuals 
+##> X-squared = 29.4935, df = 30, p-value = 0.3878
+
+## Although the output indicates that the degrees of freedom for 
+## the test are 30, the p-value is based on df-fitdf = 30-2 = 28.
+1-pchisq(29.4935,28)
+
+##> [1] 0.3878282
+
+## Determine critical region.
+qchisq(0.95,28)
+
+##> [1] 41.33714
+
+## Generate predictions of 12 future values.
+p = predict(ma,12)
+
+## Compute 90% confidence intervals for each prediction
+## and convert back to original units.
+L90 = exp(p$pred - 1.645*p$se)
+U90 = exp(p$pred + 1.645*p$se)
+
+## Generate forecasts in original units.  To avoid under-predicting,
+## the forecasts are adjusted to account for log transformation.
+Forecast = exp(p$pred + ma$sigma2/2)
+
+## Print the forecast results.
+Period = c((length(vec)+1):(length(vec)+12))
+df = data.frame(Period,L90,Forecast,U90)
+print(df,row.names=FALSE)
+
+##>   Period      L90 Forecast      U90
+##>      145 424.0234 450.7261 478.4649
+##>      146 396.7861 426.0042 456.7577
+##>      147 442.5731 479.3298 518.4399
+##>      148 451.3902 492.7365 537.1454
+##>      149 463.3034 509.3982 559.3245
+##>      150 527.3754 583.7383 645.2544
+##>      151 601.9371 670.4625 745.7830
+##>      152 595.7602 667.5274 746.9323
+##>      153 495.7137 558.5657 628.5389
+##>      154 439.1900 497.5430 562.8899
+##>      155 377.7598 430.1618 489.1730
+##>      156 417.3149 477.5643 545.7760
+
+## Plot last 36 observations and the predictions with confidence limits.
+par(mfrow=c(1,1), cex=1.2)
+plot(c(108:144),table[108:144],xlim=c(108,160),ylim=c(300,800), type="o",
+     ylab="Series G", xlab="Observation", col="black",
+     main="12 Forecasts and 90% Confidence Intervals")
+points(Forecast, pch=16, col="blue")
+lines(c(145:156), L90, col="red")
+lines(c(145:156), U90, col="red")
+
+```
+
+<https://blogs.oracle.com/datascience/introduction-to-forecasting-with-arima-in-r> 
+
+<https://www.analyticsvidhya.com/blog/2015/12/complete-tutorial-time-series-modeling/>
+
+How to pick the values of p, q, and d
+<https://stats.stackexchange.com/questions/10750/arma-modeling-in-r>
+
+ARIMA <https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/> forecasting time series data    
+
+Powerpoint for ARIMA <http://www.ghahramani.ca/uploads/1/7/0/4/17042208/box-jenkins-r-seminar.pdf> 
+<https://ncss-wpengine.netdna-ssl.com/wp-content/themes/ncss/pdf/Procedures/NCSS/The_Box-Jenkins_Method.pdf>
+
+<https://datascienceplus.com/time-series-analysis-using-arima-model-in-r/> 
 
