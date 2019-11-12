@@ -849,6 +849,7 @@ t.test(ps.asmi.t$X..Browsed[ps.asmi.t$Plot %in% fencedplots],
        ps.asmi.t$X..Browsed[ps.asmi.t$Plot %ni% fencedplots],
        data = ps.asmi.t[ps.asmi.t$Year<2006,])
 
+# t.test for fenced plots compared to open plots after installation
 #Fencing for plots after 2006
 t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
 
@@ -887,6 +888,18 @@ t.test(ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.
 
 t.test(ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year>2005],
        ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year>2005])
+
+# Fruit not transofrmed
+t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots],
+       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots])
+
+t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year<2006],
+       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year<2006])
+
+
+t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year>2005],
+       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year>2005])
+
 
 
 # Percent reproductive and fencing
@@ -1470,7 +1483,9 @@ Dormancy can be set to 0-1
 ```{r}
 all.pva <- StagePVA(asmi.all2)
 
-asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2,]) # Need to exclude plots added later
+  '%ni%' <- Negate('%in%')
+asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2 & asmi.all2$plot %ni% c(598,238,300),]) 
+# Need to exclude plots added later, 598
 cebolla.pva <- StagePVA(asmi.all2[asmi.all2$site<3,])
 ```
 
@@ -1675,7 +1690,7 @@ paste(round(lmdSD(asmi.pva$notfenced$'26',2005,currentyr-2)[1],2)," (",
 paste(round(lmdSD(asmi.pva$notfenced$'26',1996,currentyr-2)[1],2)," (",
             round(lmdSD(asmi.pva$notfenced$'26',1996,currentyr-2)[2],2),")", sep="")
 
-#Cebolla Mid
+#Cebolla North 1; Mid 2
 paste(round(lmdSD(cebolla.pva$notfenced$'1',2014,currentyr-2)[1],2)," (",
             round(lmdSD(cebolla.pva$notfenced$'1',2014,currentyr-2)[2],2),")", sep="")
 
