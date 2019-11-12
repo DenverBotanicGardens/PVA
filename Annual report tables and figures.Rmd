@@ -127,6 +127,24 @@ asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
 
 asmi.raw$length[is.na(asmi.raw$length)] <- 0
 
+# For plots that didn't start in 1995 !!! All new plants are listed as seedlings in 2014 and none should
+table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id==1], 
+      asmi.raw$status[asmi.raw$AsMi_site_id==1], 
+      asmi.raw$year[asmi.raw$AsMi_site_id==1])
+
+table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id==2], 
+      asmi.raw$status[asmi.raw$AsMi_site_id==2], 
+      asmi.raw$year[asmi.raw$AsMi_site_id==2])
+
+# Site 26 had two plots added later; Plots 238 and 300 were added in 1996 with no seedlings! good!;  plot 598 was added in 2004, no seedlings, good!  
+table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_plot_id %in% c(238,300,598)], 
+      asmi.raw$status[asmi.raw$AsMi_plot_id %in% c(238,300,598)],
+      asmi.raw$year[asmi.raw$AsMi_plot_id %in% c(238,300,598)])
+
+# Need to change all the seedling in 2014 for sites 1 and 2 to approraite other thing
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 0] <- "vegetative"
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 1] <- "reproductive"
+
 # No longer adding climate data to the database
 asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
                            value = TRUE, invert = TRUE)]
@@ -1108,10 +1126,11 @@ table(asmi.boot$year, asmi.boot$site) # from 1995 transitions stage -> fate up t
 # add 'seedling' column
 # give credit for reproductive seedlings to two years prior because must be more than one year old
 asmi.boot[asmi.boot$fruits>0 & asmi.boot$stage=="seedling" & asmi.boot$length<20,]
+# should probably not call plants over 20cm with fruit a seedling
+asmi.boot$stage[asmi.boot$fruits>0 & asmi.boot$stage=="seedling" & asmi.boot$length>19] <- "reproductive"
 
-# asmi.boot$stage[asmi.boot$fruits>0 & asmi.boot$stage=="seedling"] <- "reproductive"
 
-nrow(asmi.boot ) #13868
+nrow(asmi.boot ) #13868 -> 15280
 
 asmi.boot$seedling <- unlist(lapply(split(asmi.boot, asmi.boot$plot), function(plot){
   # [-length(sort(unique(plot$year)))] want all years to get correct length
@@ -1199,34 +1218,13 @@ length(dorms$dorms) #848 -> 959 -> 1136
 length(dorms$dorms[dorms$dorms > 5]) #353 -> 355 -> 380
 length(dorms$dorms[dorms$dorms > 15]) #93 -> 82?? -> 98
 length(dorms$dorms[dorms$dorms == 21]) #13 -> 13
-length(dorms$dorms[dorms$dorms > 20]) #13 -> 13
+length(dorms$dorms[dorms$dorms > 20]) #13 -> 14
 
 
 ```
 
 Reproductive lengths - South Beaver Creek only   
 ```{r}
-
-# identical(asmi.2$fate, asmi.2$fate[with(asmi.2,order(tag,year))])
-
-# repros <- rle(as.numeric(asmi.2$fate[with(asmi.2,order(tag,year))]))$lengths[rle(as.numeric(asmi.2$fate[with(asmi.2, order(tag,year))]))$values ==3]
-
-# x<- split(asmi.2, asmi.2$tag)
-# x[[1000]]
-# as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))])
-# as.numeric(x[[1000]]$stage)
-# 
-# asmi.2[asmi.2$tag==44,] # Seedling in 2011 but rows for all years
-# 
-# rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$lengths[rle(as.numeric(x[[1000]]$stage[with(x[[1000]],order(year))]))$values==3]
-# 
-# repros <- do.call(rbind, lapply(split(asmi.2, asmi.2$tag), function(x){
-#   reproslength <- rle(as.numeric(x$stage[with(x,order(year))]))$lengths[rle(as.numeric(x$stage[with(x,order(year))]))$values==3]
-#   out <- data.frame(Tag=rep(unique(x$tag),length(reproslength)),
-#              reproslength)
-#   out[complete.cases(out),]
-# }))
-
 levels(asmi.1$status)
 # [1] "seedling"     "vegetative"   "reproductive" "dormant"      "dead"
 
@@ -1286,7 +1284,17 @@ library(survival)
 #Survival curve is probability that time of death is greater than some specified time
 survObj <- Surv(time = surv.asmi$year, event=as.logical(surv.asmi$surv))
 model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
+model <- coxph(survObj ~ as.factor(site), data=surv.asmi)
+summary(model)
 
+model_fence <- coxph(survObj ~ fenced, data=surv.asmi)
+summary(model_fence)
+
+model_fence_site <- coxph(survObj ~ fenced*site, data=surv.asmi)
+summary(model_fence_site)
+
+model_stage <- coxph(survObj ~ stage, data=surv.asmi)
+summary(model_stage)
 
 #plotting time to death
 
@@ -1335,13 +1343,13 @@ surv.asmi$frYN[surv.asmi$fruits>0] <- 1
 # Probability of being reproductive given length
 for(i in sort(unique(surv.asmi$year))){
   plot(surv.asmi$length[surv.asmi$year==i], 
-       surv.asmi$frYN[surv.asmi$year==i], main= paste(i), xlab="fruits",ylab="Probability of reproductive")
+       surv.asmi$frYN[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of reproductive")
   g<- glm(frYN~length, family=binomial,surv.asmi[surv.asmi$year==i,])
   curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
 }
     
 plot(surv.asmi$length, 
-       surv.asmi$frYN, main= "1996 - 2017", xlab="length",ylab="Probability of reproductive")
+       surv.asmi$frYN, main= "1996 - 2019", xlab="length",ylab="Probability of reproductive")
   g<- glm(frYN~length, family=binomial,surv.asmi)
   curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)  
   
@@ -1353,7 +1361,13 @@ plot(surv.asmi$length,
 fit <- survfit(Surv(length, surv) ~ fenced, 
                data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
 
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig9_Surv_fence_size.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 150)
+
 ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length", conf.int = TRUE)
+
+dev.off()
 ```
 
 ```{r}
@@ -1456,7 +1470,7 @@ Dormancy can be set to 0-1
 ```{r}
 all.pva <- StagePVA(asmi.all2)
 
-asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2,])
+asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2,]) # Need to exclude plots added later
 cebolla.pva <- StagePVA(asmi.all2[asmi.all2$site<3,])
 ```
 
@@ -1549,8 +1563,8 @@ t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
        lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
 ```
 
-## BACK HERE START HERE
-# Table 4
+
+# Table 5: Growth rate (lambda) and standard deviation
 pattern is:          
 
 All pre-fence  1996-2004        |All post-fence 2005-currentyr-2 |Open plots 1996-currentyr-2   
@@ -1574,17 +1588,16 @@ Site 15
 
 [[1]]:All; [[2]]:fenced; [[3]]:open
 ```{r}
-matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
-
-lapply(seq_along(asmi.pva$Site), function(n,i){ paste(n[[i]])}, 
-       n=names(asmi.pva$Site))
+# matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
+matord.list <- list(all.pva$Site, all.pva$fenced,all.pva$notfenced)
 
 # 1996 (remove first year) through 2004 since it's 2004-2005 before fencing
 # All
-# not working! move on to one by one
+# was asmi.2 instead of all.pva; still not working
 tbl4.96.04 <- 
-  lapply(as.character(unique(asmi.2$site)), function(x){
-    mat <- cat("matord.list[[1]]$\`",x,"`", sep='')
+  lapply(as.character(unique(asmi.all$AsMi_site_id)), function(x){
+    # mat <- cat("matord.list[[1]]$\`",x,"`", sep='')
+    mat <- matord.list[[1]]$x
     outapply<-lapply(mat, function(y){
       out<- paste(round(lmdSD(y[[factor(x)]],1996,2004)[1],2)," (",
             round(lmdSD(y[[factor(x)]],1996,2004)[2],2),")", sep="")

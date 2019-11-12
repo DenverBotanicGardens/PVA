@@ -15,13 +15,27 @@
 #df <- asmi.2
 #table(asmi.2$plot,asmi.2$year)
 
+# df should have a stage and fate, fruit like asmi.all2:
+# > head(asmi.all2)
+#    tag year length fruits    stage plot site fenced browse       fate
+# 1 2150 2014      6      0 seedling    1    1      n  FALSE       dead
+# 2 2151 2014      7      0 seedling    1    1      n  FALSE       dead
+# 3 2152 2014      5      0 seedling    1    1      n   TRUE       dead
+# 4 2153 2014      3      0 seedling    1    1      n  FALSE       dead
+# 5 2154 2014      7      0 seedling    1    1      n   TRUE       dead
+# 6 2155 2014     19      0 seedling    1    1      n  FALSE vegetative
+
+
 StagePVA <- function(df,dormancy = 1){
 
   '%ni%' <- Negate('%in%')
 
   require(dplyr)
-  #Starting point vector, select amoung numbers each year
+  #Starting point vector, select among numbers each year
+  # Here is where it matters that I've condensed all plots into a site since a few extra plots were added in site 26 and another...
   n_options <- ddply(df, c("year","site"), function(x) return(table(x$stage)))
+  n_options_plot <- ddply(df, c("year","site","plot"), function(x) return(table(x$stage)))
+n_options_plot[n_options_plot$vegetative==0,]
 
   years <- sort(unique(df$year)) #start years of each transition, year:year+1
 
