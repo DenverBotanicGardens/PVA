@@ -335,7 +335,7 @@ zero_annual <- data.frame(num = nrow(annual_SBC[annual_SBC$flower == 0,]),
                           percent = nrow(annual_SBC[annual_SBC$flower == 0,])/nrow(annual_SBC))
 
 
-do.call(rbind,zero_site)
+do.call(rbind,zero_annual)
 
 annual_site <- aggregate(flower~AsMi_site_id+year, data=prep, sum)
 zero_site <- lapply(split(annual_site, annual_site$AsMi_site_id), function(x){
@@ -629,12 +629,18 @@ xyplot(Total.Alivelogtransformed ~ Fence|as.factor(Site), ps.asmi.t,
 ```
 
 ```{r}
+ps.asmi.t$Site <- factor(as.factor(ps.asmi.t$Site), levels = levels(as.factor(ps.asmi.t$Site)))
+
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
               currentyr,"_asmi/","Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 200)
+         units = "mm", res = 300, height = 200, width = 150)
+
+
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,],
        type = c("g","p","r"),
-       layout = c(3, 2),
+       layout = c(2, 3),
+       index.cond = list(1:6),
+       as.table = TRUE,
        index = function(x,y) coef(lm(y~x))[1],
                   panel = function(x, y) {
         panel.grid(v=2)
@@ -651,12 +657,15 @@ dev.off()
 
 ```{r}
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig2-latticeplot_6Sites.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 200)
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,"_asmi/",
+           "Fig2-latticeplot_6Sites.jpg", sep = ""),
+         units = "mm", res = 300, height = 200, width = 200)
+
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
        type = c("g","p","r"),
-       layout = c(3, 2),
+       layout = c(2, 3),
+       index.cond = list(1:6),
+       as.table = TRUE,
        index = function(x,y) coef(lm(y~x))[1],
            panel = function(x, y) {
         panel.grid(v=2)
@@ -667,6 +676,8 @@ xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 dev.off()
+
+
 ```
 
 
@@ -1383,6 +1394,8 @@ ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.t
 dev.off()
 ```
 
+# Fit these with dampening survival estimates? based on what are likely to be seen in the rest of the year but dormant in July? 
+
 ```{r}
 fit <- survfit(Surv(length, surv) ~ site, 
                data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
@@ -1871,15 +1884,18 @@ aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x)
 sort(unique(asmi.c$Year))
 
 # first add by all prev12 then average all by creek
-# Precipitation: ppt
+# Precipitation: ppt But with changes ppt is x
 prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
                                      Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
                         function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
 # 1980 to currentyr
-aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
+# aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
+aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
 
 # over the study period 1995-currentyr
-aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
+# aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
+#           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
+aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
 
 # Temperature: tmin and tmax
@@ -1897,7 +1913,7 @@ aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")],
 
 After create new climate dataset, can download it from GitHub
 ```{r}
-# asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
+asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
 
 ```
 
