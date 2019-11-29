@@ -2114,49 +2114,87 @@ aic.asmi <- merge(asmi.all, season, by.x = c("year","AsMi_site_id"), by.y = c("P
 
 ```
 
-!!!??? not really informative
+Multinomial logistic regression  
+library(nnet)
+
 ```{r}
-lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + ppt.springSummer +
+multinom(status ~ ppt.springSummer, aic.asmi)
+
+lm1 <- multinom(status ~ ppt.fall + ppt.winter + ppt.springSummer +
             tmax.winter + tmax.fall + tmax.springSummer +
             tmin.springSummer + tmin.fall + tmin.winter, aic.asmi)
-lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi)
-lm3 <- lm(Lmda ~ tmin.winter + tmax.springSummer, aic.asmi) 
-lm4 <- lm(Lmda ~ ppt.winter, aic.asmi)
-lm5 <- lm(Lmda ~ 1, aic.asmi)
-lm6 <- lm(Lmda ~ AsMi_site_id, aic.asmi)
-
-# lm7 <- lm(Lmda ~ Prev12, aic.asmi)
-lm7 <- lm(Lmda ~ year, aic.asmi)
-lm8 <- lm(Lmda ~ ppt.fall + ppt.winter +
+lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
+lm3 <- multinom(status ~ tmin.winter + tmax.springSummer, aic.asmi) 
+lm4 <- multinom(status ~ ppt.winter, aic.asmi)
+lm5 <- multinom(status ~ 1, aic.asmi)
+lm6 <- multinom(status ~ AsMi_site_id, aic.asmi)
+# lm7 <- multinom(Lmda ~ Prev12, aic.asmi)
+lm7 <- multinom(status ~ year, aic.asmi)
+lm8 <- multinom(status ~ ppt.fall + ppt.winter +
             tmax.winter + tmax.fall +  tmax.springSummer +
             tmin.fall + tmin.winter, aic.asmi)
-lm9 <- lm(Lmda ~ ppt.winter*tmax.winter*tmin.winter, aic.asmi)
-lm10 <- lm(Lmda ~ ppt.fall*tmax.fall*tmin.fall, aic.asmi)
-lm11 <- lm(Lmda ~ ppt.fall*ppt.winter*tmax.winter*tmax.fall*tmax.springSummer*tmin.fall*tmin.winter, aic.asmi)
-
+lm9 <- multinom(status ~ ppt.winter*tmax.winter*tmin.winter, aic.asmi)
+lm10 <- multinom(status ~ ppt.fall*tmax.fall*tmin.fall, aic.asmi)
+lm11 <- multinom(status ~ ppt.fall*ppt.winter*tmax.winter*tmax.fall*tmax.springSummer*tmin.fall*tmin.winter, aic.asmi)
 # lm1,
 lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
 lm.names <- as.character(unlist(lapply(lm.list,formula)))
 (lm.results <- aictab(lm.list, modnames=lm.names))
-
 #evidence ratio 
 for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
+
 ```
-# if you were to pick one seasonal factor to describe annual growth rate, what would it be?
+
+single seasonal factor to describe which stage a plant will be in
 ```{r}
-lm1 <- lm(Lmda ~ ppt.fall, aic.asmi)
-lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi)
-lm3 <- lm(Lmda ~ ppt.winter, aic.asmi)
-lm4 <- lm(Lmda ~ tmin.winter, aic.asmi)
-lm5 <- lm(Lmda ~ tmin.springSummer, aic.asmi) 
-lm6 <- lm(Lmda ~ tmin.fall, aic.asmi)
-lm7 <- lm(Lmda ~ 1, aic.asmi)
-lm8 <- lm(Lmda ~ AsMi_site_id, aic.asmi)
-lm9 <- lm(Lmda ~ tmax.winter, aic.asmi)
-lm10 <- lm(Lmda ~ tmax.fall, aic.asmi)
-lm11 <- lm(Lmda ~ tmax.springSummer, aic.asmi)
+
+lm1 <- multinom(status ~ ppt.fall, aic.asmi)
+lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
+lm9 <- multinom(status ~ ppt.winter, aic.asmi)
+lm3 <- multinom(status ~ tmin.winter, aic.asmi) 
+lm8 <- multinom(status ~ tmin.fall, aic.asmi)
+lm4 <- multinom(status ~ tmin.springSummer, aic.asmi)
+lm5 <- multinom(status ~ 1, aic.asmi)
+lm6 <- multinom(status ~ AsMi_site_id, aic.asmi)
+lm7 <- multinom(status ~ year, aic.asmi)
+lm10 <- multinom(status ~ tmax.fall, aic.asmi)
+lm11 <- multinom(status ~ tmax.winter, aic.asmi)
+lm12 <- multinom(status ~ tmax.springSummer, aic.asmi)
+# lm1,
+lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11,lm12)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+
+ggplot(aic.asmi, aes(status, ppt.springSummer))+
+  geom_boxplot()+
+  theme_bw()
+```
+
+# if you were to pick one seasonal factor to describe annual growth rate, what would it be?  None of them 
+So the precipitation and minimum temperature of the months preceeding the census (the spring/summer which is April-July) best describe the combined survival, growth, and germination that is lambda of each year    
+From the AIC models, each Site behaves differently 
+```{r}
+aic.asmi.cc <- unique(aic.asmi[,c("AsMi_site_id","tmin.fall","tmax.fall",
+                                  "ppt.fall","tmin.springSummer","tmax.springSummer",
+                                  "ppt.springSummer","tmin.winter","tmax.winter","ppt.winter","Lmda")])
+
+lm1 <- lm(Lmda ~ ppt.fall, aic.asmi.cc)
+lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi.cc)
+lm3 <- lm(Lmda ~ ppt.winter, aic.asmi.cc)
+lm4 <- lm(Lmda ~ tmin.winter, aic.asmi.cc)
+lm5 <- lm(Lmda ~ tmin.springSummer, aic.asmi.cc) 
+lm6 <- lm(Lmda ~ tmin.fall, aic.asmi.cc)
+lm7 <- lm(Lmda ~ 1, aic.asmi.cc)
+lm8 <- lm(Lmda ~ AsMi_site_id, aic.asmi.cc)
+lm9 <- lm(Lmda ~ tmax.winter, aic.asmi.cc)
+lm10 <- lm(Lmda ~ tmax.fall, aic.asmi.cc)
+lm11 <- lm(Lmda ~ tmax.springSummer, aic.asmi.cc)
 
 
 lm.list <- list(lm1, lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
@@ -2167,6 +2205,7 @@ lm.names <- as.character(unlist(lapply(lm.list,formula)))
 for(i in 2:length(lm.list)){
   print(exp(0.5*lm.results$Delta_AICc[i]))
 }
+
 ```
 
 ```{r}
@@ -2175,7 +2214,7 @@ ggplot(asmi.env, aes(X..Dormant))+
   facet_grid(~Site)
 ```
 
-# When looking at combinations, no relationship just as good as the interaction of a bunch
+# When looking at combinations, no relationship just as good as the interaction of a bunch   
 ```{r}
 
 
@@ -2207,6 +2246,39 @@ for(i in 2:length(lm.list)){
 
 
 ```
+
+```{r}
+
+
+lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
+lm2 <- lm(Lmda ~ ppt.springSummer*tmin.springSummer, season)
+lm3 <- lm(Lmda ~ tmin.winter * ppt.springSummer, season) 
+lm4 <- lm(Lmda ~ ppt.winter, season)
+lm5 <- lm(Lmda ~ 1, season)
+
+lm6 <- lm(Lmda ~ ppt.fall, season)
+
+lm7 <- lm(Lmda ~ tmin.springSummer, season)
+
+lm8 <- lm(Lmda ~ ppt.springSummer, season)
+
+lm9 <- lm(Lmda ~ (ppt.springSummer + ppt.springSummer + ppt.winter)^2, season)
+# lm6 <- lm(Lmda ~ Site, season)
+# 
+# lm7 <- lm(Lmda ~ Prev12, season)
+
+lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9)
+lm.names <- as.character(unlist(lapply(lm.list,formula)))
+(lm.results <- aictab(lm.list, modnames=lm.names))
+
+#evidence ratio 
+for(i in 2:length(lm.list)){
+  print(exp(0.5*lm.results$Delta_AICc[i]))
+}
+
+
+```
+
 
 ```{r}
 
@@ -2605,7 +2677,8 @@ dev.off()
 
 ```
 
-Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July
+Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July   
+Need to change from set amount of time dormant to find the most likely length of dormancy given that 25-50 percent are actually veg, seedlings, or reproductive when not detected in July
 
 ### Years alive    
 ```{r}
@@ -2633,6 +2706,35 @@ sumYrsAlive <- lapply(yrsalive, function(x){
 })
 
 smya <- do.call(rbind, sumYrsAlive)
+
+ggplot(smya, aes(YrsD, Yearsalive))+
+  geom_line()
+
+yrsaliveall <- do.call(rbind, yrsalive)
+
+ggplot(yrsaliveall, aes(as.factor(YrsD), Yearsalive))+
+  geom_violin()
+
+# , colour= as.factor(AsMi_site_id)   
+# Cebolla Creek not long enough to get at life length
+ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(as.factor(YrsD), Yearsalive))+
+  # geom_boxplot()+
+  geom_violin()+
+  theme_bw()
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig4b.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 130)
+
+ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(YrsD, Yearsalive, colour= as.factor(AsMi_site_id)))+
+  # geom_jitter()+
+  stat_smooth()+
+  theme_bw()+
+  scale_color_discrete(name = "Site")+
+  xlab("Consecutive years dormant")+
+  ylab("Life Length")
+
+dev.off()
 ```
 
 Of the 797 individuals alive in South Beaver Creek in 1995 ...
@@ -2724,6 +2826,11 @@ length(dorms.2[dorms.2==1])/length(dorms.2) #41.9% --> 0.41
 length(dorms.1[dorms.2 == max(dorms.2)]) # 13 with 21 years -> 4 with 23 years
 
 ```
+
+
+
+
+
 
 #SKIP!
 Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
@@ -4276,6 +4383,22 @@ lines(c(145:156), L90, col="red")
 lines(c(145:156), U90, col="red")
 
 ```
+
+
+# Add error and variance to dormancy
+# change dormant to reproductive, seedling???, or vegetative in a given year based on climate   
+```{r}
+# relationship of climate and likelyhood of being stage given climate;
+season
+
+
+
+
+```
+
+
+
+
 
 <https://blogs.oracle.com/datascience/introduction-to-forecasting-with-arima-in-r> 
 
