@@ -2931,12 +2931,12 @@ dm$Site[dm$Plot == 300 | dm$Plot <= 515 & dm$Plot >= 512] <- "19"
 dm$Site[dm$Plot == 238 | dm$Plot == 480 |
           dm$Plot == 598 | dm$Plot == 611 | dm$Plot == 614] <- "26"
 dm$Site[dm$Plot == 22 | dm$Plot == 1 | dm$Plot == 32 | dm$Plot == 42
-        | dm$Plot == 52 ] <- "Cebolla Mid"
+        | dm$Plot == 52 ] <- "1"
 
 dm$Site[dm$Plot == 16 | dm$Plot == 96 | dm$Plot == 58
-        | dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "Cebolla North"
+        | dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "2"
 
-sites <- c("5","15","19","26","Cebolla Mid","Cebolla North")
+sites <- c("5","15","19","26","1","2")
 dm$Site <- ordered(dm$Site, levels = sites)
 
 #May1 moved to 2014 order from 2015
@@ -3089,34 +3089,22 @@ table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
 
 toMatch <- c("coty","Coty","toothpi")
 dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment)] <- "seedling"
+               dm$Comment, ignore.case=TRUE)] <- "seedling"
 
 # dm$status[dm$Comment %in% c("coty","Coty","toothpi")] <- "seedling"
 
-toMatch <- c("coty","Coty")
+toMatch <- c("coty","Coty","new plant","seedli")
 asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
-                                          dm$Comment)])
-# Need only surveys after first seedling time that aren't seen marked as dormant
-dm[dm$UniqueID %in% asmicoty,]
-
-# seedlingones <- lapply(asmicoty, function(x){
-#   dm[dm$UniqueID == x,]
-# })
-
-# seedlingones[[2]] # cotyledon that was either subsummed or died Comment %in% "subsumed" <- dormant
-# seedlingones[[100]] # after may 2015 should be dormant for a couple times, then maybe dead
+                                          dm$Comment,
+                                    ignore.case=TRUE)])
 
 # The ones that are seedlings should be nothing "NA" before being seen while the ones that are found but not as seedlings should be dormant before 
 
-
 dm$status[grep("dead",dm$Comment)] <- "dead"
-
-dm$status[grep("seedling", dm$Comment)] <- "seedling"
-dm$status[grep("coty",dm$Comment)] <- "seedling"
-dm$status[grep("Coty",dm$Comment)] <- "seedling"
+dm$status[grep(paste(toMatch, collapse="|"),
+               dm$Comment)] <- "seedling"
 
 table(dm$Comment[dm$UniqueID %in% asmicoty])
-# What else are dormant?
 
 dm$Year <- as.numeric(2014)
 dm$Year[grep("2015",dm$Survey)] <- 2015
@@ -3142,20 +3130,23 @@ for(i in asmicoty){
     # dm[dm$Date>=seedlingsurvey & dm$UniqueID==i & dm$status != "NA",]
 }
 
-table(dm$Year, dm$status)
-table(dm$Comment[dm$Ln<5 & dm$UniqueID %in% notseedlingones])
-table(dm$Comment[dm$UniqueID %in% notseedlingones])
-
 # Assume any that are alive at some point over the two years and not detected as seedlings are dormant the rest of the time. 
 notseedlingones <- unique(dm$UniqueID)[!unique(dm$UniqueID) %in% asmicoty]# setdiff(unique(dm$UniqueID), seedlingones)
 
+
+table(dm$Year, dm$status)
+table(dm$Comment[dm$UniqueID %in% notseedlingones])
+
+# Inflated ones dormant in 2014, should only be dormant if exisited in prior to 2014
+unique(intra.2013July$Tag)
+unique(dm$tag[dm$UniqueID %in% notseedlingones])
 for(i in notseedlingones){
-  firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
+  # firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
   
   # Assign first time as seedling if really small ?? no, don't really know 
-  if(dm$Ln[dm$Date == firstseen] < 5){
-    
-  }
+  # if(dm$Ln[dm$Date == firstseen] < 5){
+  #   
+  # }
   
   dm$status[dm$status == "NA"] <- "dormant" 
 }
@@ -3171,8 +3162,67 @@ ggplot(dm[dm$status %ni% c("NA","dead"),], aes(Survey, status))+
   geom_count()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
+ggplot(data.frame(table(dm$Date, dm$status)), aes(Var1, Freq, colour = Var2))+
+  geom_point()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+```{r}
+table(dm$Site)
+table(season$Site)
+
+dm$Site <- as.numeric(as.character(dm$Site))
+dm.season <- merge(dm, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
+
+
+dm.table <- data.frame(table(dm$Date, dm$status))
+names(dm.table) <- c("Date","status","Count")
+dm.table$Year <- format(as.Date(dm.table$Date, format="%Y-%m-%d"), "%Y")
+dm.table$Month <- format(as.Date(dm.table$Date, format="%Y-%m-%d"), "%m")
+dm.climate <- merge(dm.table, season, by.x = "Year", by.y = "Prev12")
+
+dm.season$Month <- format(as.Date(dm.season$Date, format="%Y-%m-%d"), "%m")
+
+ggplot(dm.climate, aes(as.factor(Year), Count, colour = status))+
+  geom_jitter()+
+  geom_boxplot()+
+  theme_bw()
+
+# What is detected in July in a bad to good year
+ggplot(dm.climate[dm.climate$Month == "07",], aes(as.numeric(Year), Count, colour = status))+
+  geom_point()+
+  # geom_boxplot()+
+  theme_bw()+
+  stat_smooth(method="lm")
+
+# What is detected throughout the year in a bad to good year
+ggplot(dm.climate, aes(as.numeric(Year), Count, colour = status))+
+  geom_point()+
+  # geom_boxplot()+
+  theme_bw()+
+  stat_smooth(method="lm")
+
+# proportions
+ggplot(dm.season[dm.season$Month == "07",], aes(as.numeric(Year),  fill = status))+
+  geom_bar()+
+  # geom_boxplot()+
+  theme_bw()
+```
+In a bad year, there are many that are dormant in July, In a good year, about half are dormant in July that are above ground some other time during the year    
+```{r}
+table(dm.season$status[dm.season$Month=="07"],dm.season$Year[dm.season$Month=="07"])[2,1] # Dormant in 2014
+colSums(table(dm.season$status[dm.season$Month=="07"],dm.season$Year[dm.season$Month=="07"])) # 1909 both years
+
+# binomial distribution of dormant or above ground 
+# probability of dormant being AGG other time during the year in a bad year 
+pbinom(1, size=1, prob= )
 
 ```
+
+
+
 
 #Tags with growth at any time during the early or late seasons 
 ```{r}
