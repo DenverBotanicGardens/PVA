@@ -2973,101 +2973,7 @@ dm$Date[dm$Survey=="Oct6_2015"] <- as.Date("2015-10-06")
 table(dm$Date)
 
 ```
-Skip
-```{r}
-fixnames <- names(intra)
-fixnames[grep("Ln", fixnames)]
 
-fixnames <- c(names(intra)[1:7], paste("April_2014",names(intra)[8:12],sep="_"),names(intra)[13],
-              paste("May_2014", names(intra)[14:18],sep="_"), paste("June_1_2014", names(intra)[19:23],sep="_"),
-              paste("June_2_2014", names(intra)[24:28],sep="_"), paste("July_2014", names(intra)[29:33],sep="_"),
-              paste("August_2014", names(intra)[34:38],sep="_"),
-              paste("September_2014", names(intra)[39:43],sep="_"),
-              paste("October_1_2014", names(intra)[44:48],sep="_"),
-              paste("October_2_2014", names(intra)[49:53],sep="_"),
-              paste("April_2015", names(intra)[54:58],sep="_"),
-              paste("May_1_2015", names(intra)[59:63],sep="_"),paste("May_2_2015", names(intra)[64:68],sep="_"),
-              paste("June_1_2015", names(intra)[69:73],sep="_"),paste("June_2_2015", names(intra)[74:78],sep="_"),
-              paste("July_2015", names(intra)[79:83],sep="_"),
-              paste("August_2015", names(intra)[84:88],sep="_"),
-              paste("September_2015", names(intra)[89:93],sep="_"),
-              paste("October_2015", names(intra)[94:98],sep="_"), names(intra)[99:100])
-
-names(intra) <- fixnames
-
-# Just use dm where made into one line but make sure that NAs are kept
-# intra$Status_April_2014 <- as.character("dead")
-# intra$Status_May_2014 <- as.character("dead")
-# intra$Status_June_1_2014 <- as.character("dead")
-# intra$Status_June_2_2014 <-as.character("dead")
-# intra$Status_July_2014 <-as.character("dead")
-# intra$Status_August_2014 <-as.character("dead")
-# intra$Status_September1_2014 <-as.character("dead")
-# intra$Status_October_1_2014 <-as.character("dead")
-# intra$Status_October_2_2014 <-as.character("dead")
-# intra$Status_April_2015 <-as.character("dead")
-# intra$Status_May_1_2015 <-as.character("dead")
-# intra$Status_May_2_2015 <-as.character("dead")
-# intra$Status_June_1_2015 <-as.character("dead")
-# intra$Status_June_2_2015 <-as.character("dead")
-# intra$Status_July_2015 <-as.character("dead")
-# intra$Status_August_2015 <-as.character("dead")
-# intra$Status_September_2015 <-as.character("dead")
-# intra$Status_October_2015 <-as.character("dead")
-# 
-# for(i in grep("Status", names(intra))){
-#   survey <- names(intra)[i]
-#   strspname <- strsplit(survey, "_")
-#   surveycols <- paste(unlist(strspname)[2:length(unlist(strspname))], sep="_", collapse = "_")
-#   for(x in grep(surveycols, names(intra))){
-#   intra[,i]
-# }}
-
-# intra[unlist(sapply(intra[,grep("_Comment", names(intra))], function(x) grepl("non-asmi", x)))] <- "not a seedling"
-intra[grepl("non-asmi", intra)] <- "not asmi"
-intra[grepl("fuzzy coty", intra)] <- "not asmi"
-intra[grepl("no coty", intra)] <- "no baby"
-
-# Assign status reached 
-intra$status2014 <- as.character("dead")
-intra$status2014[apply(intra[,grep("2014_Ln",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "vegetative"
-intra$status2014[apply(intra[,grep("2014_Fl",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "reproductive"
-intra$status2014[intra$July_2014_LnJul14 == 0] <- "dormant"
-intra$status2014[unlist(sapply(intra[, grep("2014_Comment", names(intra))], function(x) grep("coty", x)))] <- "seedling" 
-
-table(intra$status2014)
-intra$status2014[apply(intra[,grep("2014_Ln",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "vegetative"
-
-# library(dplyr)
-# intra %>% filter_at(vars(grep("2014_Comments",names(intra))), any_vars(grepl("coty", .)))
-
-intra$status2015 <- as.character("dead")
-intra$status2015[apply(intra[,grep("2015_Ln",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "vegetative"
-intra$status2015[apply(intra[,grep("2015_Ln",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "vegetative"
-intra$status2015[apply(intra[,grep("2015_Fl",names(intra))], 1, function(row) sum(row, na.rm=TRUE))>0] <- "reproductive"
-intra$status2015[intra$July_2015_LnJuly20.23_15 == 0] <- "dormant"
-intra$status2015[unlist(sapply(intra[, grep("2015_Comment", names(intra))], function(x) grep("coty", x)))] <- "seedling" 
-
-
-dm$Year <- format(as.Date(dm$Date, format="%Y-%m-%d"), "%Y")
-dm$status <- as.character("vegetative")
-dm$status[dm$Fl==1] <- "reproductive"
-dm$status[dm$Ln == 0] <- "dormant"
-dm$status[dm$AprSeedlings == 1] <- "seedling"
-dm$status[grep("coty", dm$Comment)] <- "seedling"
-
-### 
-# dm$JulyDorm <- 0
-# dm$JulyDorm[dm$Ln==0 ]
-dm.season <- merge(dm, season, by.x = "Year", by.y = "Prev12")
-
-intra$Year <- 
-intra.season <- merge(intra)
-
-ggplot(dm.season, aes(ppt.springSummer, fill = status))+
-  geom_histogram()
-
-```
 
 ```{r}
 dm$status <- as.character(NA)
@@ -3086,8 +2992,12 @@ dm$Comment[grep("not new", dm$Comment)] <- "No"
 
 table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
 
+  
+toMatch <- c("coty","Coty","new plant","seedli") 
+  
+dm$status[grep(paste(toMatch, collapse="|"),
+               dm$Comment, ignore.case=TRUE) & dm$UniqueID==i] <- "seedling"
 
-toMatch <- c("coty","Coty","new plant","seedli")
 asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
                                           dm$Comment,
                                     ignore.case=TRUE)])
@@ -3106,21 +3016,31 @@ dm[dm$UniqueID %in% dm$UniqueID[dm$status=="dormant"],]
 
 # These should be all that are alive sometime in 2014 or 2015 so can see number of seedlings in each time and number above ground in July each year
 
+# Sometimes cotyledons seen in more than one survey
+morethanoneseedling <- lapply(asmicoty, function(i){
+  if(nrow(dm[dm$UniqueID==i & dm$status == "seedling",])>1){
+    dm[dm$UniqueID==i,]
+  }
+})
+
+seed2 <- do.call(rbind,morethanoneseedling[!unlist(lapply(morethanoneseedling,is.null))])
+doubleseedlingID <- unique(seed2$UniqueID)
+
 for(i in asmicoty){
   seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE)
 # many are nothing because wasnt' seen again after cotyledons, warnings are fine, dealt with in the if statement
   lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
+
+  # make sure earliest time is marked seedling, NA before and dormant between, later changed to veg or appropriate
+  if(i %in% doubleseedlingID){
+    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$status=="seedling"] <- "vegetative"
+    }
   
-  toMatch <- c("coty","Coty","new p","seedli") 
-  dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment, ignore.case=TRUE)] <- "seedling"
-
-
   if(is.infinite(lastseen)){
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
     dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
   } else {
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & dm$status == "NA"] <- "dormant"
+    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen] <- "dormant"
     dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
     dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- "NA"
   }
