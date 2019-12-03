@@ -3070,28 +3070,22 @@ ggplot(dm.season, aes(ppt.springSummer, fill = status))+
 ```
 
 ```{r}
-dm[dm$UniqueID==10,]
-
-dm$status <- as.character("NA")
+dm$status <- as.character(NA)
 dm$status[dm$Ln > 0] <- "vegetative"
 dm$status[dm$Fl ==1] <- "reproductive"
 dm$status[dm$Ln == 0] <- "dormant"
 
-dm$status[is.na(dm$Ln) & !is.na(dm$Comment)]
-table(dm$Comment[is.na(dm$Ln) & !is.na(dm$Comment)])
+table(dm$status, dm$Survey)
+table(dm$Comment[dm$status=="vegetative"], dm$status[dm$status=="vegetative"])
 
 dm$Comment <- as.character(dm$Comment)
 dm$Comment[grep("non-asmi",dm$Comment)] <- "No"
 dm$Comment[grep("no coty",dm$Comment)] <- "No"
-dm$status[dm$Comment %in% c("lost", "subsum","same as","tag not","brows","broken", "dried","dea")] <- "dormant"
+dm$Comment[grep("not new", dm$Comment)] <- "No"
+# dm$status[dm$Comment %in% c("lost", "subsum","same as","tag not","brows","broken", "dried","dea")] <- "dormant"
 
 table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
 
-toMatch <- c("coty","Coty","toothpi")
-dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment, ignore.case=TRUE)] <- "seedling"
-
-# dm$status[dm$Comment %in% c("coty","Coty","toothpi")] <- "seedling"
 
 toMatch <- c("coty","Coty","new plant","seedli")
 asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
@@ -3099,10 +3093,7 @@ asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
                                     ignore.case=TRUE)])
 
 # The ones that are seedlings should be nothing "NA" before being seen while the ones that are found but not as seedlings should be dormant before 
-
-dm$status[grep("dead",dm$Comment)] <- "dead"
-dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment)] <- "seedling"
+# dm$status[grep("dead",dm$Comment)] <- "dead"
 
 table(dm$Comment[dm$UniqueID %in% asmicoty])
 
@@ -3119,12 +3110,19 @@ for(i in asmicoty){
   seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE)
 # many are nothing because wasnt' seen again after cotyledons, warnings are fine, dealt with in the if statement
   lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
+  
+  toMatch <- c("coty","Coty","new p","seedli") 
+  dm$status[grep(paste(toMatch, collapse="|"),
+               dm$Comment, ignore.case=TRUE)] <- "seedling"
+
 
   if(is.infinite(lastseen)){
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
+    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
   } else {
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & dm$status == "NA"] <- "dormant"
     dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
+    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- "NA"
   }
   
     # dm[dm$Date>=seedlingsurvey & dm$UniqueID==i & dm$status != "NA",]
@@ -3133,27 +3131,39 @@ for(i in asmicoty){
 # Assume any that are alive at some point over the two years and not detected as seedlings are dormant the rest of the time. 
 notseedlingones <- unique(dm$UniqueID)[!unique(dm$UniqueID) %in% asmicoty]# setdiff(unique(dm$UniqueID), seedlingones)
 
-
 table(dm$Year, dm$status)
 table(dm$Comment[dm$UniqueID %in% notseedlingones])
 
 # Inflated ones dormant in 2014, should only be dormant if exisited in prior to 2014
-unique(intra.2013July$Tag)
-unique(dm$tag[dm$UniqueID %in% notseedlingones])
+alivein2013 <- unique(dm$tag)[unique(dm$tag) %in% unique(intra.2013July$Tag)]
+alivein2015 <- unique(dm$tag)[unique(dm$tag) %in% 
+                                unique(asmi.1$tag_no[asmi.1$status != "dead" & asmi.1$year == 2015])]
+
 for(i in notseedlingones){
-  # firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
-  
-  # Assign first time as seedling if really small ?? no, don't really know 
-  # if(dm$Ln[dm$Date == firstseen] < 5){
-  #   
-  # }
-  
-  dm$status[dm$status == "NA"] <- "dormant" 
-}
+  firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
+  lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
+
+  if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2013){
+    dm$status[dm$status == "NA"] <- "dormant"
+    } else {
+      if(is.infinite(lastseen)){
+        dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
+        dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
+        } else {
+          dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & dm$status == "NA"] <- "dormant"
+          if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2015){
+          dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dormant"
+          } else {
+            dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
+        }}
+    }
+  }
 
 table(dm$Survey, dm$status)
 
 '%ni%' <- Negate('%in%')
+
+dm <- dm[!is.na(dm$status),]
 
 ggplot(dm[dm$status %ni% c("NA","dead"),], aes(Survey, status))+
   # geom_violin()+
@@ -3185,41 +3195,146 @@ dm.climate <- merge(dm.table, season, by.x = "Year", by.y = "Prev12")
 
 dm.season$Month <- format(as.Date(dm.season$Date, format="%Y-%m-%d"), "%m")
 
-ggplot(dm.climate, aes(as.factor(Year), Count, colour = status))+
+dm.climate.narm <- dm.climate[!is.na(dm.climate$status),]
+dm.season.narm <- dm.season[!is.na(dm.season$status),]
+
+
+ggplot(dm.climate.narm, aes(as.factor(Year), Count, colour = status))+
   geom_jitter()+
   geom_boxplot()+
   theme_bw()
 
 # What is detected in July in a bad to good year
-ggplot(dm.climate[dm.climate$Month == "07",], aes(as.numeric(Year), Count, colour = status))+
+ggplot(dm.climate.narm[dm.climate.narm$Month == "07" & dm.climate.narm$status != "dead",], aes(as.numeric(Year), Count, colour = status))+
   geom_point()+
   # geom_boxplot()+
   theme_bw()+
   stat_smooth(method="lm")
 
 # What is detected throughout the year in a bad to good year
-ggplot(dm.climate, aes(as.numeric(Year), Count, colour = status))+
+ggplot(dm.climate.narm[dm.climate.narm$status != "dead",], aes(as.numeric(Year), Count, colour = status))+
   geom_point()+
   # geom_boxplot()+
   theme_bw()+
   stat_smooth(method="lm")
 
 # proportions
-ggplot(dm.season[dm.season$Month == "07",], aes(as.numeric(Year),  fill = status))+
+ggplot(dm.season.narm[dm.season.narm$Month == "07" & dm.season.narm$status != "dead",], aes(as.numeric(Year),  fill = status))+
   geom_bar()+
   # geom_boxplot()+
   theme_bw()
 ```
 In a bad year, there are many that are dormant in July, In a good year, about half are dormant in July that are above ground some other time during the year    
 ```{r}
-table(dm.season$status[dm.season$Month=="07"],dm.season$Year[dm.season$Month=="07"])[2,1] # Dormant in 2014
-colSums(table(dm.season$status[dm.season$Month=="07"],dm.season$Year[dm.season$Month=="07"])) # 1909 both years
+dormJuly2014 <- table(dm.season.narm$status[dm.season.narm$Month=="07"],dm.season.narm$Year[dm.season.narm$Month=="07"])[2,1] # Dormant in 2014
+dormJuly2015 <- table(dm.season.narm$status[dm.season.narm$Month=="07"],dm.season.narm$Year[dm.season.narm$Month=="07"])[2,2] # Dormant in 2015
+
+totalAGGandDorm <- colSums(table(dm.season.narm$status[dm.season.narm$Month=="07" & dm.season.narm$status != "dead"],
+              dm.season.narm$Year[dm.season.narm$Month=="07"& dm.season.narm$status != "dead"])) # AGG in either year and dormant
 
 # binomial distribution of dormant or above ground 
-# probability of dormant being AGG other time during the year in a bad year 
-pbinom(1, size=1, prob= )
+# Poisson distribution of interval that the stage is greater than 2 throughout the year when dormant in July if 1=dead, 2=dormant, 3= seedling, 4=vegetative, and 5=reproductive  
+# or binomial for each stage: dormant or dead; dormant or vegetative; dormant or reproductive given a good or bad year
+
+
+# probability of dormant being AGG other time during the year in a bad year  
+# Give the probability that a dormant plant is something else during the year
+
+# The chance of being dormant each of the possible years (ignore the first and last) in July The probabilty that a plant will be dormant study length-2 or less of the time is...
+pbinom(length(1995:currentyr)-2, size=length(1995:currentyr), 
+       prob= 1-(dormJuly2014/totalAGGandDorm[1])) # 71% were dormant in July 2014 that were alive some other time so reduce this by that probability, they weren't prolonged dormant, just in July
+pbinom(length(1995:currentyr)-2, size=length(1995:currentyr), 
+       prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 13% were dormant in July 2015 of all that were alive
+
+#probability that a plant was dormant for length-2 times becomes: ???
+dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob= dormJuly2014/totalAGGandDorm[1])  # 5.7%
+dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob = dormJuly2015/totalAGGandDorm[2]) # 1.6e^-12%
+
+# probability that each trial that was dormant was actually something else, some AGG
+dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))  # ca 0
+dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 5.5%
+
+dbinom(length(1995:currentyr)-3, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))  # ca 0
+dbinom(length(1995:currentyr)-3, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 5.5%
+
+chanceofprolongeddorm <- do.call(rbind,lapply(2:(length(1995:currentyr)-2), function(x){
+  good <- dbinom(length(1995:currentyr)-x, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))
+  bad <- dbinom(length(1995:currentyr)-x, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2]))
+  data.frame(YrsDorm = length(1995:currentyr)-x, good, bad)
+}))
+
+
+ggplot(chanceofprolongeddorm)+
+  geom_point(aes(YrsDorm,good), colour = "green")+
+  geom_point(aes(YrsDorm,bad), colour = "black")+
+  theme_bw()
+```
+
+Or with those probabilies, change the status of each year for all individuals  
+```{r}
+# add error  Now I want Poisson or assign with probablity of other stage when in dormant  
+# proportionally asaign to other   
+surveys <- unique(dm.season.narm$Survey)
+surveys <- data.frame(surveys, SurvNum = 1:18)
+surveys$surveys <- as.character(surveys$surveys)
+dm.season.narm$Survey <- as.character(dm.season.narm$Survey)
+dm.season.narm.m <- merge(dm.season.narm, surveys, by.x = "Survey", by.y = "surveys")
+
+# .x are time t and .y are t+1; maybe more times when still marked seedling even though not new in that survey?
+dm.season.narm.stagefate <- subset(merge(dm.season.narm.m, dm.season.narm.m, by = "UniqueID", sort = FALSE),
+                              SurvNum.x == SurvNum.y-1)
+
+# table(rows, columns)  
+table(Fate = dm.season.narm.stagefate$status.y, Stage = dm.season.narm.stagefate$status.x)
+transtable <- table(Fate = dm.season.narm.stagefate$status.y, Stage = dm.season.narm.stagefate$status.x)
+transtable[4,2] # dormancy when a seedling
+transtable[3,2] # dormancy and then still reproductive
+transtable[5,2] # dormancy and then vegetative
+sum(transtable[2:5,2]) # All the dormants that are still alive in the next transition
+
+levels(asmi.1$status) # "seedling"     "vegetative"   "reproductive" "dormant"      "dead"  is 1:5
+
+# The probablily of the next transition but not the biggest it gets
+testfoo <- sample(c("seedling","vegetative","reproductive","dormant" ),10, replace=TRUE,
+       prob=c(transtable[4,2]/sum(transtable[2:5,2]),
+              transtable[5,2]/sum(transtable[2:5,2]),
+              transtable[3,2]/sum(transtable[2:5,2]),
+              transtable[2,2]/sum(transtable[2:5,2])))
+
+
+dorms.error <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  x$status[x$status == "dormant"] <- sample(c("seedling","vegetative","reproductive","dormant" ),
+                                            nrow(x[x$status == "dormant",]), replace=TRUE,
+                                            prob=c(transtable[4,2]/sum(transtable[2:5,2]),
+                                                   transtable[5,2]/sum(transtable[2:5,2]),
+                                                   transtable[3,2]/sum(transtable[2:5,2]),
+                                                   transtable[2,2]/sum(transtable[2:5,2])))
+  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+  out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+  out
+}))
+
+
+ggplot(dorms.error, aes(dorms))+
+  geom_histogram(bins = 20)+
+  theme_bw()+
+  ylab("Frequency")+
+  xlab("Consecutive years dormant")
 
 ```
+
+```{r}
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig4_witherror.jpg", sep = ""),
+         units = "mm", res = 300, height = 150, width = 180)
+ 
+hist(dorms.error$dorms, xlim=c(0,24),  col = rgb(0,0,0,0.5), breaks = 20,
+     ylab = "Frequency", xlab = "Consecutive years dormant", main = "")
+hist(dorms$dorms, add=TRUE, col = rgb(0,0,1,0.5), breaks = 20)
+
+dev.off()
+```
+
 
 
 
