@@ -7,10 +7,13 @@ output: html_document
 The git remote is "AsMiPVA"
 AsMiPVA
 
+
+2020 - convert everything to z-scores (mean of 0, SD) All values (x-mean)/SD
+
 ```{r}
 library(reshape2)
 library(ggplot2)
-library(psych)
+# library(psych)
 library(popbio)
 library(devtools)
 library(sciplot)
@@ -119,6 +122,7 @@ Save all sites, all data, and set to 20 years allowed dormant (or all possible y
 Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+if(currentyr == 2020){currentyr <- 2019} # pandemic, no data collection in 2020
 rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
                      currentyr,"_asmi/RawData_",
                      currentyr, ".csv", collapse = '', sep = '')
@@ -405,7 +409,7 @@ plotdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/As
                       collapse = '', sep = '')
 ps.asmi <- read.csv(path.expand(plotdatapath))
 
-# remove the moniker of 'y' from fenced plots before they are fenced. 
+# remove the moniker of 'y' from fenced plots before they are fenced.
 ps.asmi$Fence[ps.asmi$Year<2006] <- 'n'
 
 
@@ -1987,6 +1991,12 @@ ggplot(clim_agg_long[clim_agg_long$variable%in% c("Precipitation (mm)","Individu
   facet_wrap(~variable, scales="free", ncol=1)+
   theme_bw()
 
+asmi.c
+
+
+ggplot(asmi.c, aes(Year, ppt))+
+  geom_line()+
+  facet_wrap(~Month+Site)
 ```
 
 ```{r}
@@ -2043,6 +2053,11 @@ season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.su
                   direction="wide")
 head(season)
 
+ggplot(season, aes(Prev12, ppt.fall))+
+  geom_line()
+
+ggplot(season, aes(Prev12, ppt.winter))+
+  geom_line()
 ```
 
 #PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
@@ -2993,10 +3008,13 @@ dm$Comment[grep("not new", dm$Comment)] <- "No"
 table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
 
   
-toMatch <- c("coty","Coty","new plant","seedli") 
+toMatch <- c("coty","Coty","new pla","seedli","tooth") 
   
 dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment, ignore.case=TRUE) & dm$UniqueID==i] <- "seedling"
+               dm$Comment, ignore.case=TRUE)] <- "seedling"
+dm$status[dm$Comment == "new"] <- "seedling"
+
+dm$status[dm$Comment == "might be new"] <- "seedling"
 
 asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
                                           dm$Comment,
@@ -3006,6 +3024,8 @@ asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
 # dm$status[grep("dead",dm$Comment)] <- "dead"
 
 table(dm$Comment[dm$UniqueID %in% asmicoty])
+table(dm$Comment[dm$Ln < 5])
+
 
 dm$Year <- as.numeric(2014)
 dm$Year[grep("2015",dm$Survey)] <- 2015
@@ -3028,6 +3048,7 @@ doubleseedlingID <- unique(seed2$UniqueID)
 
 for(i in asmicoty){
   seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE)
+  dm$status[dm$Date < seedlingsurvey & dm$UniqueID == i] <- NA
 # many are nothing because wasnt' seen again after cotyledons, warnings are fine, dealt with in the if statement
   lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
 
@@ -3038,14 +3059,13 @@ for(i in asmicoty){
   
   if(is.infinite(lastseen)){
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
-    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
+    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- NA
   } else {
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen] <- "dormant"
     dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
-    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- "NA"
+    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- NA
   }
-  
-    # dm[dm$Date>=seedlingsurvey & dm$UniqueID==i & dm$status != "NA",]
+
 }
 
 # Assume any that are alive at some point over the two years and not detected as seedlings are dormant the rest of the time. 
@@ -3056,8 +3076,8 @@ table(dm$Comment[dm$UniqueID %in% notseedlingones])
 
 # Inflated ones dormant in 2014, should only be dormant if exisited in prior to 2014
 alivein2013 <- unique(dm$tag)[unique(dm$tag) %in% unique(intra.2013July$Tag)]
-alivein2015 <- unique(dm$tag)[unique(dm$tag) %in% 
-                                unique(asmi.1$tag_no[asmi.1$status != "dead" & asmi.1$year == 2015])]
+alivein2016 <- unique(dm$tag)[unique(dm$tag) %in% 
+                                unique(asmi.1$tag_no[asmi.1$status != "dead" & asmi.1$year == 2016])]
 
 for(i in notseedlingones){
   firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
@@ -3071,7 +3091,7 @@ for(i in notseedlingones){
         dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
         } else {
           dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & dm$status == "NA"] <- "dormant"
-          if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2015){
+          if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2016){
           dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dormant"
           } else {
             dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
@@ -3085,7 +3105,7 @@ table(dm$Survey, dm$status)
 
 dm <- dm[!is.na(dm$status),]
 
-ggplot(dm[dm$status %ni% c("NA","dead"),], aes(Survey, status))+
+ggplot(dm[dm$status != "dead",], aes(Survey, status))+
   # geom_violin()+
   # geom_jitter()+
   theme_bw()+
@@ -3192,6 +3212,71 @@ ggplot(chanceofprolongeddorm)+
 
 Or with those probabilies, change the status of each year for all individuals  
 ```{r}
+# of those dormant at some point in the season, what is the largest state they get to and were they seedlings? 
+dm$status <- as.factor(dm$status)
+levels(dm$status)
+dm$status <- factor(dm$status, levels=c("dead","dormant","seedling","vegetative","reproductive"))
+
+dorm.transition <- do.call(rbind,lapply(split(dm, dm$UniqueID), function(x){
+  dorm14 <- x[x$status == "dormant" & x$Year == 2014,]
+  dorm15 <- x[x$status == "dormant" & x$Year == 2015,]
+  topStage14 <- max(as.numeric(x$status[x$Year == 2014]))
+  topStage15 <- max(as.numeric(x$status[x$Year == 2015]))
+  
+  if(nrow(dorm14)>0){
+    dorm2014 <- 1
+    seedYN <- x[x$status == "seedling" & x$Year == 2014,]
+    if(nrow(seedYN)>0){ 
+      seed2014 <- 1
+    } else {
+        seed2014 <- 0
+      }
+  } else {
+    dorm2014 <- 0
+    seed2014 <- NA
+  } 
+
+  if(nrow(dorm15)>0){
+    dorm2015 <- 1
+    seedYN15 <- x[x$status == "seedling" & x$Year == 2015,]
+    if(nrow(seedYN15)>0){ 
+      seed2015 <- 1
+      } else {
+        seed2015 <- 0
+      }
+  } else {
+    dorm2015 <- 0
+    seed2015 <- NA
+  } 
+  data.frame(dorm2014,seed2014,topStage14, dorm2015,seed2015, topStage15)
+}))
+
+seedtable2014 <- table(dorm.transition$dorm2014, dorm.transition$seed2014)
+sum(seedtable2014[2,])
+# 26 that had dormance weren't seedlings and 10 were seedlings
+  #    0  1
+  # 0  0  0
+  # 1 26 10
+table2014 <- table(DormantYN = dorm.transition$dorm2014, StageLevel = dorm.transition$topStage14)
+# -Inf 1:dead 2:dormant 3:seedling  4:veg  5:reproductive
+#          StageLevel
+# DormantYN -Inf    3    4    5
+#         0 1185    8  588   92
+#         1    0    5   28    3
+sum(table2014[2,])
+
+seedtable2015 <- table(dorm.transition$dorm2015, dorm.transition$seed2015)
+# I take this to mean that all seedling (163) had a period of dormancy, and survived to get bigger
+  #     0   1
+  # 0   0   0
+  # 1 242 163
+table2015 <- table(DormantYN = dorm.transition$dorm2015, StageLevel = dorm.transition$topStage15)
+#          StageLevel
+# DormantYN -Inf    1    2    3    4    5
+#         0   13  251    0   55 1051  134
+#         1    0    0   26    0  346   33
+sum(table2015[2,])
+
 # add error  Now I want Poisson or assign with probablity of other stage when in dormant  
 # proportionally asaign to other   
 surveys <- unique(dm.season.narm$Survey)
@@ -3222,18 +3307,49 @@ testfoo <- sample(c("seedling","vegetative","reproductive","dormant" ),10, repla
               transtable[2,2]/sum(transtable[2:5,2])))
 
 
-dorms.error <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-  x$status[x$status == "dormant"] <- sample(c("seedling","vegetative","reproductive","dormant" ),
-                                            nrow(x[x$status == "dormant",]), replace=TRUE,
-                                            prob=c(transtable[4,2]/sum(transtable[2:5,2]),
-                                                   transtable[5,2]/sum(transtable[2:5,2]),
-                                                   transtable[3,2]/sum(transtable[2:5,2]),
-                                                   transtable[2,2]/sum(transtable[2:5,2])))
+# dorms.error <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+#   x$status[x$status == "dormant"] <- sample(c("seedling","vegetative","reproductive","dormant" ),
+#                                             nrow(x[x$status == "dormant",]), replace=TRUE,
+#                                             prob=c(transtable[4,2]/sum(transtable[2:5,2]),
+#                                                    transtable[5,2]/sum(transtable[2:5,2]),
+#                                                    transtable[3,2]/sum(transtable[2:5,2]),
+#                                                    transtable[2,2]/sum(transtable[2:5,2])))
+#   dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+#   out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+#   out
+# }))
+
+# dormancy and what?
+goodyearprob <- c(seedtable2015[2,2]/sum(seedtable2015[2,]), # 3:seedling
+                  table2015[2,5]/sum(table2015[2,]), # 4:veg
+                  table2015[2,6]/sum(table2015[2,]), # 5:rep
+                  table2015[2,3]/sum(table2015[2,])) # 2:dormant
+badyearprob <- c(seedtable2014[2,2]/sum(seedtable2014[2,]), # 3:seedling
+                  table2014[2,3]/sum(table2014[2,]), # 4:veg
+                  table2014[2,4]/sum(table2014[2,]), # 5:rep
+                  0) # 2:dormant                
+yearprobs <- list(goodyearprob,badyearprob)
+
+goodbad <- data.frame(year = 1995:currentyr, GB = NA)
+asmi.gb <- aggregate(ppt~Prev12, sum, data = asmi.c[asmi.c$Prev12>1994 & asmi.c$Prev12<(currentyr+1),])
+
+goodbad$GB[asmi.gb$ppt > mean(asmi.gb$ppt)] <- 1
+goodbad$GB[asmi.gb$ppt <= mean(asmi.gb$ppt)] <- 2
+asmi.1.gb <- merge(asmi.1, goodbad, by = "year")
+
+# in PhpMyAdmin 1:dead 2:dormant 3:seedling 4:repro 5:veg but reshuffled here
+# to the biggest it got or if it went to a seedling
+dorms.error <- do.call(rbind,lapply(split(asmi.1.gb, asmi.1.gb$AsMi_tag_id), function(x){
+  for(r in which(x$status %in% "dormant")){
+    x$status[r] <- sample(c("seedling","vegetative","reproductive","dormant" ),
+                                              1, replace=TRUE,
+                                              prob= yearprobs[[x$GB[r]]])
+    }
+  
   dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
   out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
   out
 }))
-
 
 ggplot(dorms.error, aes(dorms))+
   geom_histogram(bins = 20)+
@@ -3254,6 +3370,31 @@ hist(dorms$dorms, add=TRUE, col = rgb(0,0,1,0.5), breaks = 20)
 
 dev.off()
 ```
+
+
+```{r}
+
+# x <- seq(0,25, length.out = nrow(dorms.error))
+# y <- with(dorms.error, dnorm(x, dorms), sd(dorms))
+# 
+# hist(dorms$dorms, freq = FALSE)
+# lines(x,y,col="red")
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig4_witherror_density.jpg", sep = ""),
+         units = "mm", res = 300, height = 150, width = 180)
+ 
+
+plot(density(dorms$dorms), col="blue", ylim=c(0,.205),xlim=c(0.1,length(1995:(currentyr-2))),
+     main = "",xlab="Consecutive years dormant")
+rug(jitter(dorms$dorms), col= rgb(0,0,1,0.05))
+lines(density(dorms.error$dorms, bw = 2), col="gray10")
+rug(jitter(dorms.error$dorms), col=rgb(0,0,0,0.75))
+
+dev.off()
+
+```
+
 
 
 
