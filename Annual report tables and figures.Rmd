@@ -2806,6 +2806,23 @@ ind_dorm <- do.call(rbind,lapply(split(asmi.raw,asmi.raw$AsMi_tag_id), function(
     }
   }))
 
+# is dormancy independent of fencing?
+fencing_ind_dorm <- do.call(rbind,lapply(split(asmi.raw[asmi.raw$year > 2005 & asmi.raw$year < 2016 & asmi.raw$AsMi_site_id > 3,],
+                                               asmi.raw$AsMi_tag_id[asmi.raw$year > 2005 & asmi.raw$year < 2016 & asmi.raw$AsMi_site_id > 3]), function(x){
+  if(length(grep("dormant",x$status))>0){
+    data.frame(Site = unique(x$AsMi_site_id), 
+               Fence = unique(x$fence), 
+               Plot = unique(x$AsMi_plot_id), 
+               Dorm = 1)
+  } else {
+    data.frame(Site = unique(x$AsMi_site_id), 
+               Fence = unique(x$fence), 
+               Plot = unique(x$AsMi_plot_id), 
+               Dorm = 0)
+    }
+  }))
+chisq.test(table(fencing_ind_dorm$Dorm, fencing_ind_dorm$Fence))
+# p = 0.008 so fencing likely influences dormancy 
 
 table(ind_dorm$Dorm)
 nrow(ind_dorm[ind_dorm$Dorm==1,]) # 1022
@@ -2821,26 +2838,17 @@ aggregate(Dorm~Site, data=ind_dorm, function(x) sum(x)/length(x))
 #percent individuals with any length of dormancy from SBC
 sum(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])/length(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])
 
-
-
-#in Raw, #2 is dormant
-# 
-# dorms <- do.call(c,lapply(unique(asmi.raw$AsMi_tag_id), function(x){
-#   tag <- asmi.raw[asmi.raw$AsMi_tag_id == x,]
-#   dormlns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==2]
-#   dormlns
-# }))
-
-names(asmi.all1)
-names(asmi.1)
-names(asmi.all2)
-
-#  But this could be multple times per individual
+#  But this could be multiple times per individual
 levels(asmi.all2$stage)
+# test
 # dorms.1 <- rle(as.numeric(asmi.all2$stage))$lengths[rle(as.numeric(asmi.all2$stage))$values ==4]
-dorms.1 <- lapply(split(asmi.all2, asmi.all2$tag), function(x){
+x <- split(asmi.all2, asmi.all2$tag)[[1]]
+dorms.1 <- unlist(lapply(split(asmi.all2, asmi.all2$tag), function(x){
+  # dormyrs <- x$year[x$stage == "dormant"]
+  # dorm <- rle(as.numeric(x$stage))$lengths[rle(as.numeric(x$stage))$values == 4]
+  # out <- data.frame(tag = unique(x$tag), DormPeriods = length(dorm), )
   rle(as.numeric(x$stage))$lengths[rle(as.numeric(x$stage))$values == 4]
-})
+}))
 dorms.2 <- do.call(rbind, lapply(dorms.1, function(s) {
   if(length(s) > 0) max(s, na.rm = TRUE)
   })
@@ -2869,23 +2877,6 @@ length(dorms.1[dorms.2 == max(dorms.2)]) # 13 with 21 years -> 4 with 23 years
 ```
 
 
-
-
-
-
-#SKIP!
-Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
-```{r}
-ggplot(smya, aes(YrsD, Yearsalive))+
-#  stat_smooth()+
-  geom_errorbar(aes(ymin=Yearsalive-se, ymax=Yearsalive+se), 
-                width=1) +
-  theme_bw()+
-  xlab("Maximum years dormant")+
-  ylab("Life length")+
-  scale_y_continuous(breaks = seq(2, 4, .5), limits = c(2.3, 3.8)) 
-
-```
 
 #Episodic fruit production paragraph   
 ```{r}
@@ -4876,6 +4867,23 @@ yrsalive <- lapply(1:(dormyrs-1), function(x){
   })
 
 head(yrsalive[[4]])
+
+```
+
+
+
+
+#SKIP!
+Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
+```{r}
+ggplot(smya, aes(YrsD, Yearsalive))+
+#  stat_smooth()+
+  geom_errorbar(aes(ymin=Yearsalive-se, ymax=Yearsalive+se), 
+                width=1) +
+  theme_bw()+
+  xlab("Maximum years dormant")+
+  ylab("Life length")+
+  scale_y_continuous(breaks = seq(2, 4, .5), limits = c(2.3, 3.8)) 
 
 ```
 
