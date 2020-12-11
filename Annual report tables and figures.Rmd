@@ -10,6 +10,8 @@ AsMiPVA
 
 2020 - convert everything to z-scores (mean of 0, SD) All values (x-mean)/SD
 
+On Onedrive "C:\Users\DePrengm\OneDrive - Denver Botanic Gardens\P drive\hackathon\GitPVA\"
+
 ```{r}
 library(reshape2)
 library(ggplot2)
@@ -39,37 +41,12 @@ require(AICcmodavg)
 library(lme4)
 library(lattice)
 
+#Plots and figures
+library(DiagrammeR)
+library(patchwork)
 
-# A ggplot plot layout function 
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  numPlots = length(plots)
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
- if (numPlots==1) {
-    print(plots[[1]])
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
 ```
+
 
 Remove all variables, keep functions
 ```{r reset values, eval = FALSE}
@@ -116,13 +93,80 @@ lmdAn <- function(x,y,z){
 ```
 
 
+# Methods, Bayesian multiple types of data to estimate parameters and latent states   
+```{r}
+grViz("digraph integrated_pop {
+      
+      # digraph = directed, graph = undirected, graphID
+      graph [compound = true, color = blue, rankdir = LR]
+      
+      # node definitions with substituted label text
+      node [shape = circle, fontname = Helvetica]
+      # Demographic monitoring
+      a [label = '@@1-1']
+      b [label = '@@1-2']
+      c [label = '@@1-3']
+      d [label = '@@1-4']
+      
+      # Within season monitoring
+      e [label = '@@2-1']
+      f [label = '@@2-2']
+      g [label = '@@2-3']
+      h [label = <&Phi;<SUB>stn_j</SUB>>]
+      
+      # name must start with 'cluster_'
+      subgraph cluster_demography {
+        graph [style = dashed, color = Sienna]
+        rank = same; a;d;
+        rank = same; b; c;
+        a -> {b c}
+        b -> c
+        c -> a [style = dashed, color = LimeGreen]
+        a -> d
+        b -> d
+        c -> d
+        c -> b [color = red]
+        d -> b [color = red]
+        d -> c [color = red]
+        
+        label = 'Demography'
+      }
+      
+      subgraph cluster_seasonal {
+        graph [style = dashed, color = Sienna]
+        e -> {f g}
+        f -> g
+        
+        label = 'Within season'
+      }
+      
+      subgraph cluster_detection {
+        graph [style = dashed, color = Sienna]
+        h
+        
+        label = 'Detection probability'
+      }
+      
+    h -> {e f g} [lhead = cluster_seasonal] [style = dashed, color = Indigo, dir = both]
+    h -> d [color = Indigo]
+    # f -> d [ltail = cluster_demography, lhead = cluster_seasonal] 
+    }
+      
+      [1]: c('Seedling','Vegetative','Reproductive','Dormant')
+      [2]: c('Seedling','Vegetative','Reproductive')
+      ")
+
+```
+
+
+
+
 # Download raw_data 
 <https://research.botanicgardens.org/admin/demographics/asmi/reports/raw_data.php>   
 Save all sites, all data, and set to 20 years allowed dormant (or all possible years)    
 Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
-if(currentyr == 2020){currentyr <- 2019} # pandemic, no data collection in 2020
 rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
                      currentyr,"_asmi/RawData_",
                      currentyr, ".csv", collapse = '', sep = '')
@@ -157,17 +201,21 @@ table(asmi.raw$year, asmi.raw$AsMi_site_id)
 table(asmi.raw$year, asmi.raw$AsMi_plot_id)
 table(asmi.raw$Browsing...Status)
 #asmi.raw <- transform(asmi.raw, year = as.numeric(year))
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal" ] <- "Mammal"
+asmi.raw[asmi.raw$Browsing...Status ==""& !is.na(asmi.raw$Browsing...Status),]
+asmi.raw[is.na(asmi.raw$AsMi_data_id),]
+asmi.raw <- asmi.raw[!is.na(asmi.raw$AsMi_data_id),]
 
 table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
 
 # one blank row at the end of the csv download
 asmi.raw[asmi.raw$status == "",]
-asmi.raw <- asmi.raw[asmi.raw$status != "",]
+# asmi.raw <- asmi.raw[asmi.raw$status != "",]
 asmi.raw$status <- factor(asmi.raw$status)
 table(asmi.raw$status)
 
 #reset factors of browsing to eliminate " "
-asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+# asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
 asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
 
 #reset factors for fence
@@ -184,7 +232,7 @@ asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
 asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 
 # Years of study
-length(1995:2019)
+length(1995:currentyr)
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -562,75 +610,60 @@ Flawed still, too many factors/parameters, not enough data.
 Just look at differences separating site and not, separate plot or not. 
 Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
 
+# Table 3
 AGG 
+Should be a Poisson for counts of individuals
 ```{r}
+# library(lme4) # don't need to do mixed random effects models
+ps.asmi.reduced <- ps.asmi[!is.na(ps.asmi$Total.Alive),]
+# Total.Alive are observable; Total.Plants include dormant
+head(ps.asmi.reduced[order(ps.asmi.reduced$Plot),])
 
-lm1 <- lm(Total.Alivelogtransformed ~ Year, ps.asmi.t)
-lm2 <- lm(Total.Alivelogtransformed ~ Year*as.factor(Site), ps.asmi.t)
-lm3 <- lm(Total.Alivelogtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
-lm4 <- lm(Total.Alivelogtransformed ~ Year*Fence, ps.asmi.t)
-lm5 <- lm(Total.Alivelogtransformed ~ 1, ps.asmi.t)
-lm6 <- lm(Total.Alivelogtransformed ~ as.factor(Site), ps.asmi.t)
-lm7 <- lm(Total.Alivelogtransformed ~ Creek, ps.asmi.t) 
-lm8 <- lm(Total.Alivelogtransformed ~ Fence, ps.asmi.t)
+glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
+summary(glm1)
+glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
+glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
+glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
 }
-
-
-lmer(Total.Alivelogtransformed ~ Year|Site, ps.asmi.t)  #random intercept
-lmer(Total.Alivelogtransformed ~ Year|Creek, ps.asmi.t)  #random intercept
-xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
-       type = c("g","p","r"),
-       index = function(x,y) coef(lm(y~x))[1],
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
-
-xyplot(Total.Alive ~ Year|as.factor(Creek), ps.asmi.t,
-       type = c("g","p","r"),
-       index = function(x,y) coef(lm(y~x))[1],
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
 
 ```
 
-Only during censuses at both drainages
-```{r}
-lm1 <- lm(Total.Alivelogtransformed ~ Year, ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm2 <- lm(Total.Alivelogtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm3 <- lm(Total.Alivelogtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm4 <- lm(Total.Alivelogtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm5 <- lm(Total.Alivelogtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm6 <- lm(Total.Alivelogtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,])
-lm7 <- lm(Total.Alivelogtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year > 2013,]) 
-lm8 <- lm(Total.Alivelogtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year > 2013,])
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+Only during censuses at both drainage 2014 - currentYr
+```{r}
+
+glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
+glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
+glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
 }
-```
-
-# don't have first or last year when using ps.cor    
-shoud use ps.asmi.t instead
-```{r}
-lmer(Total.Alivelogtransformed ~ Fence|Creek, ps.asmi.t)  #random intercept
-xyplot(Total.Alivelogtransformed ~ Fence|as.factor(Site), ps.asmi.t,
-       type = c("g","p"),
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
 
 ```
+
 
 ```{r}
 ps.asmi.t$Site <- factor(as.factor(ps.asmi.t$Site), levels = levels(as.factor(ps.asmi.t$Site)))
@@ -705,96 +738,112 @@ xyplot(Total.Alive ~ Year|Creek, ps.asmi.t[ps.asmi.t$Year > 2013,],
 
 ```
 
-
+Table 3e
 #AIC for fruit
 ```{r}
 
 #Candidate models  
-lm1 <- lm(Total.Fruitlogtransformed ~  Year, ps.asmi.t)
-lm2 <- lm(Total.Fruitlogtransformed ~ Year*as.factor(Site), ps.asmi.t)
-lm3 <- lm(Total.Fruitlogtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
-lm4 <- lm(Total.Fruitlogtransformed ~ Year*Fence, ps.asmi.t)
- lm5 <- lm(Total.Fruitlogtransformed ~ 1, ps.asmi.t)
-lm6 <- lm(Total.Fruitlogtransformed ~ as.factor(Site), ps.asmi.t)
-lm7 <- lm(Total.Fruitlogtransformed ~ Creek, ps.asmi.t) #Need add creek!
-lm8 <- lm(Total.Fruitlogtransformed ~ Fence, ps.asmi.t)
+glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
+glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
+glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
 }
 ```
 
 Only during the time both creeks were monitored? 
 ```{r}
-
+  
 #Candidate models  
-lm1 <- lm(Total.Fruitlogtransformed ~  Year, ps.asmi.t[ps.asmi.t$Year>2013,])
-lm2 <- lm(Total.Fruitlogtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
-lm3 <- lm(Total.Fruitlogtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
-lm4 <- lm(Total.Fruitlogtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
- lm5 <- lm(Total.Fruitlogtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year>2013,])
-lm6 <- lm(Total.Fruitlogtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
-lm7 <- lm(Total.Fruitlogtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
-lm8 <- lm(Total.Fruitlogtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) #Need add creek!
+glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
+glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
 }
 ```
+# Beta regression or binomial glm with logit link  
+```{r}
+library(betareg) # for a beta regression, values in (0,1) and  not containing 0 or 1
+# need to transform by (y * (n-1) + 0.5)/n where n is the smaple size (see Smithson and Verkuillen 2006)
 
+
+hist(ps.asmi.reduced$X..Flowered)
+hist(ps.asmi.reduced$X..Flowered[!is.na(ps.asmi.reduced$X..Flowered)])
+
+# transform 
+ps.asmi.reduced$PercFlTrans <- (ps.asmi.reduced$X..Flowered * ())
+```
 
 #AIC for reproductive
 ```{r}
 
-#Candidate models  
-lm1 <- lm(X..Flowered.1logtransformed ~  Year, ps.asmi.t)
-lm2 <- lm(X..Flowered.1logtransformed ~ Year*as.factor(Site), ps.asmi.t)
-lm3 <- lm(X..Flowered.1logtransformed ~ Year*Creek, ps.asmi.t) #Need add creek!
-lm4 <- lm(X..Flowered.1logtransformed ~ Year*Fence, ps.asmi.t)
-lm5 <- lm(X..Flowered.1logtransformed ~ 1, ps.asmi.t)
-lm6 <- lm(X..Flowered.1logtransformed ~ as.factor(Site), ps.asmi.t)
-lm7 <- lm(X..Flowered.1logtransformed ~ Creek, ps.asmi.t) #Need add creek!
-lm8 <- lm(X..Flowered.1logtransformed ~ Fence, ps.asmi.t)
+# X..Flowered is %; X..Flowered.1 is count of yes
+head(asmi.raw)
+# asmi.raw$flower is yes/no for reproduction
+m1 <- glm(flower ~ year, family=binomial(link=logit), data = asmi.raw)
+summary(m1)
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+#Candidate models  
+m2 <- glm(flower ~ Year*as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw)
+m3 <- glm(flower ~ Year*Creek, family = binomial(link = 'logit'), data = asmi.raw) #Need add creek!
+m4 <- glm(flower ~ Year*Fence, family = binomial(link = 'logit'), data = asmi.raw)
+m5 <- glm(flower ~ 1, family = binomial(link = 'logit'), data = asmi.raw)
+m6 <- glm(flower ~ as.factor(Site), family = binomial(link = 'logit'), data = asmi.raw)
+m7 <- glm(flower ~ Creek, family = binomial(link = 'logit'), data = asmi.raw) 
+m8 <- glm(flower ~ Fence, family = binomial(link = 'logit'), data = asmi.raw)
+
+m.list <- list(m1,m2,m3,m4,m5,m6,m7,m8)
+m.names <- as.character(unlist(lapply(m.list,formula)))
+(m.results <- aictab(m.list, modnames=m.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(m.list)){
+  print(exp(0.5*m.results$Delta_AICc[i]))
 }
 ```
 
 ```{r}
 
 #Candidate models  
-lm1 <- lm(X..Flowered.1logtransformed ~  Year, ps.asmi.t[ps.asmi.t$Year>2013,])
-lm2 <- lm(X..Flowered.1logtransformed ~ Year*as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
-lm3 <- lm(X..Flowered.1logtransformed ~ Year*Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) 
-lm4 <- lm(X..Flowered.1logtransformed ~ Year*Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
-lm5 <- lm(X..Flowered.1logtransformed ~ 1, ps.asmi.t[ps.asmi.t$Year>2013,])
-lm6 <- lm(X..Flowered.1logtransformed ~ as.factor(Site), ps.asmi.t[ps.asmi.t$Year>2013,])
-lm7 <- lm(X..Flowered.1logtransformed ~ Creek, ps.asmi.t[ps.asmi.t$Year>2013,]) #Need add creek!
-lm8 <- lm(X..Flowered.1logtransformed ~ Fence, ps.asmi.t[ps.asmi.t$Year>2013,])
+glm1 <- glm(X..Flowered ~ Year, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm2 <- glm(X..Flowered ~ Year*as.factor(Site), family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm3 <- glm(X..Flowered ~ Year*Creek, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) #Need add creek!
+glm4 <- glm(X..Flowered ~ Year*Fence, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm5 <- glm(X..Flowered ~ 1, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm6 <- glm(X..Flowered ~ as.factor(Site), family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+glm7 <- glm(X..Flowered ~ Creek, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
+glm8 <- glm(X..Flowered ~ Fence, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
 
-lm.list <- list(lm1,lm2,lm3,lm4,lm5,lm6,lm7,lm8)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
 
 #evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
 }
 ```
 
@@ -1777,7 +1826,7 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
                                      proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
                        CRS("+proj=longlat +datum=WGS84"))
 
-asmiLL <- data.frame(coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
+asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 ```
 
@@ -1841,6 +1890,14 @@ asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Pl
                       by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
 names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
 # asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+```
+Results: Demographic monitoring
+```{r}
+ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
+  geom_jitter(width = 0.1, height = 0)+
+  stat_smooth(se = FALSE)+
+  theme_bw()
+
 ```
 
 
