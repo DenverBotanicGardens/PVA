@@ -2421,27 +2421,33 @@ Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered",
 
 Figure 3: Astragalus microcymbus individuals by fenced (open circle, y)
  Figure 8    
-AGG and Dormant  
+AGG and Dormant: Total.Plants 
 South Beaver Creek    
 +
   geom_rect(aes(xmin=2005.75,xmax=2015.5,ymin=0,ymax=75),
                     fill="gray80", alpha=0.01) 
 ```{r}
 head(ps.asmi.reduced)
+# need not the first or last year of any plot
+# Test
+df <- split(ps.asmi.reduced, ps.asmi.reduced$Plot)[[1]]
+ps.asmi.dormant <- do.call(rbind, lapply(split(ps.asmi.reduced, ps.asmi.reduced$Plot), function(df){
+  df[-c(1,nrow(df)),]
+  }))
+
 
 # Total.Plants>0 should only have plots that have some plants per year so no plots from earlier than they were started
-p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
-                 ps.asmi.t$Year < currentyr & ps.asmi.t$Creek == "South Beaver",], 
+p2SBC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "SouthBeaver",], 
        aes(Year, Total.Plants, shape = Fence, colour = Fence))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
   ylab("Average AGG and dormant")+
@@ -2465,18 +2471,17 @@ Cebolla AGG and Dormant = Total.Plants
 ```{r}
 
 
-p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2014 & 
-                 ps.asmi$Year < currentyr & ps.asmi$Site < 3,], 
+p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.05),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.05),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.05),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
   ylab("Average AGG and dormant per Plot")+
@@ -2490,9 +2495,6 @@ p2CC <- ggplot(ps.asmi[ps.asmi$Year > 2014 &
                      labels = c("Cebolla Mid","Cebolla North"))+
   theme(legend.justification=c(1,1), legend.position=c(0.95,0.99),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
-# +
-#   scale_y_continuous(limits = c(0,68)) +
-#   scale_x_continuous(breaks = c(2014:currentyr-1))
 
 ```
 
@@ -2529,7 +2531,7 @@ ggplot(ps.asmi1[ps.asmi1$Total.Alive>0 & ps.asmi1$Site > 3,],
 
 # the decline is from one plot, the rest are stable or increasing!
 ```{r}
-ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "South Beaver",], 
+ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "SouthBeaver",], 
        aes(Year, Total.Alive, colour = as.factor(Plot)))+
   geom_point()+
  # geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
@@ -2550,17 +2552,17 @@ AGG
 ```{r}
 
 
-p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,], 
+p1SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,], 
        aes(Year, Total.Alive, shape = Fence, colour = Fence))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,
+  stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
   ylab("Average AGG per Plot")+
@@ -2573,7 +2575,7 @@ p1SBC <- ggplot(ps.asmi[ps.asmi$Total.Alive>0 & ps.asmi$Site > 3,],
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(0.25,1),
+  theme(legend.justification=c(1,1), legend.position=c(0.35,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 
@@ -2584,17 +2586,17 @@ AGG   Total.Alive
 AGG + Dormant   Total.Plants
 ```{r}
 
-p1CC <- ggplot(ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,], 
+p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
   ylab("Average AGG per Plot")+
@@ -2607,7 +2609,7 @@ p1CC <- ggplot(ps.asmi[ps.asmi$Site < 3 & ps.asmi$Year > 2013,],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.justification=c(0,1), legend.position=c(0,1),
+  theme(legend.justification=c(1,1), legend.position=c(0.75,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 
@@ -2619,17 +2621,17 @@ Fruit
 South Beaver Creek
 ```{r}
 
-p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,], 
+p3SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,], 
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,position=position_dodge(width=0.5),
+  stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
   ylab("Average Total Fruit per Plot")+
@@ -2651,21 +2653,21 @@ p3SBC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site > 3,],
 Cebolla
 ```{r}
 
-aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site < 3,], mean)
+aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site < 3,], mean)
 
-aggregate(Total.Fruit~Site+Year,data=ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
+aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site<3,],
           std.error)
 
 
-p3CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site <3,], 
+p3CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site <3,], 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
                geom = "point")+
-  stat_summary(fun.y = mean,position=position_dodge(width=0.15),
+  stat_summary(fun = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
   ylab("Average Total Fruit per Plot")+
@@ -2688,17 +2690,17 @@ X..Flowered - Percent Reproductive
 ```{r}
 
 
-p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South Beaver",], 
+p4SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Creek == "SouthBeaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.5),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.5),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,position=position_dodge(width=0.5),
+  stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
   ylab("% Reproductive per Plot")+
@@ -2719,17 +2721,17 @@ p4SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Creek == "South B
 Cebolla
 ```{r}
 
-p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,], 
+p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,], 
        aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "errorbar")+
-  stat_summary(fun.y = mean, position=position_dodge(width=0.15),
-               fun.ymin = function(x) mean(x) - std.error(x),
-               fun.ymax = function(x) mean(x) + std.error(x),
+  stat_summary(fun = mean, position=position_dodge(width=0.15),
+               fun.min = function(x) mean(x) - std.error(x),
+               fun.max = function(x) mean(x) + std.error(x),
                geom = "point")+
-  stat_summary(fun.y = mean,position=position_dodge(width=0.15),
+  stat_summary(fun = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
   ylab("% Reproductive per Plot")+
@@ -2748,18 +2750,14 @@ p4CC <- ggplot(ps.asmi[ps.asmi$Total.Plants>0 & ps.asmi$Site<3,],
 ```
 
 
-
-
-
-
 Figure 2
 ```{r}
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig2-SouthBeaverCreek.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
+              currentyr,"_asmi/","Fig3a-d_SouthBeaverCreek.jpg", sep = ""),
+         units = "mm", res = 300, height = 200, width = 200)
 
 # Down each column
-multiplot(p1SBC, p3SBC, p2SBC, p4SBC, cols=2)
+p1SBC + p2SBC + p3SBC + p4SBC + plot_layout(ncol = 2)
 
 dev.off()
 
@@ -2768,76 +2766,17 @@ dev.off()
 Figure 2 Cebolla Creek
 ```{r}
 jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig2-CebollaCreek.jpg", sep = ""),
-         units = "mm", res = 300, height = 181.03*2, width = 186.87*2)
+              currentyr,"_asmi/","Fig3e-h_CebollaCreek.jpg", sep = ""),
+         units = "mm", res = 300, height = 200, width = 200)
 
 # Down each column
-multiplot(p1CC, p3CC, p2CC, p4CC, cols=2)
+p1CC +  p2CC +p3CC + p4CC + plot_layout(ncol=2)
 
 dev.off()
 
 
 ```
 
-Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a quesiton of using this to figure out how much dormancy - dormancy = not AGG in July   
-Need to change from set amount of time dormant to find the most likely length of dormancy given that 25-50 percent are actually veg, seedlings, or reproductive when not detected in July
-
-### Years alive    
-```{r}
-dormyrs <- currentyr-1995
-
-path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,
-              "_asmi/", collapse = '', sep = '')
-
-#If a plant is still alive in the current year, there is no years alive calculated
-yrsalive <- lapply(1:(dormyrs-1), function(x){ 
-  path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
-  ysal <- read.csv(path.expand(path2), na.strings="na")
-  ysal <- cbind(ysal, YrsD = x)
-  ysal[complete.cases(ysal),]
-  })
-
-head(yrsalive[[4]])
-
-```
-
-```{r}
-sumYrsAlive <- lapply(yrsalive, function(x){
-  summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars="YrsD")
-})
-
-smya <- do.call(rbind, sumYrsAlive)
-
-ggplot(smya, aes(YrsD, Yearsalive))+
-  geom_line()
-
-yrsaliveall <- do.call(rbind, yrsalive)
-
-ggplot(yrsaliveall, aes(as.factor(YrsD), Yearsalive))+
-  geom_violin()
-
-# , colour= as.factor(AsMi_site_id)   
-# Cebolla Creek not long enough to get at life length
-ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(as.factor(YrsD), Yearsalive))+
-  # geom_boxplot()+
-  geom_violin()+
-  theme_bw()
-
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig4b.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 130)
-
-ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(YrsD, Yearsalive, colour= as.factor(AsMi_site_id)))+
-  # geom_jitter()+
-  stat_smooth()+
-  theme_bw()+
-  scale_color_discrete(name = "Site")+
-  xlab("Consecutive years dormant")+
-  ylab("Life Length")
-
-dev.off()
-```
 
 Of the 797 individuals alive in South Beaver Creek in 1995 ...
 ```{r}
@@ -4917,6 +4856,65 @@ season
 ```
 
 
+Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a question of using this to figure out how much dormancy - dormancy = not AGG in July   
+Need to change from set amount of time dormant to find the most likely length of dormancy given that 25-50 percent are actually veg, seedlings, or reproductive when not detected in July
+
+### Years alive    
+```{r}
+dormyrs <- currentyr-1995
+
+path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,
+              "_asmi/", collapse = '', sep = '')
+
+#If a plant is still alive in the current year, there is no years alive calculated
+yrsalive <- lapply(1:(dormyrs-1), function(x){ 
+  path2 <- paste(path, "YrsAlive_dormant", x, ".csv", sep = "")
+  ysal <- read.csv(path.expand(path2), na.strings="na")
+  ysal <- cbind(ysal, YrsD = x)
+  ysal[complete.cases(ysal),]
+  })
+
+head(yrsalive[[4]])
+
+```
+
+```{r}
+sumYrsAlive <- lapply(yrsalive, function(x){
+  summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars="YrsD")
+})
+
+smya <- do.call(rbind, sumYrsAlive)
+
+ggplot(smya, aes(YrsD, Yearsalive))+
+  geom_line()
+
+yrsaliveall <- do.call(rbind, yrsalive)
+
+ggplot(yrsaliveall, aes(as.factor(YrsD), Yearsalive))+
+  geom_violin()
+
+# , colour= as.factor(AsMi_site_id)   
+# Cebolla Creek not long enough to get at life length
+ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(as.factor(YrsD), Yearsalive))+
+  # geom_boxplot()+
+  geom_violin()+
+  theme_bw()
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig4b.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 130)
+
+ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(YrsD, Yearsalive, colour= as.factor(AsMi_site_id)))+
+  # geom_jitter()+
+  stat_smooth()+
+  theme_bw()+
+  scale_color_discrete(name = "Site")+
+  xlab("Consecutive years dormant")+
+  ylab("Life Length")
+
+dev.off()
+```
 
 
 
