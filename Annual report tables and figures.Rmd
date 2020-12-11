@@ -762,6 +762,7 @@ for(i in 2:length(glm.list)){
 }
 ```
 
+Table 3f
 Only during the time both creeks were monitored? 
 ```{r}
   
@@ -798,22 +799,29 @@ ps.asmi.reduced$PercFlTrans <- (ps.asmi.reduced$X..Flowered * ())
 ```
 
 #AIC for reproductive
+Table 3c and d
+probability of reproduction
 ```{r}
 
 # X..Flowered is %; X..Flowered.1 is count of yes
 head(asmi.raw)
+
+asmi.raw$Creek <- "SouthBeaver"
+asmi.raw$Creek[asmi.raw$AsMi_site_id < 3] <- "Cebolla" 
+asmi.raw$Creek <- as.factor(asmi.raw$Creek)
+
 # asmi.raw$flower is yes/no for reproduction
 m1 <- glm(flower ~ year, family=binomial(link=logit), data = asmi.raw)
 summary(m1)
 
 #Candidate models  
-m2 <- glm(flower ~ Year*as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw)
-m3 <- glm(flower ~ Year*Creek, family = binomial(link = 'logit'), data = asmi.raw) #Need add creek!
-m4 <- glm(flower ~ Year*Fence, family = binomial(link = 'logit'), data = asmi.raw)
+m2 <- glm(flower ~ year*as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw)
+m3 <- glm(flower ~ year*Creek, family = binomial(link = 'logit'), data = asmi.raw) #Need add creek!
+m4 <- glm(flower ~ year*fence, family = binomial(link = 'logit'), data = asmi.raw)
 m5 <- glm(flower ~ 1, family = binomial(link = 'logit'), data = asmi.raw)
-m6 <- glm(flower ~ as.factor(Site), family = binomial(link = 'logit'), data = asmi.raw)
+m6 <- glm(flower ~ as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw)
 m7 <- glm(flower ~ Creek, family = binomial(link = 'logit'), data = asmi.raw) 
-m8 <- glm(flower ~ Fence, family = binomial(link = 'logit'), data = asmi.raw)
+m8 <- glm(flower ~ fence, family = binomial(link = 'logit'), data = asmi.raw)
 
 m.list <- list(m1,m2,m3,m4,m5,m6,m7,m8)
 m.names <- as.character(unlist(lapply(m.list,formula)))
@@ -828,27 +836,52 @@ for(i in 2:length(m.list)){
 ```{r}
 
 #Candidate models  
-glm1 <- glm(X..Flowered ~ Year, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm2 <- glm(X..Flowered ~ Year*as.factor(Site), family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm3 <- glm(X..Flowered ~ Year*Creek, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) #Need add creek!
-glm4 <- glm(X..Flowered ~ Year*Fence, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm5 <- glm(X..Flowered ~ 1, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm6 <- glm(X..Flowered ~ as.factor(Site), family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm7 <- glm(X..Flowered ~ Creek, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
-glm8 <- glm(X..Flowered ~ Fence, family = binomial(link = 'logit'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+m1 <- glm(flower ~ year, family=binomial(link=logit), data = asmi.raw[asmi.raw$year > 2013,])
+m2 <- glm(flower ~ year*as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,])
+m3 <- glm(flower ~ year*Creek, family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,]) 
+m4 <- glm(flower ~ year*fence, family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,])
+m5 <- glm(flower ~ 1, family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,])
+m6 <- glm(flower ~ as.factor(AsMi_site_id), family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,])
+m7 <- glm(flower ~ Creek, family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,]) 
+m8 <- glm(flower ~ fence, family = binomial(link = 'logit'), data = asmi.raw[asmi.raw$year > 2013,])
 
+m.list <- list(m1,m2,m3,m4,m5,m6,m7,m8)
+m.names <- as.character(unlist(lapply(m.list,formula)))
+(m.results <- aictab(m.list, modnames=m.names))
+
+#evidence ratio 
+for(i in 2:length(m.list)){
+  print(exp(0.5*m.results$Delta_AICc[i]))
+}
+```
+
+Table 3g   
+```{r}
+ps.asmi.lag <- subset(merge(ps.asmi.reduced, ps.asmi.reduced, by = c("Site","Plot","Creek","Fence")),
+                      Year.x == Year.y - 1)
+head(ps.asmi.lag)
+
+glm1 <- glm(Total.Alive.y ~ X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag) # AGG ~ br last year
+glm2 <- glm(Total.Alive.y ~ X..Flowered.x, family = poisson(link = 'log'), data = ps.asmi.lag) # ~ percent flower last year
+glm3 <- glm(Total.Alive.y ~ Total.Alive.x, family = poisson(link = 'log'), data = ps.asmi.lag) # ~ AGG last year
+glm4 <- glm(Total.Alive.y ~  X..Browsed.x * Fence, family = poisson(link = 'log'), data = ps.asmi.lag)
+glm5 <- glm(Total.Alive.y ~ 1, family = poisson(link = 'log'), data = ps.asmi.lag)
+glm6 <- glm(Total.Alive.y ~ X..Browsed.y, family = poisson(link = 'log'), data = ps.asmi.lag) # br in current year
+glm7 <- glm(Total.Alive.y ~ X..Browsed.y * Fence, family = poisson(link = 'log'), data = ps.asmi.lag) 
+glm8 <- glm(Total.Alive.y ~ Total.Alive.x * X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag)
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
-
 #evidence ratio 
 for(i in 2:length(glm.list)){
   print(exp(0.5*glm.results$Delta_AICc[i]))
 }
+
 ```
 
 
-Table 2: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38? 27' 39.8" N, 106? 57' 37.6" W). 
+
+Table 4: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38? 27' 39.8" N, 106? 57' 37.6" W). 
 ```{r}
 
 cor.out <- round(cor(ps.cor[,forcor]),2)
@@ -2386,6 +2419,7 @@ Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered",
 ```
 
 
+Figure 3: Astragalus microcymbus individuals by fenced (open circle, y)
  Figure 8    
 AGG and Dormant  
 South Beaver Creek    
@@ -2393,11 +2427,7 @@ South Beaver Creek
   geom_rect(aes(xmin=2005.75,xmax=2015.5,ymin=0,ymax=75),
                     fill="gray80", alpha=0.01) 
 ```{r}
-
-ps.asmi.t[ps.asmi.t$Fence == "y",]
-table(ps.asmi.t$Total.Plants)
-table(ps.asmi.t$Fence, ps.asmi.t$Year) 
-# Swtich back? 
+head(ps.asmi.reduced)
 
 # Total.Plants>0 should only have plots that have some plants per year so no plots from earlier than they were started
 p2SBC <- ggplot(ps.asmi.t[ps.asmi.t$Total.Plants>0 & ps.asmi.t$Year > 1995 &
@@ -4578,51 +4608,33 @@ mean(rowSums(table(reproductive$Site, reproductive$Year))[3:6]/length(1995:curre
 
 Results: herbivory
 ```{r}
-# Herbivory by insects (removing Unknown)
-sum(table(asmi.raw$Browsing...Status)[c(1,3)])/sum(table(asmi.raw$Browsing...Status)[-5])
-
-
-# Herbivory by mammals (removing Unknown)
-sum(table(asmi.raw$Browsing...Status)[c(2,3)])/sum(table(asmi.raw$Browsing...Status)[-5])
-
+asmi.raw.fenced <- asmi.raw[asmi.raw$year > 2005 & asmi.raw$year < 2016 & 
+                              asmi.raw$Creek == "SouthBeaver",]
 
 table(asmi.raw$Browsing...Status)[-5]/sum(table(asmi.raw$Browsing...Status)[-5])
 
-ps.cor2 <- merge(ps.cor, season, by.x = c("Site", "Year.y"), by.y = c("Site","Prev12"))
+table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-5,]/colSums(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-5,])
 
-lm1 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.x, ps.cor)
-lm2 <- lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.x, ps.cor)
-lm3 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x, ps.cor) 
-lm4 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.x*Fence.x, ps.cor)
-lm5 <- lm(Total.Alivelogtransformed.y ~ 1, ps.cor)
-lm6 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.y, ps.cor)
+# Herbivory by insects (removing Unknown)
+sum(table(asmi.raw$Browsing...Status)[c(1,3)])/sum(table(asmi.raw$Browsing...Status)[-5])
 
-lm7 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x *X..Browsed.x , ps.cor) 
+colSums(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[c(1,3),])/colSums(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-5,])
 
-lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
+# Herbivory by mammals (removing Unknown)
+sum(table(asmi.raw$Browsing...Status)[c(2,3)])/sum(table(asmi.raw$Browsing...Status)[-5])
+colSums(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[c(2,3),])/colSums(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-5,])
 
-lm1 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.x, ps.cor)
-lm2 <- lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.x, ps.cor)
-lm3 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x, ps.cor) 
-lm4 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.x*Fence.x, ps.cor)
-lm5 <- lm(Total.Alivelogtransformed.y ~ 1, ps.cor)
-lm6 <- lm(Total.Alivelogtransformed.y ~ X..Browsed.y, ps.cor)
+# is level of browsing independent of the fencing treatment?
+chisq.test(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-c(4:5),]) # remove no browsing and unknown
+# p-value = 0.003 unlikely that fencing is independent of amounts of types of browsing, fencing changes the amount of browsing by type (insect, mammal, both), type of browsing is not likely independent of fencing
 
-lm7 <- lm(Total.Alivelogtransformed.y ~ Total.Alivelogtransformed.x *X..Browsed.x , ps.cor) 
+chisq.test(table(asmi.raw.fenced$Browsing...Status,asmi.raw.fenced$fence)[-c(5),]) # remove no browsing and unknown
+# p-value < 0.001 means it is unlikely independent of fencing by different types of browsing
 
-lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
+# browsing or no browsing
+chisq.test(table(asmi.raw.fenced$browsing,asmi.raw.fenced$fence))
+# during the time fencing was installed, it seems the probability of being browsed in a plot depends on the plot being fenced
+
 ```
 
 Discussion: percent of dormant indivdiuals
