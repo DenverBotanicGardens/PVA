@@ -486,6 +486,7 @@ cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
 
 ```
 
+# Don't do transformations any more!
 #log transform
 ```{r}
 #t for transformations!
@@ -904,169 +905,50 @@ pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
 
 
 
+# Annual precipiation average per year
+```{r}
+creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
+creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
 
-# Herbivory section
+#ppt mm
+mean(creekyear$ppt[creekyear$Creek == "Cebolla"])
+mean(creekyear$ppt[creekyear$Creek == "South Beaver"])
+mean(creekyear$ppt)
+```
+
+# Set seasonal climate factors
+
 ```{r}
 
-fencedplots <- unique(ps.asmi$Plot[ps.asmi$Fence=='y'])
+asmi.c$season <- "winter"
+asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
+asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
 
-table(asmi.raw$Browsing...Status)
-nrow(asmi.raw[grep("Mammal",asmi.raw$Browsing...Status),])
-nrow(asmi.raw[grep("Insect",asmi.raw$Browsing...Status),])
-nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
+                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
+                                          names(asmi.c), value=TRUE)], 
+                            asmi.c[,c("season","Creek","Prev12")],
+                            FUN = function(x) mean(x, na.rm = TRUE))
 
-nrow(asmi.raw[grep("Mammal",asmi.raw$Browsing...Status),])/
-  nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+head(asmi.c.summary)
 
-nrow(asmi.raw[grep("Insect",asmi.raw$Browsing...Status),])/
-  nrow(asmi.raw[!(asmi.raw$status %in% c("dead","dormant")) ,])
+# currentyr-1? should it just be currentyr? or not less than currentyr? 
+season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
+                  idvar=c("Creek","Prev12"),
+                  timevar = "season",
+                  direction="wide")
+head(season)
 
+ggplot(season, aes(Prev12, ppt.fall))+
+  geom_line()
 
-summary(lm(Total.Alivelogtransformed.y ~ X..Browsed.x, 
-           data = ps.cor)) #previous year
-summary(lm(Total.Alivelogtransformed.y ~ X..Browsed.y, 
-           data = ps.cor)) #current year
-
-summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.x, data = ps.cor))
-summary(lm(Total.Alivelogtransformed.y ~ X..Floweredlogtransformed.y, data = ps.cor))
-
-
-'%ni%' <- Negate('%in%')
-
-#Fencing put in for browsing
-# t.test(X..Browsedarcsinsqrttransformed~Fence, data = ps.asmi.t)
-t.test(X..Browsed~Fence, data = ps.asmi.t)
-
-for(i in 2006:currentyr){
-  print(i)
-  print(t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year == i,]))
-}
-
-t.test(ps.asmi.t$X..Browsed[ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$X..Browsed[ps.asmi.t$Plot %ni% fencedplots],
-       data = ps.asmi.t[ps.asmi.t$Year<2006,])
-
-# t.test for fenced plots compared to open plots after installation
-#Fencing for plots after 2006
-t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
-
-#fenced plots compared before and after, open too
-t.test(ps.asmi.t$X..Browsed[ps.asmi.t$Year<2007 & ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$X..Browsed[ps.asmi.t$Year>=2007& ps.asmi.t$Plot %in% fencedplots])
-
-#AGG 
-t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
-t.test(Total.Alive~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
-
-
-t.test(Total.Alivelogtransformed~Fence, data =
-         ps.asmi.t[ps.asmi.t$Year>2006&ps.asmi.t$Year<2009,])
-t.test(Total.Alive~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006&ps.asmi.t$Year<2009,])
-
-#Fencing for plots after 2006
-t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t)
-t.test(Total.Alive~Fence, data = ps.asmi.t)
-
-
-#AGG and dormant
-t.test(Total.Plants~Fence, data = ps.asmi.t[ps.asmi.t$Year>2006,])
-
-#Fencing for plots after 2006
-t.test(Total.Alivelogtransformed~Fence, data = ps.asmi.t)
-t.test(Total.Alive~Fence, data = ps.asmi.t)
-
-# Fruit and fencing
-t.test(ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %ni% fencedplots])
-
-t.test(ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year<2006],
-       ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year<2006])
-
-
-t.test(ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year>2005],
-       ps.asmi.t$Total.Fruitlogtransformed[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year>2005])
-
-# Fruit not transofrmed
-t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots])
-
-t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year<2006],
-       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year<2006])
-
-
-t.test(ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year>2005],
-       ps.asmi.t$Total.Fruit[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year>2005])
-
-
-
-# Percent reproductive and fencing
-
-t.test(X..Floweredlogtransformed~Fence, data=ps.asmi.t)
-
-t.test(ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %ni% fencedplots])
-
-t.test(ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year<2006],
-       ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year<2006])
-
-
-t.test(ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %in% fencedplots & ps.asmi.t$Year>2005],
-       ps.asmi.t$X..Floweredlogtransformed[ps.asmi.t$Plot %ni% fencedplots & ps.asmi.t$Year>2005])
-
-
-#In all years after fence installation
-t.test(Total.Fruitlogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,])
-t.test(X..Floweredlogtransformed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,])
-t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,])
-
-
-
-t.test(X..Flowered.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
-
-#individuals with AGG after fencing
-t.test(Total.Alive.y~Fence.y, data = ps.cor[ps.cor$Year.x > 2005,])
-
-#individuals with AGG and dormant after fencing
-t.test(Total.Plants~Fence, data = ps.asmi.t[ps.asmi$Year > 2005,])
-t.test(Total.Plants~Fence, data = ps.asmi.t)
-
-
-t.test(ps.asmi.t$Total.Plants[ps.asmi.t$Year<2006&
-                                ps.asmi.t$Plot %in% fencedplots],
-       ps.asmi.t$Total.Plants[ps.asmi.t$Year>=2006&
-                                ps.asmi.t$Plot %in% fencedplots])
-
-
-#herbivory
-t.test(X..Browsed~Fence, data = ps.asmi.t[ps.asmi.t$Year > 2005,]) #not signficantly different
-allttestherb <- lapply(1995:currentyr, function(x){
-  t.test(ps.asmi.t$X..Browsed[ps.asmi.t$Year == x & ps.asmi.t$Plot  %in% fencedplots],
-         ps.asmi.t$X..Browsed[ps.asmi.t$Year == x & ps.asmi.t$Plot  %ni% fencedplots])
-  })
-
-allttestherb[[length(1995:currentyr)]]
-allttestherb[[length(1995:2006)]] #Reduced fenced
-allttestherb[[length(1995:2007)]] #Reduced fenced 10% browsed in fenced plots to 70% browsed in open
-
-allttestherb[[length(1995:2008)]] # 36% fenced to 28% in open, probably not different
-allttestherb[[length(1995:2009)]] # 25% fenced to 53% in open, suprising if same p=0.048
-allttestherb[[length(1995:2010)]] # 15% fenced to 27% in open, suprising if same p=0.042
-allttestherb[[length(1995:2011)]] # 18% fenced to 43% in open, probably not different
-allttestherb[[length(1995:2012)]] # 0% fenced to 6% in open, probably not different
-allttestherb[[length(1995:2013)]] # 38% fenced to 45% in open, probably not different
-
-
-
-
-t.test(length~fence, data = asmi.raw[asmi.raw$AsMi_site_id > 2 & asmi.raw$year > 2005,])
-
-#Percent herbivory between fenced and open
-t.test(X..Browsed~Fence, data=ps.asmi.t[ps.asmi.t$Year>2005,])
-
+ggplot(season, aes(Prev12, ppt.winter))+
+  geom_line()
 ```
 
 
-Table 4: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
+
+Table 5: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
 ```{r}
 fruit <- aggregate(fruit ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) sum(x,na.rm = TRUE))
@@ -1082,18 +964,19 @@ tbl3 <- lapply(sites, function(x){
 })
 
 #Cebolla Creek
-write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table4_Cebolla.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table5_Cebolla.csv"), row.names=TRUE)
 #South Beaver Creek
-write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table4_SouthBeaver.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table5_SouthBeaver.csv"), row.names=TRUE)
 
 ```
 
 
-#Table 4: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
+#Table 6: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
 
 
 ### But if I add individuals not as seedlings (even though I know they aren't seedlings this year) then they aren't given credit for reproducing.. # could add a New2me category that is clearly not a seedling but a delayed/missed one. Then should add a seedling to the previous year as a stop gap? So count up number of seedlings and number of seedlings in the next year that are reproductive and subtract them from the current seedling number!
 ```{r}
+table(asmi.raw$year,asmi.raw$AsMi_plot_id)
 table(asmi.raw$browsing)
 table(asmi.raw$Browsing...Status) 
 nrow(asmi.raw) #13806->16377->17817->19324
@@ -1182,6 +1065,11 @@ Merge year to year, year.x is year t, year.y is year t+1
 remove dead from stages, just fate    
 At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together
 ```{r}
+# first use seasonal observation percentages, climate, and size the next time seen to turn all dormant (or not yet germinated for seedlings with length > 10cm) to seedling, vegetative, or reproductive 
+# percent of dormant that were each of the following in July
+perstagedormant <- c(Year = 2014:2015, seedling = c())
+head(asmi.all)
+
 asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
 # Which of these say dead to seedling, should get rid of these, or dead to dead
@@ -1601,7 +1489,7 @@ all.pva$plot.matrix[site$'15'[1]]
 ```
 
 # Matrix Models     
-## Table 5: Growth rate    
+## Table 6: Growth rate    
 SBC 
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
@@ -1935,23 +1823,12 @@ ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))
 
 
 ```{r}
-# names(asmi.climate) <- c("tmin","date","Plot","Site","tmax","Precip")
 
-# #date is a factor
-# asmi.climate$date <- as.character(asmi.climate$date)
-# 
-# #split by _ select the YYYYMM numbers
-# asmi.climate$Year <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
-#                                    function(x) x[5], character(1)), 1,4))
-# asmi.climate$Month <- as.numeric(substr(vapply(strsplit(asmi.climate$date, '_'), 
-#                                    function(x) x[5], character(1)), 5,6))
-
-# asmi.c <- asmi.climate[,-2]
 asmi.c <- asmi.climate
 
 # Get a list of sites and plots per Creek to merge with asmi.c
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
-plots.site$Creek <- "South Beaver"
+plots.site$Creek <- "SouthBeaver"
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
@@ -1962,7 +1839,6 @@ asmi.c$Prev12 <- asmi.c$Year
 asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
 
 head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)  
-
 # so months after July go with the next year; t+1 is t month 8-12 and t+1 months 1-1
 ```
 
@@ -1986,11 +1862,17 @@ prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$
 # aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
 aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
 
+aggregate(prev12clim$x, list(Creek=prev12clim$Creek), sd)
+
 # over the study period 1995-currentyr
 # aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
 #           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
 aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
+
+aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
+          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), sd)
+
 
 # Temperature: tmin and tmax
 prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
@@ -1999,9 +1881,14 @@ prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek,
 # 1980 to currentyr
 aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
 
+aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), sd)
+
 # over the study period 1995-currentyr
 aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
           list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), mean)
+
+aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
+          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), sd)
  
 ```
 
@@ -2012,143 +1899,6 @@ asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotani
 ```
 
 
-
-
-#autocorrelations   
-https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next    
-alive.site$length are the number of indiviudals with length>0 and that aren't na per site per year (and per fenced or not plots)
-```{r}
-# Not sure what trying to do? Take away the first row each time?
-# length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
-length_tmin1 <- split(alive.site$length,alive.site$AsMi_site_id)
-length_tmin1.removed <- lapply(length_tmin1, function(x) x[-1])
-
-# length_t <- split(alive.site$length[-nrow(alive.site)],
-#                         alive.site$AsMi_site_id)
-
-length_t.removed <- lapply(length_tmin1, function(x) x[-length(x)])
-length_tmin1.removed
-length_t.removed
-
-autocor <- mapply(cbind,length_t.removed,length_tmin1.removed)
-```
-
-```{r}
-plot(autocor[[1]], xlim=c(0,325), ylim=c(0,350), pch=20)
-for(i in 2:6){
-  points(autocor[[i]], col=i, pch=20)
-}
-```
-
-```{r}
-autocor1 <- do.call(rbind,autocor)
-# sample covariance in acf is scaled with 1/(n-1) instead of 1/n
-cor(autocor1[,1],autocor1[,2])*(nrow(autocor1)/(nrow(autocor1)+1))
-
-#but to combine all sites time series, need to keep steps separate by site
-lapply(split(alive.site$length,alive.site$AsMi_site_id), function(x){
-  acf(x, lag.max=15, plot=TRUE)
-})
-
-#Blue is the 95% CI around zero, different from zero correlation
-```
-Cross-correlation of weather and number of individuals with AGG in July
-```{r}
-
-
-
-```
-
-
-
-
-# 2017 June 2 for NCAR
-```{r}
-
-uniqclim <- unique(asmi.c[,c("Year","tmin","tmax","ppt")])
-clim_agg <- merge(uniqclim, ps.asmi, by = "Year")
-
-
-library(reshape2)
-clim_agg_long <- melt(clim_agg[,c(1:6,8)], measure.vars = c("tmin","tmax","ppt","Total.Alive"))
-levels(clim_agg_long$variable) <- c("Minimum temperature","Maximum temperature",
-                                    "Precipitation (mm)","Individuals per plot")
-
-ggplot(clim_agg_long[clim_agg_long$variable%in% c("Precipitation (mm)","Individuals per plot") & clim_agg_long$Site>3,], 
-       aes(Year, value))+
-#  geom_point()+
-  stat_smooth(alpha=0.5)+
-  facet_wrap(~variable, scales="free", ncol=1)+
-  theme_bw()
-
-asmi.c
-
-
-ggplot(asmi.c, aes(Year, ppt))+
-  geom_line()+
-  facet_wrap(~Month+Site)
-```
-
-```{r}
-ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individuals per plot") & clim_agg_long$Site>3,], 
-       aes(Year, value))+
-#  geom_point()+
-  stat_smooth(alpha=0.5)+
-  facet_wrap(~variable, scales="free", ncol=1)+
-  theme_bw()
-```
-
-```{r}
-ggplot(clim_agg_long[clim_agg_long$Site>3,], 
-       aes(as.factor(Year), value))+
-#  geom_point()+
-  stat_smooth(alpha=0.5)+
-  geom_boxplot()+
-  facet_wrap(~variable, scales="free", ncol=1)+
-  theme_bw()
-```
-
-
-# Annual precipiation average per year
-```{r}
-creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
-creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
-
-#ppt mm
-mean(creekyear$ppt[creekyear$Creek == "Cebolla"])
-mean(creekyear$ppt[creekyear$Creek == "South Beaver"])
-mean(creekyear$ppt)
-```
-
-# Set seasonal climate factors
-
-```{r}
-
-asmi.c$season <- "winter"
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
-
-asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
-                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
-                                          names(asmi.c), value=TRUE)], 
-                            asmi.c[,c("season","Creek","Prev12")],
-                            FUN = function(x) mean(x, na.rm = TRUE))
-
-head(asmi.c.summary)
-
-# currentyr-1? should it just be currentyr? or not less than currentyr? 
-season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
-                  idvar=c("Creek","Prev12"),
-                  timevar = "season",
-                  direction="wide")
-head(season)
-
-ggplot(season, aes(Prev12, ppt.fall))+
-  geom_line()
-
-ggplot(season, aes(Prev12, ppt.winter))+
-  geom_line()
-```
 
 #PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
 
@@ -2824,55 +2574,6 @@ fencing_ind_dorm <- do.call(rbind,lapply(split(asmi.raw[asmi.raw$year > 2005 & a
 chisq.test(table(fencing_ind_dorm$Dorm, fencing_ind_dorm$Fence))
 # p = 0.008 so fencing likely influences dormancy 
 
-table(ind_dorm$Dorm)
-nrow(ind_dorm[ind_dorm$Dorm==1,]) # 1022
-
-perc_ind_dorm <- aggregate(Dorm~Site+Plot+Fence, data=ind_dorm,
-                           function(x) sum(x)/length(x))
-
-aggregate(Dorm~Fence, data=ind_dorm,
-          function(x) sum(x)/length(x))
-
-#percent dormant individuals by site
-aggregate(Dorm~Site, data=ind_dorm, function(x) sum(x)/length(x))
-#percent individuals with any length of dormancy from SBC
-sum(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])/length(perc_ind_dorm$Dorm[perc_ind_dorm$Site>3])
-
-#  But this could be multiple times per individual
-levels(asmi.all2$stage)
-# test
-# dorms.1 <- rle(as.numeric(asmi.all2$stage))$lengths[rle(as.numeric(asmi.all2$stage))$values ==4]
-x <- split(asmi.all2, asmi.all2$tag)[[1]]
-dorms.1 <- unlist(lapply(split(asmi.all2, asmi.all2$tag), function(x){
-  # dormyrs <- x$year[x$stage == "dormant"]
-  # dorm <- rle(as.numeric(x$stage))$lengths[rle(as.numeric(x$stage))$values == 4]
-  # out <- data.frame(tag = unique(x$tag), DormPeriods = length(dorm), )
-  rle(as.numeric(x$stage))$lengths[rle(as.numeric(x$stage))$values == 4]
-}))
-dorms.2 <- do.call(rbind, lapply(dorms.1, function(s) {
-  if(length(s) > 0) max(s, na.rm = TRUE)
-  })
-  )
-
-max(dorms.1) #21 -> 23
-max(dorms.2)
-
-Mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
-
-# Does this really tell me the length of dormancy? It tells me every instanace of dormancy, not one per individual 
-Mode(dorms.1) #1
-length(dorms.1[dorms.1==1]) #441 -> 622
-length(dorms.1[dorms.1==1])/length(dorms.1) #41.9% --> 0.47
-length(dorms.1[dorms.1 == max(dorms.1)]) # 13 with 21 years -> 1 with 3887?? What now?!
-
-# Now have selected only the longest period of dormancy per individual
-Mode(dorms.2) #1
-length(dorms.2[dorms.2==1]) #441 -> 415
-length(dorms.2[dorms.2==1])/length(dorms.2) #41.9% --> 0.41
-length(dorms.1[dorms.2 == max(dorms.2)]) # 13 with 21 years -> 4 with 23 years
 
 ```
 
@@ -4874,6 +4575,99 @@ head(yrsalive[[4]])
 
 
 #SKIP!
+
+
+
+
+#autocorrelations   
+https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next    
+alive.site$length are the number of indiviudals with length>0 and that aren't na per site per year (and per fenced or not plots)
+```{r}
+# Not sure what trying to do? Take away the first row each time?
+# length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
+length_tmin1 <- split(alive.site$length,alive.site$AsMi_site_id)
+length_tmin1.removed <- lapply(length_tmin1, function(x) x[-1])
+
+# length_t <- split(alive.site$length[-nrow(alive.site)],
+#                         alive.site$AsMi_site_id)
+
+length_t.removed <- lapply(length_tmin1, function(x) x[-length(x)])
+length_tmin1.removed
+length_t.removed
+
+autocor <- mapply(cbind,length_t.removed,length_tmin1.removed)
+```
+
+```{r}
+plot(autocor[[1]], xlim=c(0,325), ylim=c(0,350), pch=20)
+for(i in 2:6){
+  points(autocor[[i]], col=i, pch=20)
+}
+```
+
+```{r}
+autocor1 <- do.call(rbind,autocor)
+# sample covariance in acf is scaled with 1/(n-1) instead of 1/n
+cor(autocor1[,1],autocor1[,2])*(nrow(autocor1)/(nrow(autocor1)+1))
+
+#but to combine all sites time series, need to keep steps separate by site
+lapply(split(alive.site$length,alive.site$AsMi_site_id), function(x){
+  acf(x, lag.max=15, plot=TRUE)
+})
+
+#Blue is the 95% CI around zero, different from zero correlation
+```
+
+
+# 2017 June 2 for NCAR
+```{r}
+
+uniqclim <- unique(asmi.c[,c("Year","tmin","tmax","ppt")])
+clim_agg <- merge(uniqclim, ps.asmi, by = "Year")
+
+
+library(reshape2)
+clim_agg_long <- melt(clim_agg[,c(1:6,8)], measure.vars = c("tmin","tmax","ppt","Total.Alive"))
+levels(clim_agg_long$variable) <- c("Minimum temperature","Maximum temperature",
+                                    "Precipitation (mm)","Individuals per plot")
+
+ggplot(clim_agg_long[clim_agg_long$variable%in% c("Precipitation (mm)","Individuals per plot") & clim_agg_long$Site>3,], 
+       aes(Year, value))+
+#  geom_point()+
+  stat_smooth(alpha=0.5)+
+  facet_wrap(~variable, scales="free", ncol=1)+
+  theme_bw()
+
+asmi.c
+
+
+ggplot(asmi.c, aes(Year, ppt))+
+  geom_line()+
+  facet_wrap(~Month+Site)
+```
+
+```{r}
+ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individuals per plot") & clim_agg_long$Site>3,], 
+       aes(Year, value))+
+#  geom_point()+
+  stat_smooth(alpha=0.5)+
+  facet_wrap(~variable, scales="free", ncol=1)+
+  theme_bw()
+```
+
+```{r}
+ggplot(clim_agg_long[clim_agg_long$Site>3,], 
+       aes(as.factor(Year), value))+
+#  geom_point()+
+  stat_smooth(alpha=0.5)+
+  geom_boxplot()+
+  facet_wrap(~variable, scales="free", ncol=1)+
+  theme_bw()
+```
+
+
+
+
 Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
 ```{r}
 ggplot(smya, aes(YrsD, Yearsalive))+
