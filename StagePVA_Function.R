@@ -25,7 +25,7 @@
 # 5 2154 2014      7      0 seedling    1    1      n   TRUE       dead
 # 6 2155 2014     19      0 seedling    1    1      n  FALSE vegetative
 
-
+# make it assign fencing or not but do it by each plot seperately, I can go through and average later
 StagePVA <- function(df,dormancy = 1){
 
   '%ni%' <- Negate('%in%')
@@ -35,14 +35,17 @@ StagePVA <- function(df,dormancy = 1){
   # Here is where it matters that I've condensed all plots into a site since a few extra plots were added in site 26 and another...
   n_options <- ddply(df, c("year","site"), function(x) return(table(x$stage)))
   n_options_plot <- ddply(df, c("year","site","plot"), function(x) return(table(x$stage)))
-n_options_plot[n_options_plot$vegetative==0,]
+
+  n_options_plot[n_options_plot$vegetative==0,]
 
   years <- sort(unique(df$year)) #start years of each transition, year:year+1
 
+
   # Create a list to hold output
   names <- c("plot.matrix",   #Stage PVA per plot
-             "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",    #Stage PVA overall
-             "Site", "fenced", "notfenced") #Stage PVA per site: fenced vs. not fenced plots split per site
+             "pro.matrix","fenced.pro.matirx","notfenced.pro.matrix",    #Stage PVA overall projection matrix
+             "Site", "fenced", "notfenced", #Stage PVA per site: fenced vs. not fenced plots split per site
+             "Plot")
   SiteMatrix <- vector("list", length(names))
   names(SiteMatrix) <- names
 
@@ -85,7 +88,7 @@ n_options_plot[n_options_plot$vegetative==0,]
     # this times the number of seedlings in the next year
 
     seedlings <- nrow(df[df$year == i+1 & df$stage=="seedling" & df$fruits == 0, ]) +
-      nrow(df[df$year == i+2 & df$stage=="seedling" & df$fruits > 0, ])
+      nrow(df[df$year == i+2 & df$stage=="seedling" & df$fruits > 0, ]) # the number of new to us i.e. seedling but clearly not seedling two years later
 
     fencedseedlings <- nrow(df[df$year == i+1 & df$Plot %in% fencedplots & df$stage=="seedling" & df$fruits == 0, ]) +
       nrow(df[df$year == i+2  & df$Plot %in% fencedplots &  df$stage=="seedling" & df$fruits > 0, ])
@@ -129,7 +132,7 @@ n_options_plot[n_options_plot$vegetative==0,]
 
 
   ## 2
-  # Projection matrices divdied by Site
+  # Projection matrices divided by Site
 
   #Set variables
   sites <- unique(df$site)

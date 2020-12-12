@@ -276,8 +276,13 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
 
 asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
+load( paste(rawdatapath, "asmi.climate", currentyr, ".Rdata", sep=""))
 ```
+asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
+
+
+### Takes forever, just load and move on after first time
 # Want Site, Year, Month, ppt, tmin, tmax
 ```{r, eval = FALSE}
 maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
@@ -336,9 +341,129 @@ asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Pl
                       by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
 names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
 # asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+
+table(asmi.climate$Site)
+asmi.climate$SiteNum <- 1
+asmi.climate$SiteNum[asmi.climate$Site == "Cebolla North"] <- 2
+asmi.climate$SiteNum[asmi.climate$Site == "Site 15"] <- 15
+asmi.climate$SiteNum[asmi.climate$Site == "Site 5"] <- 5
+asmi.climate$SiteNum[asmi.climate$Site == "Site 19"] <- 19
+asmi.climate$SiteNum[asmi.climate$Site == "Site 26"] <- 26
+table(asmi.climate$SiteNum)
+
+save(asmi.climate, file = paste(rawdatapath, "asmi.climate", currentyr,".Rdata", sep=""))
+```
+
+```{r}
+asmi.c <- asmi.climate
+
+# Get a list of sites and plots per Creek to merge with asmi.c
+plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
+plots.site$Creek <- "SouthBeaver"
+plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
+
+asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
+names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
+head(asmi.c)
+
+#Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
+asmi.c$Prev12 <- asmi.c$Year
+asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
+
+head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)  
+# so months after July go with the next year; t+1 is t month 8-12 and t+1 months 1-1
 ```
 
 
+```{r}
+asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
+
+# write.table(asmi.c, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/" ,currentyr,"asmi.c.csv",sep=""), sep=",")
+
+aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
+sort(unique(asmi.c$Year))
+
+# first add by all prev12 then average all by creek
+# Precipitation: ppt But with changes ppt is x
+prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
+                        function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
+# 1980 to currentyr
+# aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
+aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
+
+aggregate(prev12clim$x, list(Creek=prev12clim$Creek), sd)
+
+# over the study period 1995-currentyr
+# aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
+#           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
+aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
+          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
+
+aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
+          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), sd)
+
+
+# Temperature: tmin and tmax
+prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
+                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
+                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
+# 1980 to currentyr
+aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
+
+aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), sd)
+
+# over the study period 1995-currentyr
+aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
+          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), mean)
+
+aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
+          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), sd)
+ 
+```
+
+
+# Annual precipiation average per year
+```{r}
+creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
+creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
+
+#ppt mm
+mean(creekyear$ppt[creekyear$Creek == "Cebolla"])
+mean(creekyear$ppt[creekyear$Creek == "SouthBeaver"])
+mean(creekyear$ppt)
+```
+
+# Set seasonal climate factors
+
+```{r}
+
+asmi.c$season <- "winter"
+asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
+asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
+
+asmi.c <- asmi.c[,!grepl("date.", names(asmi.c))]
+asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
+                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
+                                          names(asmi.c), value=TRUE)], 
+                            asmi.c[,c("season","Creek","Prev12")],
+                            FUN = function(x) mean(x, na.rm = TRUE))
+
+head(asmi.c.summary)
+
+# currentyr-1? should it just be currentyr? or not less than currentyr? 
+season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
+                  idvar=c("Creek","Prev12"),
+                  timevar = "season",
+                  direction="wide")
+head(season)
+
+ggplot(season, aes(Prev12, ppt.fall))+
+  geom_line()
+
+ggplot(season, aes(Prev12, ppt.winter))+
+  geom_line()
+```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
@@ -405,13 +530,13 @@ ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
                                 "olivedrab","olivedrab1",
                                 "mediumseagreen","mistyrose3"))
 
-
-table(alive$AsMi_site_id, alive$length)
-asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] # Plot 238, tag 925, Ln '921' -> 21??
-
-
-
-table(alive$AsMi_site_id, alive$year) # 2 is cebolla north, 1 is mid
+# 
+# table(alive$AsMi_site_id, alive$length)
+# asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] # Plot 238, tag 925, Ln '921' -> 21??
+# 
+# 
+# 
+# table(alive$AsMi_site_id, alive$year) # 2 is cebolla north, 1 is mid
 ```
 
 #Fluctuations  
@@ -840,49 +965,6 @@ for(i in 2:length(glm.list)){
 ```
 
 
-# Annual precipiation average per year
-```{r}
-creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
-creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
-
-#ppt mm
-mean(creekyear$ppt[creekyear$Creek == "Cebolla"])
-mean(creekyear$ppt[creekyear$Creek == "South Beaver"])
-mean(creekyear$ppt)
-```
-
-# Set seasonal climate factors
-
-```{r}
-
-asmi.c$season <- "winter"
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
-
-asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
-                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
-                                          names(asmi.c), value=TRUE)], 
-                            asmi.c[,c("season","Creek","Prev12")],
-                            FUN = function(x) mean(x, na.rm = TRUE))
-
-head(asmi.c.summary)
-
-# currentyr-1? should it just be currentyr? or not less than currentyr? 
-season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
-                  idvar=c("Creek","Prev12"),
-                  timevar = "season",
-                  direction="wide")
-head(season)
-
-ggplot(season, aes(Prev12, ppt.fall))+
-  geom_line()
-
-ggplot(season, aes(Prev12, ppt.winter))+
-  geom_line()
-```
-
-
-
 Table 5: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
 ```{r}
 fruit <- aggregate(fruit ~ AsMi_plot_id + year + AsMi_site_id + fence, 
@@ -907,7 +989,6 @@ write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepa
 
 
 #Table 6: Growth rate (λ) and standard deviation within treatment (fenced or open plots) of Astragalus microcymbus individuals within the South Beaver Creek drainage near Gunnison, CO. Plot 598 in site 26, added in 2004, is excluded.   
-
 
 ### But if I add individuals not as seedlings (even though I know they aren't seedlings this year) then they aren't given credit for reproducing.. # could add a New2me category that is clearly not a seedling but a delayed/missed one. Then should add a seedling to the previous year as a stop gap? So count up number of seedlings and number of seedlings in the next year that are reproductive and subtract them from the current seedling number!
 ```{r}
@@ -996,20 +1077,30 @@ table(asmi.all$browsed)
 table(asmi.all$browsing)
 ```
 
+
+### Make 'seedlings' that are reprodutive 'reproductive' before binding stage - fate  
 Merge year to year, year.x is year t, year.y is year t+1   
 remove dead from stages, just fate    
 At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together
 ```{r}
 # first use seasonal observation percentages, climate, and size the next time seen to turn all dormant (or not yet germinated for seedlings with length > 10cm) to seedling, vegetative, or reproductive 
 # percent of dormant that were each of the following in July
-perstagedormant <- c(Year = 2014:2015, seedling = c())
+# perstagedormant <- c(Year = 2014:2015, seedling = c())
+## how many individuals that are dormant in July in 2014 and 2015 were of each category within the year?  
 head(asmi.all)
+
+# clearly not 'seedlings' just missed them. can make StagePVA add any 'seedlings' and any new tags
+asmi.all$status[asmi.all$status == "seedling" & asmi.all$flower == 1] <- "reproductive"
+# 'seedlings' that are large should be called vegetative (will be added accordingly as recruitment from reproductive two years prior)
+hist(asmi.all$length[asmi.all$status == "seedling"])
+ggplot(asmi.all, aes(status, length))+
+  geom_violin(scale = "width")
 
 asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
 # Which of these say dead to seedling, should get rid of these, or dead to dead
-asmi.all1[asmi.all1$status.x=="dead",]
-asmi.all1 <- asmi.all1[asmi.all1$status.x!="dead",]
+# asmi.all1[asmi.all1$status.x=="dead",]
+# asmi.all1 <- asmi.all1[asmi.all1$status.x!="dead",]
 ```
 
 
@@ -1026,6 +1117,7 @@ asmi.all2 <- asmi.all1[, names(asmi.all1) %in% unique(grep(paste(cols,collapse="
                                                   names(asmi.all1), value = TRUE))]
 colnames(asmi.all2) <- c( "tag","year","length","fruits","stage","plot",
                        "site","fenced","browse","fate")
+
 ## re-number
 rownames(asmi.all2) <- 1:nrow(asmi.all2)
 
@@ -1093,68 +1185,11 @@ bt <- do.call(rbind, boottrans)
 
 ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
   geom_boxplot()+
-  facet_wrap(~Site, ncol=3)+
+  facet_wrap(~Site, ncol=3, scales = "free")+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
-
-#Figure 4 Distribution of consecutive years of dormancy
-```{r}
-# asmi.1 is already sorted by site, tag, year
-#dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
-levels(asmi.1$status) # 4 is dormant
-
-dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
-  out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
-  out
-}))
-
-
-table(dorms$dorms) 
-
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig4.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 130)
-
-ggplot(dorms, aes(dorms))+
-  geom_histogram(bins = 20)+
-  theme_bw()+
-  ylab("Frequency")+
-  xlab("Consecutive years dormant")
-
-dev.off()
-```
-
-#only South beaver creek
-```{r}
-median(dorms$dorms) #3-->2
-length(dorms$dorms[dorms$dorms==1]) #347 -> 358 -> 478
-length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37% -> 42%
-# How many tags had some amount of dormancy? How'd I get that before
-dormantsandnot <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
-  if(length(dormlns)==0){
-    out <- data.frame(Tag=unique(x$AsMi_tag_id),dorms=0)
-  } else {
-    out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
-  }
-  out
-}))
-dormantsandnot$dormYN <- 0
-dormantsandnot$dormYN[dormantsandnot$dorms>0] <- 1
-sum(dormantsandnot$dormYN)/nrow(dormantsandnot) # 0.3483473 -> 0.359
-
-
-length(dorms$dorms) #848 -> 959 -> 1136
-length(dorms$dorms[dorms$dorms > 5]) #353 -> 355 -> 380
-length(dorms$dorms[dorms$dorms > 15]) #93 -> 82?? -> 98
-length(dorms$dorms[dorms$dorms == 21]) #13 -> 13
-length(dorms$dorms[dorms$dorms > 20]) #13 -> 14
-
-
-```
 
 Reproductive lengths - South Beaver Creek only   
 ```{r}
@@ -1183,13 +1218,6 @@ ggplot(plotrepros, aes(x=Var2, y=Freq ))+
   geom_boxplot()+ 
   theme(legend.position="none")
 
-ggplot(repros, aes(repros, colour=as.factor(Tag)))+
-  geom_histogram(bins=8)+
-  theme_bw()+
-  ylab("Frequency")+
-  xlab("Consecutive years reproductive")+ 
-  theme(legend.position="none")
-
 ```
 
 #Stage based PVA   
@@ -1204,6 +1232,7 @@ str(surv.asmi)
 
 #stages are L, Q, and C? linear, quadractic, cubic - because of the ordinal factor, just factor it
 summary(glm(surv~ as.factor(as.numeric(stage)) +as.factor(site), family=binomial(link = "logit"), surv.asmi))
+# overall survival is 23% SE 6.6% more for vegetative, more for reproductive but misleading for dormant because we can't observe them dying. less for site 19, more for site 5
 
 surv.asmi$stage <- factor(surv.asmi$stage, levels=levels(surv.asmi$stage), ordered=FALSE)
 str(surv.asmi)
@@ -1314,6 +1343,9 @@ ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.t
 ```
 
 
+
+
+
 ```{r}
 
 asmi.raw.1 <- asmi.raw[with(asmi.raw, order(AsMi_site_id,AsMi_plot_id,AsMi_tag_id,year)),]
@@ -1358,16 +1390,7 @@ plot(surv.asmi.1$YrsAlive,
 
 ```
 
-# This doesn't make sense! Can't substitude length for time? Is it cummulative? 
-```{r}
-surv.asmi.1 <- surv.asmi.1[surv.asmi.1$length < 99,]
 
-fit <- survfit(Surv(length, flower) ~ AsMi_site_id, 
-               data = surv.asmi.1[surv.asmi.1$length>0,]) 
-
-ggsurvplot(fit, data=surv.asmi.1[surv.asmi.1$length>0,], risk.table = FALSE, xlab = "length", ylab="Probability of Reproductive")
-
-```
 ```{r}
 surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
 
@@ -1384,7 +1407,7 @@ matplot(contr.poly(15)[,1:4], type="b")
 ```
 
 
-
+# Stage Based PVA
 # From previous versions
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
 sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
@@ -1395,15 +1418,26 @@ cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year
 asmi.2 <- subset(merge(asmi.1, asmi.1, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)   
 cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
-
-
+# Because it adds a slot for 1995 - currentYr
 Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
 notfenced has 21 blank (each year)
 
 Dormancy can be set to 0-1     
 
 ```{r}
-all.pva <- StagePVA(asmi.all2)
+# all.pva <- StagePVA(asmi.all2)
+
+# Test StagePVA_single
+df <- split(asmi.all2, asmi.all2$plot)[[1]]
+i <- unique(df$year)[1]
+    # t1 <- 1:7
+    # t2 <- 4:10
+    # setdiff(t2, t1) # new in t2 that weren't in t1
+
+all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
+  StagePVA_single(df, )
+})
+
 
   '%ni%' <- Negate('%in%')
 asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2 & asmi.all2$plot %ni% c(598,238,300),]) 
@@ -1424,7 +1458,7 @@ all.pva$plot.matrix[site$'15'[1]]
 ```
 
 # Matrix Models     
-## Table 6: Growth rate    
+## Table 5: Growth rate    
 SBC 
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
@@ -1449,14 +1483,14 @@ tbl4.allpost <- sapply(mats.list[-1], function(x){
         round(lmdSD(x, 2005,currentyr-2)[2],2),")", sep="")
 })
 
-write.csv(tbl4.allpost, file=paste(savepath,"Table5_allSBCpost.csv"), row.names=TRUE)
+write.csv(tbl4.allpost, file=paste(savepath,"Table4_allSBCpost.csv"), row.names=TRUE)
 
 
 tbl4.allopen <- paste(round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[1],2)," (",
                       round(lmdSD(asmi.pva$notfenced.pro.matrix, 1996,currentyr-2)[2],2),")", sep="")
 
 
-write.csv(tbl4.allopen, file=paste(savepath,"tbl5_allSBCopen.csv"), row.names=TRUE)
+write.csv(tbl4.allopen, file=paste(savepath,"tbl4_allSBCopen.csv"), row.names=TRUE)
 ```
 
 Cebolla all
@@ -1634,7 +1668,8 @@ mean(asmi.pva$notfenced.pro.matrix)
 
 ```
 
-Results: Demographic monitoring
+Results: Demographic monitoring   
+"No rain since May"
 ```{r}
 ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
   geom_jitter(width = 0.1, height = 0)+
@@ -1642,84 +1677,6 @@ ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))
   theme_bw()
 
 ```
-
-
-```{r}
-asmi.c <- asmi.climate
-
-# Get a list of sites and plots per Creek to merge with asmi.c
-plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
-plots.site$Creek <- "SouthBeaver"
-plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
-
-asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
-names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
-
-#Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
-asmi.c$Prev12 <- asmi.c$Year
-asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
-
-head(asmi.c[with(asmi.c, order(Year,Month,Site,Plot))&asmi.c$Year==1980,],100)  
-# so months after July go with the next year; t+1 is t month 8-12 and t+1 months 1-1
-```
-
-
-```{r}
-
-
-asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
-
-write.table(asmi.c, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/" ,currentyr,"asmi.c.csv",sep=""), sep=",")
-
-aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
-sort(unique(asmi.c$Year))
-
-# first add by all prev12 then average all by creek
-# Precipitation: ppt But with changes ppt is x
-prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
-                        function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
-# 1980 to currentyr
-# aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
-aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
-
-aggregate(prev12clim$x, list(Creek=prev12clim$Creek), sd)
-
-# over the study period 1995-currentyr
-# aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
-#           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
-aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
-          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
-
-aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
-          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), sd)
-
-
-# Temperature: tmin and tmax
-prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
-                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
-# 1980 to currentyr
-aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
-
-aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), sd)
-
-# over the study period 1995-currentyr
-aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
-          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), mean)
-
-aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
-          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), sd)
- 
-```
-
-After create new climate dataset, can download it from GitHub
-```{r}
-asmi.c <- read.csv(text = getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/datasets/asmi.c.csv"))
-
-```
-
-
 
 #PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
 
@@ -1739,7 +1696,7 @@ Winter: December-March (12-3)
 Spring/summer: April-July (4-7)    
 Fall: August-November (8-11)   
 
-
+### LIKELY SKIP!!
 
 # South Beaver Creek
 # FRUIT
@@ -2443,15 +2400,13 @@ intra.2013July <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astr
 
 intra.2013Sept <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/September2013.csv"), na.strings="")
 
-
-
 ```
 
-
+Survey dates are wrong, go back and fix. Model according to AsMi_2020_BayesianAddition to impute dormant and reproductive seedling data
 ```{r}
 intra <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2015 datasheets/2015_intrayear_asmi.csv"), na.strings="")
 
-intra <- intra[ rowSums(is.na(intra[,grep("Ln", names(intra))[-1]])) != length(grep("Ln", names(intra))[-1]),] 
+intra <- intra[rowSums(is.na(intra[,grep("Ln", names(intra))[-1]])) != length(grep("Ln", names(intra))[-1]),] 
 
 intra$UniqueID <- 1:nrow(intra)
 
@@ -2492,7 +2447,7 @@ dm$Site[dm$Plot == 16 | dm$Plot == 96 | dm$Plot == 58
 
 sites <- c("5","15","19","26","1","2")
 dm$Site <- ordered(dm$Site, levels = sites)
-
+table(dm$Site)
 #May1 moved to 2014 order from 2015
 levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
                        substr(levels(dm$Survey)[6],3,7),
@@ -2506,6 +2461,7 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 
 #Add actual date to surveys
 table(dm$Survey)
+dm$Date <- NA
 dm$Date <- as.Date("2014-04-21")
 dm$Date[dm$Survey=="May1_2014"] <- as.Date("2014-05-13")
 dm$Date[dm$Survey=="Jun1_2014"] <- as.Date("2014-06-02")
@@ -4095,6 +4051,68 @@ Discussion: percent of dormant indivdiuals
 ps.asmi$PercentDorm <- ps.asmi$X..Dormant/sum(ps.asmi$Total.Alive,ps.asmi$Total.Plants, na.rm=TRUE)  
 aggregate(PercentDorm~Year, ps.asmi, function(x) mean(x, na.rm=TRUE))  
 ```
+
+
+
+## Removed from paper
+#Figure 4 Distribution of consecutive years of dormancy
+```{r}
+# asmi.1 is already sorted by site, tag, year
+#dorms <- rle(as.numeric(asmi.2$fate))$lengths[rle(as.numeric(asmi.2$fate))$values ==4]
+levels(asmi.1$status) # 4 is dormant
+
+dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+  out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+  out
+}))
+
+
+table(dorms$dorms) 
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig4.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 130)
+
+ggplot(dorms, aes(dorms))+
+  geom_histogram(bins = 20)+
+  theme_bw()+
+  ylab("Frequency")+
+  xlab("Consecutive years dormant")
+
+dev.off()
+```
+
+#only South beaver creek
+```{r}
+median(dorms$dorms) #3-->2
+length(dorms$dorms[dorms$dorms==1]) #347 -> 358 -> 478
+length(dorms$dorms[dorms$dorms==1])/length(dorms$dorms) # 37% -> 42%
+# How many tags had some amount of dormancy? How'd I get that before
+dormantsandnot <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
+  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
+  if(length(dormlns)==0){
+    out <- data.frame(Tag=unique(x$AsMi_tag_id),dorms=0)
+  } else {
+    out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
+  }
+  out
+}))
+dormantsandnot$dormYN <- 0
+dormantsandnot$dormYN[dormantsandnot$dorms>0] <- 1
+sum(dormantsandnot$dormYN)/nrow(dormantsandnot) # 0.3483473 -> 0.359
+
+
+length(dorms$dorms) #848 -> 959 -> 1136
+length(dorms$dorms[dorms$dorms > 5]) #353 -> 355 -> 380
+length(dorms$dorms[dorms$dorms > 15]) #93 -> 82?? -> 98
+length(dorms$dorms[dorms$dorms == 21]) #13 -> 13
+length(dorms$dorms[dorms$dorms > 20]) #13 -> 14
+
+
+```
+
+
 
 
 # Integral Projection Models    
