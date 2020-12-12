@@ -235,6 +235,111 @@ asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 length(1995:currentyr)
 ```
 
+# Download climate data  
+###Environmental Data from PRISM:   
+<http://prism.oregonstate.edu/explorer/>  
+<https://github.com/ropensci/prism>
+
+Process takes a while   
+Can go back to folder and delete old provisional data to replace with more current   
+```{r, eval = FALSE}
+# Set wd for prism
+options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+
+#Precipitation total, rain and snow
+get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+#Maximum temperature (average)
+get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+#Minimum temperature (average)
+get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+```
+
+Error, didn't download
+```{r, eval=FALSE}
+get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
+get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
+get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
+```
+
+
+UTM Zone 13 from ArcGIS
+```{r}
+asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
+
+# Convert from UTM to lat/long
+asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
+                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
+                       CRS("+proj=longlat +datum=WGS84"))
+
+asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
+
+```
+
+# Want Site, Year, Month, ppt, tmin, tmax
+```{r, eval = FALSE}
+maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
+mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
+ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
+
+length(maxs)
+length(mins)
+length(ppt)
+
+avgTemps.max <- lapply(maxs, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+avgTemps.min <- lapply(mins, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+avgPrecip <- lapply(ppt, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+mins.avg <- do.call(rbind, avgTemps.min)
+maxs.avg <- do.call(rbind, avgTemps.max)
+ppt.avg <- do.call(rbind, avgPrecip)
+
+mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+
+
+mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+
+# Didn't get all the ppt for 2019
+asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
+                                                         "asmilatlong.Tag_Commen"))
+names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
+asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
+                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
+names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
+# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+```
+
+
+
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
 #AGG
@@ -481,122 +586,8 @@ ps.asmi$Total.Plants[ps.asmi$Plot %in%  c(598) & ps.asmi$Year < 2004] <- NA
 ps.asmi <- ps.asmi[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(ps.asmi),
                            value = TRUE, invert = TRUE)]
 
-
-cors <- c("Total.Alive","X..Browsed","X..Flowered","X..Dormant","Total.Fruit")
-
 ```
 
-# Don't do transformations any more!
-#log transform
-```{r}
-#t for transformations!
-ps.asmi.t <- ps.asmi
-
-
-ps.asmi.t <- ps.asmi.t[ps.asmi.t$Site<3 & ps.asmi.t$Year>2013 | ps.asmi.t$Site>4,]
-
-# added plots 238 (site 26) and 300 (site 19) in 1996
-# added 598 (site 26) in 2004 
-ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 238 & ps.asmi.t$Year < 1996),]
-ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 300 & ps.asmi.t$Year < 1996),]
-ps.asmi.t <- ps.asmi.t[!(ps.asmi.t$Plot == 598 & ps.asmi.t$Year < 2004),]
-
-table(ps.asmi.t$Year,ps.asmi.t$Site) #no rows for years when some plots weren't in yet
-
-
-hist(ps.asmi.t$Total.Alive)
-ks.test(ps.asmi.t$Total.Alive, plnorm)
-
-hist(log(ps.asmi.t$Total.Alive+1))
-ks.test(log(ps.asmi.t$Total.Alive+1), pnorm)
-
-#log(ps.asmi.t$Total.Alive+1) right skew
-scatterplotMatrix(~Total.Alive+log(ps.asmi.t$Total.Alive+1), 
-                 diagonal = "qqplot",
-                 data=ps.asmi.t) 
-# ,
-#                  reg.line=FALSE,
-#                  smoother="")
-
-#Want percent herbivory
-ps.asmi.t$Percent..Browsing <- ps.asmi.t$X..Browsed/ps.asmi.t$Total.Alive
-
-ps.asmi.t$Percent..Dormant <-
-  (ps.asmi.t$Total.Plants-ps.asmi.t$Total.Alive)/ps.asmi.t$Total.Plants
-
-
-logtrans <- c("Total.Alive", "Percent..Browsing",
-              "X..Flowered.1","X..Flowered","Percent..Dormant","Total.Fruit")
-intersect(names(ps.asmi.t),logtrans) #Check that names are right
-
-
-log.t.cols <- do.call(data.frame,lapply(ps.asmi.t[,logtrans], function(x){ 
-  log(x + 1)})) 
-  #NA in num flowered
-transformed <- sapply(logtrans,function(x) paste(x,"logtransformed",sep=""))
-
-names(log.t.cols) <- transformed
-ps.asmi.t <- data.frame(ps.asmi.t,log.t.cols)
-
-
-#Arcsin sq rt transform percent browsing
-assqrt <- do.call(data.frame,lapply(ps.asmi.t["Percent..Browsing"],
-                                  function(x) asin(sqrt(x/100))))
-
-names(assqrt) <- "X..Browsedarcsinsqrttransformed"
-ps.asmi.t <- data.frame(ps.asmi.t, assqrt)
-
-#Arcsin sq rt transform percent reproductive
-assqrt.repro <- do.call(data.frame,lapply(ps.asmi.t["X..Flowered"],
-                                  function(x) asin(sqrt(x/100))))
-
-names(assqrt.repro) <- "X..Floweredarcsinsqrttransformed"
-ps.asmi.t <- data.frame(ps.asmi.t, assqrt.repro)
-
-# Don't need to transform browsed
-scatterplotMatrix(~X..Floweredarcsinsqrttransformed+X..Flowered.1logtransformed+
-                    Percent..Dormantlogtransformed+X..Browsedarcsinsqrttransformed+
-                    X..Browsed, 
-                 diagonal = "qqplot",
-                 data=ps.asmi.t) #,
-                 # reg.line=FALSE) #,
-                 # smoother="")
-
-ps.asmi.t$X..Flowered.1logtransformed[is.na(ps.asmi.t$X..Flowered.1logtransformed)] <- 0
-ps.asmi.t$Percent..Dormantlogtransformed[is.na(ps.asmi.t$Percent..Dormantlogtransformed)] <- 0
-ps.asmi.t$Percent..Browsinglogtransformed[is.na(ps.asmi.t$Percent..Browsinglogtransformed)] <- 0
-ps.asmi.t$X..Floweredarcsinsqrttransformed[is.na(ps.asmi.t$X..Floweredarcsinsqrttransformed)] <- 0
-ps.asmi.t$X..Browsedarcsinsqrttransformed[is.na(ps.asmi.t$X..Browsedarcsinsqrttransformed)] <- 0
-
-ps.cor <- subset(merge(ps.asmi.t, ps.asmi.t, 
-                       by = c("Site","Plot")), Year.x == Year.y - 1)
-
-```
-
-cors =  "Total.Alive" "X..Browsed"  "X..Flowered" "X..Dormant"  "Total.Fruit"    
-ps.cor has both previous (.x) = t      
-and following year (.y) = t+1
-```{r}
-
-forcor <- names(ps.cor[,grep("transformed",names(ps.cor))])[c(1,7:8,3,5:6,
-                                                              9,15:16,11,13:14)]
-cor.vars <- length(forcor)
-
-cortests <- apply(combn(1:cor.vars,2), 2, function(x){
-  cor.df <- ps.cor[,forcor]
-  ct <- cor.test(cor.df[,x[1]], cor.df[,x[2]])
-  out <- data.frame(Var.1 = names(cor.df)[x[1]], Var.2 = names(cor.df)[x[2]],
-                    P.val = ct$p.value, Cor.est = ct$estimate)
-})
-
-df.c <- do.call(rbind,cortests)
-
-write.csv(df.c, file=paste(savepath,"Table2_PCC.csv"), row.names=TRUE)
-
-#significant - don't worry about signficant alone or don't report at all
-df.c[df.c$P.val > 0.04,]
-
-```
 
 
 
@@ -674,7 +665,7 @@ jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_mi
          units = "mm", res = 300, height = 200, width = 150)
 
 
-xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t[ps.asmi.t$Year > 2013,],
+xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi[ps.asmi$Year > 2013,],
        type = c("g","p","r"),
        layout = c(2, 3),
        index.cond = list(1:6),
@@ -699,7 +690,7 @@ jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_mi
            "Fig2-latticeplot_6Sites.jpg", sep = ""),
          units = "mm", res = 300, height = 200, width = 200)
 
-xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi.t,
+xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi,
        type = c("g","p","r"),
        layout = c(2, 3),
        index.cond = list(1:6),
@@ -718,26 +709,6 @@ dev.off()
 
 ```
 
-
-```{r}
-
-#Since fencing put in, just beaver creek
-xyplot(Total.Alive ~ Year|Fence, 
-       ps.asmi.t[ps.asmi.t$Creek == "SouthBeaver" & ps.asmi.t$Year > 2005,],
-       type = c("g","p","r"),
-       index = function(x,y) coef(lm(y~x))[1],
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
-
-#both sites since started Cebolla
-xyplot(Total.Alive ~ Year|Creek, ps.asmi.t[ps.asmi.t$Year > 2013,],
-       type = c("g","p","r"),
-       index = function(x,y) coef(lm(y~x))[1],
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
-
-
-```
 
 Table 3e
 #AIC for fruit
@@ -785,18 +756,6 @@ glm.names <- as.character(unlist(lapply(glm.list,formula)))
 for(i in 2:length(glm.list)){
   print(exp(0.5*glm.results$Delta_AICc[i]))
 }
-```
-# Beta regression or binomial glm with logit link  
-```{r}
-library(betareg) # for a beta regression, values in (0,1) and  not containing 0 or 1
-# need to transform by (y * (n-1) + 0.5)/n where n is the smaple size (see Smithson and Verkuillen 2006)
-
-
-hist(ps.asmi.reduced$X..Flowered)
-hist(ps.asmi.reduced$X..Flowered[!is.na(ps.asmi.reduced$X..Flowered)])
-
-# transform 
-ps.asmi.reduced$PercFlTrans <- (ps.asmi.reduced$X..Flowered * ())
 ```
 
 #AIC for reproductive
@@ -879,30 +838,6 @@ for(i in 2:length(glm.list)){
 }
 
 ```
-
-
-
-Table 4: Biotic factors correlated among the percent dormant individuals, percent browsed individuals, density of reproductive individuals, fruit production, and the percent of reproductive individuals and above ground growth (AGG) of Astragalus microcymbus per year (1995 - 2017	) within the South Beaver Creek drainage (38? 27' 39.8" N, 106? 57' 37.6" W). 
-```{r}
-
-cor.out <- round(cor(ps.cor[,forcor]),2)
-
-notsig <- df.c[df.c$P.val > 0.04,]
-
-cor.sign <- apply(notsig,1,function(x){
-  row1 <- which(dimnames(cor.out)[[1]] == x[1]) #row
-  column2 <- which(dimnames(cor.out)[[2]] == x[2]) #column
-  c(row1,column2)
-})
-
-pairs(ps.cor[,names(ps.cor) %in% 
-             unique(grep(paste(cors,collapse="|"),names(ps.cor), value=TRUE))][1:5])
-
-pairs(ps.cor[,grep("transformed",names(ps.cor))][1:6])
-
-
-```
-
 
 
 # Annual precipiation average per year
@@ -1699,119 +1634,6 @@ mean(asmi.pva$notfenced.pro.matrix)
 
 ```
 
-###Environmental Data from PRISM:   
-<http://prism.oregonstate.edu/explorer/>  
-<https://github.com/ropensci/prism>
-
-Process takes a while   
-Can go back to folder and delete old provisional data to replace with more current   
-```{r, eval = FALSE}
-# Set wd for prism
-options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
-
-#Precipitation total, rain and snow
-get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-#Maximum temperature (average)
-get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-#Minimum temperature (average)
-get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-```
-
-Error, didn't download
-```{r, eval=FALSE}
-get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
-get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
-get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
-get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 2000)
-get_prism_monthlys(type="ppt", mon = 5, keepZip = FALSE, years = 2002)
-get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 2006)
-get_prism_monthlys(type="ppt", mon = 10, keepZip = FALSE, years = 2006)
-get_prism_monthlys(type="ppt", mon = 12, keepZip = FALSE, years = 2012)
-
-#get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = 1981)
-#get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = 1981)
-#get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = 1981)
-```
-
-
-
-UTM Zone 13 from ArcGIS
-```{r}
-asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
-
-# Convert from UTM to lat/long
-asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
-                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
-                       CRS("+proj=longlat +datum=WGS84"))
-
-asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
-
-```
-
-
-
-# Want Site, Year, Month, ppt, tmin, tmax
-```{r, eval = FALSE}
-maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
-mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
-ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
-
-length(maxs)
-length(mins)
-length(ppt)
-
-avgTemps.max <- lapply(maxs, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-avgTemps.min <- lapply(mins, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-avgPrecip <- lapply(ppt, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-mins.avg <- do.call(rbind, avgTemps.min)
-maxs.avg <- do.call(rbind, avgTemps.max)
-ppt.avg <- do.call(rbind, avgPrecip)
-
-mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-
-
-mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-
-# Didn't get all the ppt for 2019
-asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
-                                                         "asmilatlong.Tag_Commen"))
-names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
-asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
-                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
-names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
-# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
-```
 Results: Demographic monitoring
 ```{r}
 ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
@@ -1823,7 +1645,6 @@ ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))
 
 
 ```{r}
-
 asmi.c <- asmi.climate
 
 # Get a list of sites and plots per Creek to merge with asmi.c
