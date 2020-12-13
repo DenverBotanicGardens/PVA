@@ -1234,11 +1234,111 @@ all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
 
 # Matrix Models     
 ## Table 5: Growth rate    
-SBC 
+Pre, post, and all functions
 ```{r}
-str(all.pva)
-names(all.pva)
-'%ni%' <- Negate('%in%')
+# all.pva is the list of plots which each is a list of years from StagePVA_single
+# plots is a vector of plots to use
+
+GrowthRateMeanSD <- function(all.pva = all.pva, plots, PreFence = FALSE, PostFence = FALSE){
+  plotsout <- unlist(lapply(1:length(plots), function(i){
+    oneplot <- all.pva[names(all.pva) %in% plots][[i]]
+    if(PreFence == TRUE){
+      oneplot <- oneplot[as.numeric(names(oneplot)) < 2005]
+    }
+    if(PostFence == TRUE){
+      oneplot <- oneplot[as.numeric(names(oneplot)) >= 2005]
+    }
+    if(length(oneplot)>1){
+      plotlambda <- lapply(1:length(oneplot), function(tm){
+        popbio::lambda(oneplot[[tm]])
+        })
+    unlist(plotlambda)
+    }
+  }))
+  
+  # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
+  data.frame(mean(plotsout), sd(plotsout))
+  }
+
+GrowthRateMeanSD(all.pva, plots = openSBCplots)
+
+```
+
+Table 5: Average growth rate ($\lambda$) and standard deviation ...   
+```{r}
+
+# South Beaver Creek
+SBCplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id > 4])
+GrowthRateMeanSD(all.pva, SBCplots, PreFence = TRUE)
+
+# Are only at SBC
+fencedplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$fence == "y"])
+GrowthRateMeanSD(all.pva, fencedplots, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fencedplots, PostFence = TRUE)
+
+# Open South Beaver Creek 
+openSBCplots <- setdiff(SBCplots,fencedplots)
+GrowthRateMeanSD(all.pva, openSBCplots, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, openSBCplots, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, openSBCplots)
+
+# Site 05
+site05all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 5])
+fenced05 <- intersect(site05all, fencedplots)
+open05 <- setdiff(site05all, fencedplots)
+GrowthRateMeanSD(all.pva, site05all, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced05, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced05, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open05, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, open05, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open05)
+
+# Site 15
+site15all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 15])
+GrowthRateMeanSD(all.pva, site15all, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, site15all, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, site15all)
+
+# Site 19
+site19all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 19])
+fenced19 <- intersect(site19all, fencedplots)
+open19 <- setdiff(site19all, fencedplots)
+GrowthRateMeanSD(all.pva, site19all, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced19, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced19, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open19, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, open19, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open19)
+
+# Site 26
+site26all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 26])
+fenced26 <- intersect(site26all, fencedplots)
+open26 <- setdiff(site26all, fencedplots)
+GrowthRateMeanSD(all.pva, site26all, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced26, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, fenced26, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open26, PreFence = TRUE)
+GrowthRateMeanSD(all.pva, open26, PostFence = TRUE)
+GrowthRateMeanSD(all.pva, open26)
+
+#Cebolla Creek
+cebolla <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id < 4])
+site1 <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 1])
+site2 <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 2])
+GrowthRateMeanSD(all.pva, cebolla)
+GrowthRateMeanSD(all.pva, site1)
+GrowthRateMeanSD(all.pva, site2)
+
+```
+
+
+
+Skip:
+```{r}
+## Testing to make the function above
+# str(all.pva)
+# names(all.pva)
+# '%ni%' <- Negate('%in%')
  
  
 # Are only at SBC
@@ -1344,35 +1444,7 @@ mean(Openplotlambdas); sd(Openplotlambdas)
 
 ```
 
-Pre, post, and all functions
-```{r}
-# all.pva is the list of plots which each is a list of years from StagePVA_single
-# plots is a vector of plots to use
 
-GrowthRateMeanSD <- function(all.pva = all.pva, plots, PreFence = FALSE, PostFence = FALSE){
-  plotsout <- unlist(lapply(1:length(plots), function(i){
-    oneplot <- all.pva[names(all.pva) %in% fencedplots][[i]]
-    if(PreFence == TRUE){
-      oneplot <- oneplot[as.numeric(names(oneplot)) < 2005]
-    }
-    if(PostFence == TRUE){
-      oneplot <- oneplot[as.numeric(names(oneplot)) >= 2005]
-    }
-    if(length(oneplot)>1){
-      plotlambda <- lapply(1:length(oneplot), function(tm){
-        popbio::lambda(oneplot[[tm]])
-        })
-    }
-    unlist(plotlambda)
-  }))
-  
-  # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
-  data.frame(mean(plotsout), sd(plotsout))
-  }
-
-GrowthRateMeanSD(all.pva, openSBCplots)
-
-```
 
 
 
