@@ -426,8 +426,12 @@ aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")],
 ```
 
 
+## ---------------------------------------- Paper Analysis -------------------------------------------------
+
 # Annual precipiation average per year
 ```{r}
+length(1995:currentyr)
+
 creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
 creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
 
@@ -1032,6 +1036,32 @@ table(asmi.all$status)
 
 ```
 
+
+
+
+Results: Demographic monitoring   
+"No rain since May"
+```{r}
+ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
+  geom_jitter(width = 0.1, height = 0)+
+  stat_smooth(se = FALSE)+
+  theme_bw()
+
+
+# Total individuals per Creek per year
+# lapply(split(asmi.raw, list(asmi.raw$Creek, asmi.raw$year)), function(df){
+do.call(rbind,lapply(split(asmi.raw, asmi.raw$Creek), function(creek){
+  AGG <- do.call(rbind,lapply(split(creek, creek$year),function(yr){
+   data.frame(Year = unique(yr$year), Creek = unique(yr$Creek), AGG = nrow(yr[yr$length > 0,])) 
+  }))
+}))
+
+  
+```
+
+
+
+
 Set order of classes
 ```{r}
 # Later work in seeds
@@ -1330,6 +1360,15 @@ GrowthRateMeanSD(all.pva, site1)
 GrowthRateMeanSD(all.pva, site2)
 
 ```
+
+# Figure 4: Life cycle diagram of Astragalus microcymbus   
+```{r}
+# remove a level of list of lists with recursive = FALSE
+A <- mean(unlist(all.pva, recursive = FALSE))
+eigen.analysis(A)
+
+```
+
 
 
 
@@ -1659,15 +1698,9 @@ mean(asmi.pva$notfenced.pro.matrix)
 
 ```
 
-Results: Demographic monitoring   
-"No rain since May"
-```{r}
-ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
-  geom_jitter(width = 0.1, height = 0)+
-  stat_smooth(se = FALSE)+
-  theme_bw()
 
-```
+
+
 
 #PCA what split mast seeding years, high domrant individuals (not AGG), and percent reproductive     
 
@@ -2307,6 +2340,7 @@ mean(lifelength$Yearsalive[lifelength$YrsD < 8]) #2.5
 mean(lifelength$Yearsalive)
 ```
 
+# Results: Herbivory
 Dormancy    
 repeat lengths   
 ```{r}
@@ -2343,7 +2377,6 @@ fencing_ind_dorm <- do.call(rbind,lapply(split(asmi.raw[asmi.raw$year > 2005 & a
 chisq.test(table(fencing_ind_dorm$Dorm, fencing_ind_dorm$Fence))
 # p = 0.008 so fencing likely influences dormancy 
 
-
 ```
 
 
@@ -2376,6 +2409,12 @@ mean(c(1-aggregate(flower~AsMi_site_id, data=noreproductiveyears,
 
 #Number of years of no reproductive for South Beaver Creek (not correct for Cebolla)
 length(1995:currentyr)-aggregate(flower~AsMi_site_id, data=noreproductiveyears,sum)
+
+
+# Results: Herbivory  
+totFrplotyr <- aggregate(fruit ~ Creek + fence + AsMi_plot_id + year, sum, data = asmi.raw)
+aggregate(fruit ~ Creek + fence, mean, data = totFrplotyr)
+
 ```
 
 
