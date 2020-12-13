@@ -33,13 +33,8 @@ StagePVA_single <- function(df){
   #Starting point vector, select among numbers each year
   n_options_plot <- ddply(df, c("year","site","plot"), function(x) return(table(x$stage)))
   years <- sort(unique(df$year))[-c(1,length(unique(df$year)))] #start years of each transition, year:year+1
-  
-  # Create a list to hold output
-  names <- "projection.matrix"
-  SiteMatrix <- vector("list", length(names))
-  names(SiteMatrix) <- names
 
-  # projection matrices of of class specific vital rates
+  # projection matrices of class specific vital rates
   projection.matrix <- vector("list", length(years))
   names(projection.matrix) <- years
   
@@ -59,6 +54,7 @@ StagePVA_single <- function(df){
     # Adding a fertility column to seedlings. For each individual, the seedlings in t+1 given how many fruit out of the total each individual produced
     fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
     
-    pro.matrix[[as.character(i)]] <- projection.matrix(fert)
-    }
+    projection.matrix[[as.character(i)]] <- projection.matrix(fert)
+  }
+  projection.matrix
 }

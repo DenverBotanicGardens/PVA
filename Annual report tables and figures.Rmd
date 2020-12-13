@@ -61,6 +61,9 @@ Function for t.tests, for annual lambdas
 script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
 eval(parse(text = script))
 
+# StagePVA_simple for one plot at a time function is StagePVA_single
+script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R",ssl.verifypeer = FALSE)
+eval(parse(text = script))
 
 # ### Function for lambda and 
 # requires library(popbio)    
@@ -1191,221 +1194,6 @@ ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
 ```
 
 
-Reproductive lengths - South Beaver Creek only   
-```{r}
-levels(asmi.1$status)
-# [1] "seedling"     "vegetative"   "reproductive" "dormant"      "dead"
-
-repros <- do.call(rbind, lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(tag){
-  reprolns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==3]
-  out <- data.frame(Tag=rep(unique(tag$AsMi_tag_id), length(reprolns)), 
-                    Site=rep(unique(tag$AsMi_site_id), length(reprolns)),
-                    Plot=rep(unique(tag$AsMi_plot_id), length(reprolns)),
-                    repros=reprolns)
-  out
-}))
-
-# max(repros$reproslength)
-max(repros$repros) # 8
-repros[repros$repros == max(repros$repros),]
-
-repros[repros$repros == max(repros$repros)-4,]
-
-plotrepros <- data.frame(table(repros$Tag, repros$repros)) #Var1 is tag, Var2 is reprolenth, Freq times
-mean(plotrepros$Freq[plotrepros$Var2==1])
-
-ggplot(plotrepros, aes(x=Var2, y=Freq ))+
-  geom_boxplot()+ 
-  theme(legend.position="none")
-
-```
-
-#Stage based PVA   
-```{r}
-#is survival associate diwht a continutous classifying variable?
-surv.asmi <- asmi.all2  # asmi.2
-surv.asmi$surv <- 1
-surv.asmi$surv[surv.asmi$fate=="dead"] <- 0
-table(surv.asmi$surv)
-
-str(surv.asmi)
-
-#stages are L, Q, and C? linear, quadractic, cubic - because of the ordinal factor, just factor it
-summary(glm(surv~ as.factor(as.numeric(stage)) +as.factor(site), family=binomial(link = "logit"), surv.asmi))
-# overall survival is 23% SE 6.6% more for vegetative, more for reproductive but misleading for dormant because we can't observe them dying. less for site 19, more for site 5
-
-surv.asmi$stage <- factor(surv.asmi$stage, levels=levels(surv.asmi$stage), ordered=FALSE)
-str(surv.asmi)
-summary(glm(surv~ stage +as.factor(site), family=binomial(link = "logit"), surv.asmi))
-
-
-#survival as a cox proportional hazards regression model
-library(survival)
-
-# interval data, the starting time for the interval (so the year is the stage year and survival is based on fate, next year); "righ censoring" means date of death is unknown, which it is actually! 
-#Survival curve is probability that time of death is greater than some specified time
-survObj <- Surv(time = surv.asmi$year, event=as.logical(surv.asmi$surv))
-model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
-model <- coxph(survObj ~ as.factor(site), data=surv.asmi)
-summary(model)
-
-model_fence <- coxph(survObj ~ fenced, data=surv.asmi)
-summary(model_fence)
-
-model_fence_site <- coxph(survObj ~ fenced*site, data=surv.asmi)
-summary(model_fence_site)
-
-model_stage <- coxph(survObj ~ stage, data=surv.asmi)
-summary(model_stage)
-
-#plotting time to death
-
-
-```
-
-
-https://rpubs.com/daspringate/survival    
-https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-same-lines-many-times-why    
-
-
-```{r}
-#plot survival of a given year by size
-for(i in sort(unique(surv.asmi$year))){
-  plot(surv.asmi$length[surv.asmi$year==i], 
-       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of survival")
-  g<- glm(surv~length, family=binomial,surv.asmi[surv.asmi$year==i,])
-  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
-  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
-}
-
-plot(surv.asmi$length, 
-       surv.asmi$surv, main= "1996 - 2017", xlab="length",ylab="Probability of survival")
-  g<- glm(surv~length, family=binomial,surv.asmi)
-  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
-
-# Plot survivial per year by fruit
-for(i in sort(unique(surv.asmi$year))){
-  plot(surv.asmi$fruits[surv.asmi$year==i], 
-       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="fruits",ylab="Probability of survival")
-  g<- glm(surv~fruits, family=binomial,surv.asmi[surv.asmi$year==i,])
-  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
-  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
-}
-  
-  
-plot(surv.asmi$fruits, 
-       surv.asmi$surv, main= "1996 - 2017", xlab="fruits",ylab="Probability of survival")
-  g<- glm(surv~fruits, family=binomial,surv.asmi)
-  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
-  
-
-surv.asmi$frYN <- 0
-surv.asmi$frYN[surv.asmi$fruits>0] <- 1
-
-# Probability of being reproductive given length
-for(i in sort(unique(surv.asmi$year))){
-  plot(surv.asmi$length[surv.asmi$year==i], 
-       surv.asmi$frYN[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of reproductive")
-  g<- glm(frYN~length, family=binomial,surv.asmi[surv.asmi$year==i,])
-  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
-}
-    
-plot(surv.asmi$length, 
-       surv.asmi$frYN, main= "1996 - 2019", xlab="length",ylab="Probability of reproductive")
-  g<- glm(frYN~length, family=binomial,surv.asmi)
-  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)  
-  
-```
-
-
-# Another way to look at survival curves
-```{r}
-fit <- survfit(Surv(length, surv) ~ fenced, 
-               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
-
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig9_Surv_fence_size.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 150)
-
-ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length", conf.int = TRUE)
-
-dev.off()
-```
-
-# Fit these with dampening survival estimates? based on what are likely to be seen in the rest of the year but dormant in July? 
-
-```{r}
-fit <- survfit(Surv(length, surv) ~ site, 
-               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
-
-ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length")
-
-```
-
-
-
-
-
-```{r}
-
-asmi.raw.1 <- asmi.raw[with(asmi.raw, order(AsMi_site_id,AsMi_plot_id,AsMi_tag_id,year)),]
-
-asmi.raw.1[asmi.raw.1$AsMi_tag_id==10,]
-asmi.1[asmi.1$AsMi_tag_id==10,] # Alive in 1995, not detected again until 2004 when big and flowering
-asmi.1[asmi.1$AsMi_tag_id==3,] # in 1996, maybe these were seen in 1995 but dead by 1996?
-asmi.1[asmi.1$AsMi_tag_id==11,] # Some tag made in error I guess
-
-#Probability of being reproductive given years alive
-levels(asmi.raw.1$status) # 3 is reproductive; 1 is dead
-# Should add at least 1 year to the years alive if reproductive 
-
-notdeadyet <- do.call(rbind,lapply(split(asmi.raw.1, asmi.raw.1$AsMi_tag_id), function(x){
-  if(nrow(x[x$status!="dead",])>0){
-    if(x$status[1] == "reproductive"){
-      addyear <- 1
-    } else {
-      addyear <- 0
-    }
-    StageLength <- nrow(x[x$status!="dead",])
-    data.frame(Tag=x$AsMi_tag_id[x$status!="dead"],
-               year = x$year[x$status!="dead"],
-               YrsAlive=(1+addyear):(StageLength+addyear))
-    }
-  }))
-
-surv.asmi.1 <- merge(asmi.raw, notdeadyet, by.x = c("AsMi_tag_id","year"), by.y = c("Tag","year"))
-surv.asmi.1[surv.asmi.1$AsMi_tag_id==10,]
-surv.asmi.1[surv.asmi.1$status=="reproductive"&surv.asmi.1$YrsAlive<3,]
-
-surv.asmi.1$frYN <- 0
-surv.asmi.1$frYN[surv.asmi.1$fruit>0] <- 1
-
-# Probability of being reproductive given length alive
-
-plot(surv.asmi.1$YrsAlive, 
-       surv.asmi.1$frYN, main= "1995 - 2018", xlab="Years alive",ylab="Probability of reproductive")
-  g<- glm(frYN~YrsAlive, family=binomial,surv.asmi.1)
-  curve(predict(g,data.frame(YrsAlive=x),type="resp"), col="green4",add=TRUE)  
-  
-
-```
-
-
-```{r}
-surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
-
-fit <- survfit(Surv(YrsAlive, surv) ~ site, 
-               data = surv.asmi.2[surv.asmi.2$length>0,]) 
-
-ggsurvplot(fit, data=surv.asmi.2[surv.asmi.2$length>0,], risk.table = FALSE, xlab = "Age", ylab="Probability of Reproductive")
-
-```
-
-```{r}
-plot(10,10, type="n")
-matplot(contr.poly(15)[,1:4], type="b") 
-```
-
 
 # Stage Based PVA
 # From previous versions
@@ -1427,39 +1215,170 @@ Dormancy can be set to 0-1
 ```{r}
 # all.pva <- StagePVA(asmi.all2)
 
+asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2012,]
+
 # Test StagePVA_single
-df <- split(asmi.all2, asmi.all2$plot)[[1]]
-i <- unique(df$year)[1]
-    # t1 <- 1:7
-    # t2 <- 4:10
-    # setdiff(t2, t1) # new in t2 that weren't in t1
+# df <- split(asmi.all2, asmi.all2$plot)[[1]]
+# i <- unique(df$year)[1]
+#     # t1 <- 1:7
+#     # t2 <- 4:10
+#     # setdiff(t2, t1) # new in t2 that weren't in t1
+# rm(df);rm(i)
 
 all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
-  StagePVA_single(df, )
+  out <- StagePVA_single(df)
+  out
 })
 
-
-  '%ni%' <- Negate('%in%')
-asmi.pva <- StagePVA(asmi.all2[asmi.all2$site>2 & asmi.all2$plot %ni% c(598,238,300),]) 
-# Need to exclude plots added later, 598
-cebolla.pva <- StagePVA(asmi.all2[asmi.all2$site<3,])
-```
-
-By plot, South Beaver Creek
-site is then a list of the plots per site
-```{r}
-site <- sapply(unique(asmi.all2$site), function(x){
-  as.character(unique(asmi.all2$plot[asmi.all2$site == x]))
-  }, simplify = FALSE)
-names(site)<-unique(asmi.all2$site)
-site
-
-all.pva$plot.matrix[site$'15'[1]]
 ```
 
 # Matrix Models     
 ## Table 5: Growth rate    
 SBC 
+```{r}
+str(all.pva)
+names(all.pva)
+'%ni%' <- Negate('%in%')
+ 
+ 
+# Are only at SBC
+fencedplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$fence == "y"])
+fencedplotmeans <- lapply(1:length(fencedplots), function(i){
+  mean(all.pva[names(all.pva) %in% fencedplots][[i]])
+  })
+
+
+# Pre-fencing t+1 of start of plot (earliest is 1996) - 2005 where t+1 == 2005, transition matrix is called 2004
+fencedplotlambdasPre <- unlist(lapply(1:length(fencedplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% fencedplots][[i]]
+  prefence <- fenced1[as.numeric(names(fenced1)) < 2005]
+  # postfence <- fenced1[as.numeric(names(fenced1)) >= 2005]
+  prefencelambda <- lapply(1:length(prefence), function(tm){
+    popbio::lambda(prefence[[tm]])
+  })
+  # postfencelambda <- lapply(1:length(postfence), function(tm){
+  #   popbio::lambda(postfence[[tm]])
+  # })
+  # data.frame(PreFmean = mean(do.call(rbind,prefencelambda)), PreFSD = sd(do.call(rbind,prefencelambda)),
+  #            PostFmean = mean(do.call(rbind,postfencelambda)), PostFSD = sd(do.call(rbind,postfencelambda)))
+  do.call(rbind,prefencelambda)
+  }))
+
+# Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
+mean(fencedplotlambdasPre); sd(fencedplotlambdasPre)
+
+fencedplotlambdasPost <- unlist(lapply(1:length(fencedplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% fencedplots][[i]]
+  postfence <- fenced1[as.numeric(names(fenced1)) >= 2005]
+  postfencelambda <- lapply(1:length(postfence), function(tm){
+    popbio::lambda(postfence[[tm]])
+  })
+  # do.call(rbind,postfencelambda)
+  unlist(postfencelambda)
+}))
+
+# Table 5: Growth rate (lambda) and standard deviations Fenced Post-fencing
+mean(fencedplotlambdasPost); sd(fencedplotlambdasPost)
+
+# South Beaver Creek
+SBCplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id > 4])  
+
+SBCplotlambdasPre <- unlist(lapply(1:length(SBCplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% SBCplots][[i]]
+  prefence <- fenced1[as.numeric(names(fenced1)) < 2005] # One was started in 2004 so won't have any
+  if(length(prefence)>1){
+    prefencelambda <- lapply(1:length(prefence), function(tm){
+      popbio::lambda(prefence[[tm]])
+      })
+    }
+  unlist(prefencelambda)
+  }))
+
+# Table 5: Growth rate (lambda) and standard deviations Open pre-fencing
+mean(SBCplotlambdasPre); sd(SBCplotlambdasPre)
+
+# Open South Beaver Creek 
+openSBCplots <- setdiff(SBCplots,fencedplots)
+
+OpenplotlambdasPre <- unlist(lapply(1:length(openSBCplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% openSBCplots][[i]]
+  prefence <- fenced1[as.numeric(names(fenced1)) < 2005]
+  if(length(prefence)>1){
+    prefencelambda <- lapply(1:length(prefence), function(tm){
+      popbio::lambda(prefence[[tm]])
+      })
+    }
+  unlist(prefencelambda)
+  }))
+
+# Table 5: Growth rate (lambda) and standard deviations Open Pre-fencing
+mean(OpenplotlambdasPre); sd(OpenplotlambdasPre)
+
+
+OpenplotlambdasPost <- unlist(lapply(1:length(openSBCplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% openSBCplots][[i]]
+  prefence <- fenced1[as.numeric(names(fenced1)) >= 2005]
+  if(length(prefence)>1){
+    prefencelambda <- lapply(1:length(prefence), function(tm){
+      popbio::lambda(prefence[[tm]])
+      })
+    }
+  unlist(prefencelambda)
+  }))
+
+# Table 5: Growth rate (lambda) and standard deviations Open Pre-fencing
+mean(OpenplotlambdasPost); sd(OpenplotlambdasPost)
+
+# Open SBC all years
+Openplotlambdas <- unlist(lapply(1:length(openSBCplots), function(i){
+  fenced1 <- all.pva[names(all.pva) %in% openSBCplots][[i]]
+  prefencelambda <- lapply(1:length(fenced1), function(tm){
+      popbio::lambda(fenced1[[tm]])
+      })
+  unlist(prefencelambda)
+  }))
+
+# Table 5: Growth rate (lambda) and standard deviations Open Pre-fencing
+mean(Openplotlambdas); sd(Openplotlambdas)
+
+
+```
+
+Pre, post, and all functions
+```{r}
+# all.pva is the list of plots which each is a list of years from StagePVA_single
+# plots is a vector of plots to use
+
+GrowthRateMeanSD <- function(all.pva = all.pva, plots, PreFence = FALSE, PostFence = FALSE){
+  plotsout <- unlist(lapply(1:length(plots), function(i){
+    oneplot <- all.pva[names(all.pva) %in% fencedplots][[i]]
+    if(PreFence == TRUE){
+      oneplot <- oneplot[as.numeric(names(oneplot)) < 2005]
+    }
+    if(PostFence == TRUE){
+      oneplot <- oneplot[as.numeric(names(oneplot)) >= 2005]
+    }
+    if(length(oneplot)>1){
+      plotlambda <- lapply(1:length(oneplot), function(tm){
+        popbio::lambda(oneplot[[tm]])
+        })
+    }
+    unlist(plotlambda)
+  }))
+  
+  # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
+  data.frame(mean(plotsout), sd(plotsout))
+  }
+
+GrowthRateMeanSD(all.pva, openSBCplots)
+
+```
+
+
+
+
+
+### OLD, skip
 ```{r}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
@@ -4112,6 +4031,220 @@ length(dorms$dorms[dorms$dorms > 20]) #13 -> 14
 
 ```
 
+
+Reproductive lengths - South Beaver Creek only   
+```{r}
+levels(asmi.1$status)
+# [1] "seedling"     "vegetative"   "reproductive" "dormant"      "dead"
+
+repros <- do.call(rbind, lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(tag){
+  reprolns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==3]
+  out <- data.frame(Tag=rep(unique(tag$AsMi_tag_id), length(reprolns)), 
+                    Site=rep(unique(tag$AsMi_site_id), length(reprolns)),
+                    Plot=rep(unique(tag$AsMi_plot_id), length(reprolns)),
+                    repros=reprolns)
+  out
+}))
+
+# max(repros$reproslength)
+max(repros$repros) # 8
+repros[repros$repros == max(repros$repros),]
+
+repros[repros$repros == max(repros$repros)-4,]
+
+plotrepros <- data.frame(table(repros$Tag, repros$repros)) #Var1 is tag, Var2 is reprolenth, Freq times
+mean(plotrepros$Freq[plotrepros$Var2==1])
+
+ggplot(plotrepros, aes(x=Var2, y=Freq ))+
+  geom_boxplot()+ 
+  theme(legend.position="none")
+
+```
+
+```{r}
+#is survival associate diwht a continutous classifying variable?
+surv.asmi <- asmi.all2  # asmi.2
+surv.asmi$surv <- 1
+surv.asmi$surv[surv.asmi$fate=="dead"] <- 0
+table(surv.asmi$surv)
+
+str(surv.asmi)
+
+#stages are L, Q, and C? linear, quadractic, cubic - because of the ordinal factor, just factor it
+summary(glm(surv~ as.factor(as.numeric(stage)) +as.factor(site), family=binomial(link = "logit"), surv.asmi))
+# overall survival is 23% SE 6.6% more for vegetative, more for reproductive but misleading for dormant because we can't observe them dying. less for site 19, more for site 5
+
+surv.asmi$stage <- factor(surv.asmi$stage, levels=levels(surv.asmi$stage), ordered=FALSE)
+str(surv.asmi)
+summary(glm(surv~ stage +as.factor(site), family=binomial(link = "logit"), surv.asmi))
+
+
+#survival as a cox proportional hazards regression model
+library(survival)
+
+# interval data, the starting time for the interval (so the year is the stage year and survival is based on fate, next year); "righ censoring" means date of death is unknown, which it is actually! 
+#Survival curve is probability that time of death is greater than some specified time
+survObj <- Surv(time = surv.asmi$year, event=as.logical(surv.asmi$surv))
+model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
+model <- coxph(survObj ~ as.factor(site), data=surv.asmi)
+summary(model)
+
+model_fence <- coxph(survObj ~ fenced, data=surv.asmi)
+summary(model_fence)
+
+model_fence_site <- coxph(survObj ~ fenced*site, data=surv.asmi)
+summary(model_fence_site)
+
+model_stage <- coxph(survObj ~ stage, data=surv.asmi)
+summary(model_stage)
+
+#plotting time to death
+
+
+```
+
+
+https://rpubs.com/daspringate/survival    
+https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-same-lines-many-times-why    
+
+
+```{r}
+#plot survival of a given year by size
+for(i in sort(unique(surv.asmi$year))){
+  plot(surv.asmi$length[surv.asmi$year==i], 
+       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of survival")
+  g<- glm(surv~length, family=binomial,surv.asmi[surv.asmi$year==i,])
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
+  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
+}
+
+plot(surv.asmi$length, 
+       surv.asmi$surv, main= "1996 - 2017", xlab="length",ylab="Probability of survival")
+  g<- glm(surv~length, family=binomial,surv.asmi)
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
+
+# Plot survivial per year by fruit
+for(i in sort(unique(surv.asmi$year))){
+  plot(surv.asmi$fruits[surv.asmi$year==i], 
+       surv.asmi$surv[surv.asmi$year==i], main= paste(i), xlab="fruits",ylab="Probability of survival")
+  g<- glm(surv~fruits, family=binomial,surv.asmi[surv.asmi$year==i,])
+  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
+  #points(surv.asmi$length[surv.asmi$year==i],fitted(g), pch=20)
+}
+  
+  
+plot(surv.asmi$fruits, 
+       surv.asmi$surv, main= "1996 - 2017", xlab="fruits",ylab="Probability of survival")
+  g<- glm(surv~fruits, family=binomial,surv.asmi)
+  curve(predict(g,data.frame(fruits=x),type="resp"), col="green4",add=TRUE)
+  
+
+surv.asmi$frYN <- 0
+surv.asmi$frYN[surv.asmi$fruits>0] <- 1
+
+# Probability of being reproductive given length
+for(i in sort(unique(surv.asmi$year))){
+  plot(surv.asmi$length[surv.asmi$year==i], 
+       surv.asmi$frYN[surv.asmi$year==i], main= paste(i), xlab="length",ylab="Probability of reproductive")
+  g<- glm(frYN~length, family=binomial,surv.asmi[surv.asmi$year==i,])
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
+}
+    
+plot(surv.asmi$length, 
+       surv.asmi$frYN, main= "1996 - 2019", xlab="length",ylab="Probability of reproductive")
+  g<- glm(frYN~length, family=binomial,surv.asmi)
+  curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)  
+  
+```
+
+
+# Another way to look at survival curves
+```{r}
+fit <- survfit(Surv(length, surv) ~ fenced, 
+               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
+
+jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+              currentyr,"_asmi/Fig9_Surv_fence_size.jpg", sep = ""),
+         units = "mm", res = 300, height = 100, width = 150)
+
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length", conf.int = TRUE)
+
+dev.off()
+```
+
+# Fit these with dampening survival estimates? based on what are likely to be seen in the rest of the year but dormant in July? 
+
+```{r}
+fit <- survfit(Surv(length, surv) ~ site, 
+               data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
+
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length")
+
+```
+
+
+
+
+
+```{r}
+
+asmi.raw.1 <- asmi.raw[with(asmi.raw, order(AsMi_site_id,AsMi_plot_id,AsMi_tag_id,year)),]
+
+asmi.raw.1[asmi.raw.1$AsMi_tag_id==10,]
+asmi.1[asmi.1$AsMi_tag_id==10,] # Alive in 1995, not detected again until 2004 when big and flowering
+asmi.1[asmi.1$AsMi_tag_id==3,] # in 1996, maybe these were seen in 1995 but dead by 1996?
+asmi.1[asmi.1$AsMi_tag_id==11,] # Some tag made in error I guess
+
+#Probability of being reproductive given years alive
+levels(asmi.raw.1$status) # 3 is reproductive; 1 is dead
+# Should add at least 1 year to the years alive if reproductive 
+
+notdeadyet <- do.call(rbind,lapply(split(asmi.raw.1, asmi.raw.1$AsMi_tag_id), function(x){
+  if(nrow(x[x$status!="dead",])>0){
+    if(x$status[1] == "reproductive"){
+      addyear <- 1
+    } else {
+      addyear <- 0
+    }
+    StageLength <- nrow(x[x$status!="dead",])
+    data.frame(Tag=x$AsMi_tag_id[x$status!="dead"],
+               year = x$year[x$status!="dead"],
+               YrsAlive=(1+addyear):(StageLength+addyear))
+    }
+  }))
+
+surv.asmi.1 <- merge(asmi.raw, notdeadyet, by.x = c("AsMi_tag_id","year"), by.y = c("Tag","year"))
+surv.asmi.1[surv.asmi.1$AsMi_tag_id==10,]
+surv.asmi.1[surv.asmi.1$status=="reproductive"&surv.asmi.1$YrsAlive<3,]
+
+surv.asmi.1$frYN <- 0
+surv.asmi.1$frYN[surv.asmi.1$fruit>0] <- 1
+
+# Probability of being reproductive given length alive
+
+plot(surv.asmi.1$YrsAlive, 
+       surv.asmi.1$frYN, main= "1995 - 2018", xlab="Years alive",ylab="Probability of reproductive")
+  g<- glm(frYN~YrsAlive, family=binomial,surv.asmi.1)
+  curve(predict(g,data.frame(YrsAlive=x),type="resp"), col="green4",add=TRUE)  
+  
+
+```
+
+
+```{r}
+surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
+
+fit <- survfit(Surv(YrsAlive, surv) ~ site, 
+               data = surv.asmi.2[surv.asmi.2$length>0,]) 
+
+ggsurvplot(fit, data=surv.asmi.2[surv.asmi.2$length>0,], risk.table = FALSE, xlab = "Age", ylab="Probability of Reproductive")
+
+```
+
+```{r}
+plot(10,10, type="n")
+matplot(contr.poly(15)[,1:4], type="b") 
+```
 
 
 

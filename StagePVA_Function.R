@@ -124,7 +124,7 @@ StagePVA <- function(df,dormancy = 1){
     notfenced.pro.matrix[[as.character(i)]] <- projection.matrix(notfencedfert, add = c(length(levels(df$stage)),
                                                                                         length(levels(df$stage)),
                                                                                         death.to.dormants_notfencedfert))
-  }
+  } # end for years loop
 
   SiteMatrix$pro.matrix <- pro.matrix
   SiteMatrix$fenced.pro.matrix <- fenced.pro.matrix
