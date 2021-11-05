@@ -25,6 +25,7 @@ library(plyr)
 library(devtools)
 library(digest)
 library(RCurl)
+# library(roxygen2)  # only need if files have roxygen2 comments
 # install_github(repo = "prism", username = "ropensci")
 library(prism)
 library(rgdal)
@@ -58,12 +59,14 @@ Function for t.tests, for annual lambdas
 ```{r}
 
 # StagePVA_Function.R
-script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
-eval(parse(text = script))
+source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R")
+# script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
+# eval(parse(text = script))
 
 # StagePVA_simple for one plot at a time function is StagePVA_single
-script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R",ssl.verifypeer = FALSE)
-eval(parse(text = script))
+source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R")
+# script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R",ssl.verifypeer = FALSE)
+# eval(parse(text = script))
 
 # ### Function for lambda and 
 # requires library(popbio)    
@@ -170,11 +173,20 @@ Save all sites, all data, and set to 20 years allowed dormant (or all possible y
 Put the new data in folder currentyr_asmi and name it RawData_currentyr 
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
-rawdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
-                     currentyr,"_asmi/RawData_",
-                     currentyr, ".csv", collapse = '', sep = '')
 
+rawdatapath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+# rawdatapath2 <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#                      currentyr,"_asmi/RawData_",
+#                      currentyr, ".csv", collapse = '', sep = '')
 asmi.raw <- read.csv(path.expand(rawdatapath), na.strings = "na")
+
+# need to remove all plot 89, site 1 in 2020 and beyond
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+
+# For the path and start of the name of each file
+savepath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_", collapse = '', sep = '')
+
 
 asmi.raw$length[is.na(asmi.raw$length)] <- 0
 
@@ -192,7 +204,7 @@ table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_plot_id %in% c(238,300,598)],
       asmi.raw$status[asmi.raw$AsMi_plot_id %in% c(238,300,598)],
       asmi.raw$year[asmi.raw$AsMi_plot_id %in% c(238,300,598)])
 
-# Need to change all the seedling in 2014 for sites 1 and 2 to approraite other thing
+# Need to change all the seedling in 2014 for sites 1 and 2 to appropriate vegetative or reproductive 
 asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 0] <- "vegetative"
 asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 1] <- "reproductive"
 
@@ -207,11 +219,13 @@ table(asmi.raw$Browsing...Status)
 asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal" ] <- "Mammal"
 asmi.raw[asmi.raw$Browsing...Status ==""& !is.na(asmi.raw$Browsing...Status),]
 asmi.raw[is.na(asmi.raw$AsMi_data_id),]
-asmi.raw <- asmi.raw[!is.na(asmi.raw$AsMi_data_id),]
+asmi.raw <- asmi.raw[!is.na(asmi.raw$AsMi_data_id),] # remove any rows with NA for data_id
 
-table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id)
+# Which plot # go with which site
+plotsXsite <- as.data.frame(table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id))
+plotsXsite[plotsXsite$Freq > 0,]
 
-# one blank row at the end of the csv download
+# one blank row at the end of the csv download, gone by 2021
 asmi.raw[asmi.raw$status == "",]
 # asmi.raw <- asmi.raw[asmi.raw$status != "",]
 asmi.raw$status <- factor(asmi.raw$status)
@@ -228,16 +242,48 @@ table(asmi.raw$fence)
 asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] 
 asmi.raw$length[asmi.raw$length == 921] <- 21
 
-asmi.raw[asmi.raw$status=="vegetative" & asmi.raw$fruit>0,]
+# If there are fruit, it flowered and needs to be reproductive, not vegetative
+asmi.raw[asmi.raw$status=="vegetative" & asmi.raw$fruit>0,] # 5 times in 2020
 wrongAsMidataid <- asmi.raw$AsMi_data_id[asmi.raw$status=="vegetative" & asmi.raw$fruit>0]
 asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
 asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
 asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 
-# Years of study
+# Years of study in the abstract
 length(1995:currentyr)
 ```
 
+Instantaneous rates of change  <https://www.webpages.uidaho.edu/wlf448/Peterson2.htm>  
+if population doubles each year   
+R = 2 = finite rate of growth yearly  
+R = $e^r$ = 2   
+r = ln R = 0.693
+```{r}
+R <- 2
+r <- log(R)
+
+```
+
+UTM Zone 13 from ArcGIS
+```{r}
+asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
+
+# Convert from UTM to lat/long
+asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
+                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
+                       CRS("+proj=longlat +datum=WGS84"))
+
+asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
+
+# only if made it for current year, then load here and skip the climate chunks that follow
+load( paste(rawdatapath, "asmi.climate", currentyr, ".Rdata", sep=""))
+```
+asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
+
+
+
+################################################################################################################
+#########################   Run once per year!! ################################################################
 # Download climate data  
 ###Environmental Data from PRISM:   
 <http://prism.oregonstate.edu/explorer/>  
@@ -268,23 +314,8 @@ get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
 ```
 
 
-UTM Zone 13 from ArcGIS
-```{r}
-asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
 
-# Convert from UTM to lat/long
-asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
-                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
-                       CRS("+proj=longlat +datum=WGS84"))
-
-asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
-
-load( paste(rawdatapath, "asmi.climate", currentyr, ".Rdata", sep=""))
-```
-asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
-
-
-
+#########################################################################################################################
 ### Takes forever, just load and move on after first time
 # Want Site, Year, Month, ppt, tmin, tmax
 ```{r, eval = FALSE}
@@ -336,7 +367,7 @@ ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '
                                    function(x) x[5], character(1)), 5,6))
 
 
-# Didn't get all the ppt for 2019
+# Check that all get downloaded
 asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
                                                          "asmilatlong.Tag_Commen"))
 names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
@@ -352,10 +383,14 @@ asmi.climate$SiteNum[asmi.climate$Site == "Site 15"] <- 15
 asmi.climate$SiteNum[asmi.climate$Site == "Site 5"] <- 5
 asmi.climate$SiteNum[asmi.climate$Site == "Site 19"] <- 19
 asmi.climate$SiteNum[asmi.climate$Site == "Site 26"] <- 26
-table(asmi.climate$SiteNum)
+table(asmi.climate$SiteNum, asmi.climate$Site)
 
 save(asmi.climate, file = paste(rawdatapath, "asmi.climate", currentyr,".Rdata", sep=""))
 ```
+#########################################################################################################################
+#################################### only once per year #################################################################
+
+
 
 ```{r}
 asmi.c <- asmi.climate
@@ -383,16 +418,21 @@ asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
 # write.table(asmi.c, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/" ,currentyr,"asmi.c.csv",sep=""), sep=",")
 
+## Environmental Data but this is average monthly, not Prev12
 aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
 sort(unique(asmi.c$Year))
 
 # first add by all prev12 then average all by creek
-# Precipitation: ppt But with changes ppt is x
+# Precipitation: ppt But with changes ppt is x 
+## 2021 - remove Plot for the aggregation, don't need a new value for each plot within a site
 prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
+                                     Plot=asmi.c$Plot,
+                                     YearPrev12=asmi.c$Prev12),
                         function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
 # 1980 to currentyr
 # aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
+## Want only one measure per site, not per plot within a site
+prev12clim <- prev12clim[!duplicated(prev12clim[,c("Creek","Site","YearPrev12","x")]),]
 aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
 
 aggregate(prev12clim$x, list(Creek=prev12clim$Creek), sd)
@@ -411,6 +451,7 @@ aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994],
 prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
                                      Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
                         function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
+prev12clim.temp <- prev12clim.temp[!duplicated(prev12clim.temp[,c("Creek","Site","YearPrev12","tmin","tmax")]),]
 # 1980 to currentyr
 aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
 
@@ -465,11 +506,17 @@ season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.su
                   direction="wide")
 head(season)
 
-ggplot(season, aes(Prev12, ppt.fall))+
-  geom_line()
+ggplot(season, aes(Prev12, ppt.fall, colour = Creek))+
+  geom_line()+
+  geom_point()+
+  theme_bw()
 
-ggplot(season, aes(Prev12, ppt.winter))+
-  geom_line()
+
+ggplot(season, aes(Prev12, ppt.winter, colour = Creek))+
+  geom_line()+
+  geom_point()+
+  theme_bw()
+
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -524,18 +571,20 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
 
-ggplot(alive, aes(year, length, colour=as.factor(AsMi_site_id)))+
-#  geom_point()+
+ggplot(alive, aes(year, length, group= as.factor(AsMi_plot_id)))+
+ geom_point()+
   stat_smooth(se=FALSE)+
   ylab("Individuals per plot")+
   xlab("Year")+
   theme_bw()+
-  scale_color_manual("Sites",labels = c("Cebolla Mid", 
-                                          "Cebolla North",
-                                          "5","15","19","26"),
-                     values = c("cyan", "darkblue",
-                                "olivedrab","olivedrab1",
-                                "mediumseagreen","mistyrose3"))
+  facet_wrap(~as.factor(AsMi_site_id))
+# +
+#   scale_color_manual("Sites",labels = c("Cebolla Mid", 
+#                                           "Cebolla North",
+#                                           "5","15","19","26"),
+#                      values = c("cyan", "darkblue",
+#                                 "olivedrab","olivedrab1",
+#                                 "mediumseagreen","mistyrose3"))
 
 # 
 # table(alive$AsMi_site_id, alive$length)
@@ -588,11 +637,7 @@ tbl1a <- lapply(1:6, function(x){
   data.frame(tbl1.1[[x]],tbl1.2[[x]])
   })
 
-# savepath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", 
-#                      currentyr,"_asmi/", collapse = '', sep = '')
-
-# For the path and start of the name of each file
-savepath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_", collapse = '', sep = '')
+# savepath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/", currentyr,"_asmi/", collapse = '', sep = '')
 
 Table1 <- data.frame(tbl1a[[3]],tbl1a[[4]],tbl1a[[5]],tbl1a[[6]])
 names(Table1) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
@@ -690,12 +735,30 @@ Total.Alive is AGG
 X..Flowered must be percent flowered and    
 X..Flowered.1 is number flowered
 
-#Save new annual data in folder titled "<current year>_asmi" and name the file "PlotSummary_<current year>"
+#Save new annual data in folder titled "<current year>_asmi" and name the file "PlotSummary_<current year>"  pre-Teams
+# Save new annual data in folder "~\Denver Botanic Gardens\Conservation - General\AllProjectsBySpecies\Astragalus microcymbus\Astragalus-microcymbus_Data\" and title them:     
+     "<current year>_Astragalus-microcymbus_PlotSummary.csv"   
+     "<current year>_Astragalus-microcymbus_RawData.csv"
 ```{r}
-plotdatapath <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,
-                      "_asmi/PlotSummary_",currentyr,".csv",
+plotdatapath <- # paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/"
+  paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_Data/",
+        currentyr,"_Astragalus-microcymbus_PlotSummary.csv",
                       collapse = '', sep = '')
 ps.asmi <- read.csv(path.expand(plotdatapath))
+ps.asmi <- ps.asmi[,1:11] # old climate data that isn't updated in the database
+
+ps.asmi$Year[ps.asmi$Plot == 89] # 2014-2019
+ps.asmi$Year[ps.asmi$Plot == 598] # 2004-currentyr
+ps.asmi$Year[ps.asmi$Plot == 300] # 1996-currentyr
+
+# remove rows with summaries of non-existent plots like 89 after 2019
+ps.asmi <- ps.asmi[!(ps.asmi$Plot == 89 & ps.asmi$Year > 2019),]
+ps.asmi <- ps.asmi[!(ps.asmi$Site < 3 & ps.asmi$Year < 2014),]
+ps.asmi <- ps.asmi[!(ps.asmi$Plot == 598 & ps.asmi$Year < 2004),]
+ps.asmi <- ps.asmi[!(ps.asmi$Plot == 300 & ps.asmi$Year < 1996),]
+ps.asmi <- ps.asmi[!(ps.asmi$Plot == 238 & ps.asmi$Year < 1996),]
+
+
 
 # remove the moniker of 'y' from fenced plots before they are fenced.
 ps.asmi$Fence[ps.asmi$Year<2006] <- 'n'
@@ -705,14 +768,14 @@ ps.asmi$Creek <- "SouthBeaver"
 ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla" 
 ps.asmi$Creek <- as.factor(ps.asmi$Creek)
 
-ps.asmi$Total.Alive[ps.asmi$Site <3 & ps.asmi$Year<2014] <- NA
-ps.asmi$Total.Plants[ps.asmi$Site <3 & ps.asmi$Year<2014] <- NA
-
-ps.asmi$Total.Alive[ps.asmi$Plot %in%  c(238,300) & ps.asmi$Year < 1996] <- NA
-ps.asmi$Total.Plants[ps.asmi$Plot %in%  c(238,300) & ps.asmi$Year < 1996] <- NA
-
-ps.asmi$Total.Alive[ps.asmi$Plot %in%  c(598) & ps.asmi$Year < 2004] <- NA
-ps.asmi$Total.Plants[ps.asmi$Plot %in%  c(598) & ps.asmi$Year < 2004] <- NA
+# ps.asmi$Total.Alive[ps.asmi$Site <3 & ps.asmi$Year<2014] <- NA
+# ps.asmi$Total.Plants[ps.asmi$Site <3 & ps.asmi$Year<2014] <- NA
+# 
+# ps.asmi$Total.Alive[ps.asmi$Plot %in%  c(238,300) & ps.asmi$Year < 1996] <- NA
+# ps.asmi$Total.Plants[ps.asmi$Plot %in%  c(238,300) & ps.asmi$Year < 1996] <- NA
+# 
+# ps.asmi$Total.Alive[ps.asmi$Plot %in%  c(598) & ps.asmi$Year < 2004] <- NA
+# ps.asmi$Total.Plants[ps.asmi$Plot %in%  c(598) & ps.asmi$Year < 2004] <- NA
 
 
 
@@ -741,7 +804,7 @@ Can look at these and then work forward to test predictive on new data (like the
 AGG 
 Should be a Poisson for counts of individuals
 ```{r}
-# library(lme4) # don't need to do mixed random effects models
+library(lme4) # don't need to do mixed random effects models
 # 2020 report
 ps.asmi.reduced <- ps.asmi[!is.na(ps.asmi$Total.Alive),]
 # Methods say exclude Cebolla for whole time, then no creek
@@ -752,18 +815,30 @@ head(ps.asmi.reduced[order(ps.asmi.reduced$Plot),])
 
 glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
 summary(glm1)
+nlm1 <- glmer(Total.Alive ~ 1 + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
+summary(nlm1)
 glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm2 <- glmer(Total.Alive ~ as.factor(Site) + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
 glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
+nlm3 <- glmer(Total.Alive ~ Creek + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
 glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm4 <- glmer(Total.Alive ~ Fence + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
 glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm5 <- glmer(Total.Alive ~ 1 + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
 glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm6 <- glmer(Total.Alive ~ as.factor(Site) + (1|Plot), family = poisson(link = 'log'), data = ps.asmi.reduced)
 glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
+nlm7 <- glmer(Total.Alive ~ Creek + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced) 
 glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm8 <- glmer(Total.Alive ~ Fence + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+nlm.list <- list(nlm1,nlm2,nlm3,nlm4,nlm5,nlm6,nlm7,nlm8)
 # glm.list <- list(glm1,glm2,glm4,glm5,glm6,glm8) # if no Cebolla
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
+nlm.names <- as.character(unlist(lapply(nlm.list, formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
+(nlm.results <- aictab(nlm.list, modnames=nlm.names)) # Right, just the same, not needed
 
 #evidence ratio 
 for(i in 2:length(glm.list)){
@@ -771,9 +846,10 @@ for(i in 2:length(glm.list)){
 }
 
 ```
-
+Year and site differ for the total allive with AGG. 
 
 Only during censuses at both drainage 2014 - currentYr
+Table 3b
 ```{r}
 
 glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
@@ -796,16 +872,19 @@ for(i in 2:length(glm.list)){
 
 ```
 
-
+Use the ggplots instead of the xyplot
 ```{r}
 ps.asmi.t$Site <- factor(as.factor(ps.asmi.t$Site), levels = levels(as.factor(ps.asmi.t$Site)))
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
-         units = "mm", res = 300, height = 200, width = 150)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+jpeg(paste(savepath,
+              # currentyr,"_asmi/",
+           "Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
+         units = "mm", res = 300, height = 200, width = 250)
 
 
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi[ps.asmi$Year > 2013,],
+# xyplot(Total.Alive ~ Year + as.factor(Site)|as.factor(Plot), ps.asmi[ps.asmi$Year > 2013,],
        type = c("g","p","r"),
        layout = c(2, 3),
        index.cond = list(1:6),
@@ -824,9 +903,43 @@ dev.off()
 
 ```
 
+
+
+## ggplot Figure 2
 ```{r}
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,"_asmi/",
+ps.asmi[ps.asmi$Plot == 89,]
+
+Fig2_a <- ggplot(ps.asmi, aes(Year, Total.Alive, colour = as.factor(Plot)))+
+  stat_smooth(se = FALSE)+
+  geom_point()+
+  ggtitle("a)")+
+  facet_wrap(~Site, scales="free_y")+
+  theme_bw()+
+  ylab("Individuals with AGG")+
+  scale_colour_discrete(guide=FALSE)
+
+Fig2_b <- ggplot(ps.asmi[ps.asmi$Year > 2013,], aes(Year, Total.Alive, colour = as.factor(Plot)))+
+  stat_smooth(se = FALSE)+
+  geom_point()+
+  ggtitle("b)")+
+  facet_wrap(~Site, scales = "free_y")+
+  theme_bw()+
+  ylab("Individuals with AGG")+
+  scale_colour_discrete(guide=FALSE)
+
+library(patchwork)
+
+ggsave(paste(savepath, "Fig2.jpg", sep = ""),
+       Fig2_a/Fig2_b, width=250, height=300,units='mm', dpi=300)
+
+```
+
+```{r}
+
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,"_asmi/",
+jpeg(paste(savepath,
+           # currentyr,"_asmi/",
            "Fig2-latticeplot_6Sites.jpg", sep = ""),
          units = "mm", res = 300, height = 200, width = 200)
 
@@ -844,6 +957,7 @@ xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi,
            },
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
+
 dev.off()
 
 
@@ -851,18 +965,27 @@ dev.off()
 
 
 Table 3e
-#AIC for fruit
+#AIC for fruit  
+# 2021 switched to number of fruit for only those that are reproductive
 ```{r}
 
+ggplot(ps.asmi.reduced, aes(as.factor(Site), Total.Fruit))+
+  geom_boxplot()+
+  geom_jitter(height = 0.01)
+
+ggplot(ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,], aes(as.factor(Site), Total.Fruit))+
+  geom_boxplot()+
+  geom_jitter(height = 0.01)
+
 #Candidate models  
-glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
-glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
-glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,]) #Need add creek!
+glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,]) 
+glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
@@ -1051,6 +1174,18 @@ Results: Demographic monitoring
 "No rain since May"
 ```{r}
 ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
+  geom_jitter(width = 0.1, height = 0)+
+  stat_smooth(se = FALSE)+
+  theme_bw()
+
+
+ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, tmax, colour = Site))+
+  geom_jitter(width = 0.1, height = 0)+
+  stat_smooth(se = FALSE)+
+  theme_bw()
+
+
+ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, tmin, colour = Site))+
   geom_jitter(width = 0.1, height = 0)+
   stat_smooth(se = FALSE)+
   theme_bw()
@@ -1253,6 +1388,9 @@ Dormancy can be set to 0-1
 ```{r}
 # all.pva <- StagePVA(asmi.all2)
 
+# In 2020 all the tags were removed by someone. An attempt was made to relocate and retag plants but that was abandoned. Need to remove all 2020 data and after. 
+table(asmi.all2$stage[asmi.all2$plot == 89], asmi.all2$year[asmi.all2$plot==89])
+
 asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2012,]
 
 # Test StagePVA_single
@@ -1308,6 +1446,11 @@ Table 5: Average growth rate ($\lambda$) and standard deviation ...
 # South Beaver Creek
 SBCplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id > 4])
 GrowthRateMeanSD(all.pva, SBCplots, PreFence = TRUE)
+
+all.pva['89'] # not first year or last year so 2015-2017 because 2019 was the last year and the year == y:y+1
+all.pva['90']
+all.pva['598'] # Yay! it goes 2005/06 through 2019/20 when current year is 2021
+
 
 # Are only at SBC
 fencedplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$fence == "y"])

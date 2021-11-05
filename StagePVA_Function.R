@@ -87,14 +87,18 @@ StagePVA <- function(df,dormancy = 1){
     # fruit production per individual as a percent of the total production that year. Time t
     # this times the number of seedlings in the next year
 
-    seedlings <- nrow(df[df$year == i+1 & df$stage=="seedling" & df$fruits == 0, ]) +
-      nrow(df[df$year == i+2 & df$stage=="seedling" & df$fruits > 0, ]) # the number of new to us i.e. seedling but clearly not seedling two years later
+    # In the report I say that we're assigning seedlings as 'new to us' plants in two years that were first seen as big reproductive ones
+    # Therefore, exclude individuals that are new to us (called 'seedlings') but are reproductive
+    seedlings <- nrow(df[df$year == i+1 & df$stage=="seedling" & df$fruits == 0 & df$length <= 10, ]) +
+      nrow(df[(df$year == i+2 & df$stage=="seedling" & df$fruits > 0) | (df$year == i+2 & df$stage=="seedling" & df$length >= 10), ]) # the number of new to us i.e. seedling but clearly not seedling two years later
 
     fencedseedlings <- nrow(df[df$year == i+1 & df$Plot %in% fencedplots & df$stage=="seedling" & df$fruits == 0, ]) +
-      nrow(df[df$year == i+2  & df$Plot %in% fencedplots &  df$stage=="seedling" & df$fruits > 0, ])
+      nrow(df[(df$year == i+2  & df$Plot %in% fencedplots &  df$stage=="seedling" & df$fruits > 0) |
+                (df$year == i+2  & df$Plot %in% fencedplots &  df$stage=="seedling" & df$length >= 10), ])
 
     notfencedseedlings <- nrow(df[df$year == i+1 & df$Plot %ni% fencedplots & df$stage=="seedling" & df$fruits == 0, ]) +
-      nrow(df[df$year == i+2  & df$Plot %ni% fencedplots &  df$stage=="seedling" & df$fruits > 0, ])
+      nrow(df[(df$year == i+2  & df$Plot %ni% fencedplots &  df$stage=="seedling" & df$fruits > 0) |
+                (df$year == i+2  & df$Plot %ni% fencedplots &  df$stage=="seedling" & df$length >= 10), ])
 
     # Seedlings that are reproductive couldn't have come from the preceding year's fruits, it was alive at least in the preceding year
     # Change after counting what we marked as seedlings to not being seedling if reproductive, just missed
