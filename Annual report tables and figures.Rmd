@@ -2,7 +2,9 @@
 title: "AsMi_annual report"
 author: "Michelle DePrenger-Levin"
 date: "Tuesday, October 27, 2015"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 The git remote is "AsMiPVA"
 AsMiPVA
@@ -166,7 +168,6 @@ grViz("digraph integrated_pop {
 
 
 
-
 # Download raw_data 
 <https://research.botanicgardens.org/admin/demographics/asmi/reports/raw_data.php>   
 Save all sites, all data, and set to 20 years allowed dormant (or all possible years)    
@@ -281,116 +282,7 @@ load( paste(rawdatapath, "asmi.climate", currentyr, ".Rdata", sep=""))
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
 
-
-################################################################################################################
-#########################   Run once per year!! ################################################################
-# Download climate data  
-###Environmental Data from PRISM:   
-<http://prism.oregonstate.edu/explorer/>  
-<https://github.com/ropensci/prism>
-
-Process takes a while   
-Can go back to folder and delete old provisional data to replace with more current   
-```{r, eval = FALSE}
-# Set wd for prism
-options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
-
-#Precipitation total, rain and snow
-get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-#Maximum temperature (average)
-get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-#Minimum temperature (average)
-get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
-
-```
-
-Error, didn't download
-```{r, eval=FALSE}
-get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
-get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
-get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
-```
-
-
-
-#########################################################################################################################
-### Takes forever, just load and move on after first time
-# Want Site, Year, Month, ppt, tmin, tmax
-```{r, eval = FALSE}
-maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
-mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
-ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
-
-length(maxs)
-length(mins)
-length(ppt)
-
-avgTemps.max <- lapply(maxs, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-avgTemps.min <- lapply(mins, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-avgPrecip <- lapply(ppt, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-mins.avg <- do.call(rbind, avgTemps.min)
-maxs.avg <- do.call(rbind, avgTemps.max)
-ppt.avg <- do.call(rbind, avgPrecip)
-
-mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-
-
-mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-
-# Check that all get downloaded
-asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
-                                                         "asmilatlong.Tag_Commen"))
-names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
-asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
-                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
-names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
-# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
-
-table(asmi.climate$Site)
-asmi.climate$SiteNum <- 1
-asmi.climate$SiteNum[asmi.climate$Site == "Cebolla North"] <- 2
-asmi.climate$SiteNum[asmi.climate$Site == "Site 15"] <- 15
-asmi.climate$SiteNum[asmi.climate$Site == "Site 5"] <- 5
-asmi.climate$SiteNum[asmi.climate$Site == "Site 19"] <- 19
-asmi.climate$SiteNum[asmi.climate$Site == "Site 26"] <- 26
-table(asmi.climate$SiteNum, asmi.climate$Site)
-
-save(asmi.climate, file = paste(rawdatapath, "asmi.climate", currentyr,".Rdata", sep=""))
-```
-#########################################################################################################################
-#################################### only once per year #################################################################
-
-
+### Drop to bottom to download new climate data!!
 
 ```{r}
 asmi.c <- asmi.climate
@@ -873,14 +765,14 @@ for(i in 2:length(glm.list)){
 ```
 
 Use the ggplots instead of the xyplot
-```{r}
+```{r, eval=FALSE}
 ps.asmi.t$Site <- factor(as.factor(ps.asmi.t$Site), levels = levels(as.factor(ps.asmi.t$Site)))
 
 # jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-jpeg(paste(savepath,
-              # currentyr,"_asmi/",
-           "Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
-         units = "mm", res = 300, height = 200, width = 250)
+# jpeg(paste(savepath,
+#               # currentyr,"_asmi/",
+#            "Fig2-latticeplot_6Sites_after2013.jpg", sep = ""),
+#          units = "mm", res = 300, height = 200, width = 250)
 
 
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi[ps.asmi$Year > 2013,],
@@ -899,7 +791,7 @@ xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi[ps.asmi$Year > 2013,],
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
-dev.off()
+# dev.off()
 
 ```
 
@@ -938,10 +830,10 @@ ggsave(paste(savepath, "Fig2.jpg", sep = ""),
 ```{r}
 
 # jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,"_asmi/",
-jpeg(paste(savepath,
-           # currentyr,"_asmi/",
-           "Fig2-latticeplot_6Sites.jpg", sep = ""),
-         units = "mm", res = 300, height = 200, width = 200)
+# jpeg(paste(savepath,
+#            # currentyr,"_asmi/",
+#            "Fig2-latticeplot_6Sites.jpg", sep = ""),
+#          units = "mm", res = 300, height = 200, width = 200)
 
 xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi,
        type = c("g","p","r"),
@@ -958,7 +850,7 @@ xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi,
        xlab = "Year", 
        ylab = "Individuals with AGG", aspect = "xy")
 
-dev.off()
+# dev.off()
 
 
 ```
@@ -1383,7 +1275,9 @@ cebolla1 <- subset(merge(cebolla, cebolla, by = "AsMi_tag_id", sort = FALSE), ye
 Why are there 25 slots for Site PVA? and all but the last four are empty - last 4 have the 4 SBC populations
 notfenced has 21 blank (each year)
 
-Dormancy can be set to 0-1     
+Dormancy can be set to 0-1  
+
+## in 2021 to do: use the intra-annual visits to create model of climate and probability of stage when dormant in July 
 
 ```{r}
 # all.pva <- StagePVA(asmi.all2)
@@ -1392,6 +1286,7 @@ Dormancy can be set to 0-1
 table(asmi.all2$stage[asmi.all2$plot == 89], asmi.all2$year[asmi.all2$plot==89])
 
 asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2012,]
+asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2020,]
 
 # Test StagePVA_single
 # df <- split(asmi.all2, asmi.all2$plot)[[1]]
@@ -1407,6 +1302,103 @@ all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
 })
 
 ```
+
+Discount sampling variability by estimating annual vital rates with generalized linear mixed model, lmer   
+errors binomially distributed, use numbers of trials and successess for each year   
+fit model with an intercept and random effect of year
+## $\mu = sum(x*p)$ 
+```{r, eval=FALSE}  
+# Survival are the diagonal and below diagonal
+  # x <- all.pva[[1]][[1]] # testing
+vitalrates <- lapply(all.pva, function(m){
+  years <- names(m)
+  out <- do.call(rbind,lapply(m, function(x){
+    # vital.gr <- sum(x[lower.tri(x)])
+    # vital.stasis <- sum(diag(x))
+    # vital.retro <- sum(x[upper.tri(x)][-3]) # But this says that dormant to other is retrogressive and is not really true
+    # vital.repro <- sum(x[1,])
+    long <- as.data.frame(x)
+    wide <- long$Freq
+    names(wide) <- paste(long$Var2,long$Var1, sep="-")
+    wide
+    # data.frame(transition = paste(long$Var1,long$Var2, sep="-"), Rate = long$Freq)
+    # data.frame(growth = vital.gr, statis = vital.stasis, retrog = vital.retro, reprod = vital.repro)
+  }))
+  data.frame(out, year = years)
+  })
+
+vitalrates_all <- do.call(rbind, lapply(1:length(vitalrates), function(i) data.frame(vitalrates[[i]], Plot = names(vitalrates)[i])))
+
+
+## want the number of each for each year, not the rates. 
+## want maximum likelihood of the survival given the data - joint likelihood of each data point
+log_likelihood <- function(par_p, par_N, data){
+  LL <- sum(dbinom(x = data, prob = par_p, size = par_N, log=TRUE))
+  LL
+}
+
+
+## not counts but the percent survival 
+df1 <- split(asmi.all2, list(asmi.all2$plot), drop = TRUE)[[1]] # , asmi.all2$year
+df <- split(df1, list(df1$year))[[1]]
+  n_t <- length(df$stage[df$stage != "dead"]) 
+  n_stage <- colSums(table(df$fate, df$stage))
+  n_surv <- colSums(table(df$fate, df$stage)[-5,])
+  loglike <- dbinom(n_surv[1], size = n_stage[1], prob = seq(0.01,0.99, by=0.01))
+plot(seq(0.01,0.99, by=0.01), loglike, type="l")
+  points(seq(0.01,0.99,by=0.01)[which(loglike == max(loglike))],0, col=2)
+  
+  data <- data.frame(x = n_surv[1], p = P_s, xp = n_surv[1]*P_s, x2p = n_surv[1]^2 * P_s)
+  # mu = np   (n = number of trials; p = probability of success)
+  # variance (i.e. sigma squared) = n*p*(1-p)
+  # SD = sqrt(n*p*(1-p))
+  
+asmi.counts <- do.call(rbind,lapply(split(asmi.all2, list(asmi.all2$plot), drop=TRUE), function(df1){
+  timeseries <- do.call(rbind,lapply(split(df1, list(df1$year), drop=TRUE), function(df){
+  n_t <- length(df$stage[df$stage != "dead"]) 
+  n_stage <- colSums(table(df$fate, df$stage))
+  n_surv <- colSums(table(df$fate, df$stage)[-5,])
+  survivalXstage <- do.call(rbind,lapply(1:3, function(i){
+    if(n_stage[i]>0){
+      loglike <- dbinom(n_surv[i], size = n_stage[i], prob = seq(0.01,0.99, by=0.01))
+      P_s <- seq(0.01,0.99,by=0.01)[which(loglike == max(loglike))]
+      var_p <- n_stage[i]*P_s*(1-P_s)
+    } else {
+        P_s <- NA 
+        var_p <- NA
+      }
+    data.frame(stage = names(n_surv[i]), P_s = P_s, var_p = var_p, 
+               Plot = unique(df$plot), Year = unique(df$year), Site = unique(df$site))
+    }))
+  survivalXstage
+  }))
+  timeseries
+}))
+
+ggplot(asmi.counts, aes(stage, P_s))+
+  geom_boxplot()+
+  # geom_point(position = position_jitterdodge())+
+  # facet_wrap(~as.factor(Year))+
+  theme_bw()+
+  facet_wrap(~as.factor(Site))
+
+p_ss <- asmi.counts$P_s[asmi.counts$stage=="reproductive" & !is.na(asmi.counts$P_s)]
+hist(p_ss)
+min(p_ss)
+max(p_ss)
+hist(log(p_ss/(1-p_ss))) ## This is not between 0 and 1!! but I did the logit
+
+## sampling variability in annual vital rates
+# glm1 <- glmer(seedling.vegetative ~ (1|year) + (1|Plot), family = binomial, data = vitalrates_all)
+glm1 <- glmer(log(P_s/(1-P_s)) ~ 1 + (1|Plot) + (1|Year), family = binomial(link='logit'),
+              data = asmi.counts[asmi.counts$stage=="reproductive" & !is.na(asmi.counts$P_s),])
+glm2 <- glmer(P_s ~ 1 + (1|Year), family = binomial(link='logit'),
+              data = asmi.counts[asmi.counts$stage=="reproductive",])
+
+```
+
+
+
 
 # Matrix Models     
 ## Table 5: Growth rate    
@@ -1436,7 +1428,7 @@ GrowthRateMeanSD <- function(all.pva = all.pva, plots, PreFence = FALSE, PostFen
   data.frame(mean(plotsout), sd(plotsout))
   }
 
-GrowthRateMeanSD(all.pva, plots = openSBCplots)
+# GrowthRateMeanSD(all.pva, plots = openSBCplots)
 
 ```
 
@@ -1515,16 +1507,67 @@ GrowthRateMeanSD(all.pva, site2)
 # Figure 4: Life cycle diagram of Astragalus microcymbus   
 ```{r}
 # remove a level of list of lists with recursive = FALSE
-A <- mean(unlist(all.pva, recursive = FALSE))
+(A <- mean(unlist(all.pva, recursive = FALSE)))
 eigen.analysis(A)
+```
 
+
+```{r}
+grViz("digraph integrated_pop {
+      
+      # digraph = directed, graph = undirected, graphID
+      graph [compound = true, color = blue, rankdir = TB]
+      
+      # node definitions with substituted label text
+      node [shape = circle, fontname = Helvetica]
+      # Demographic monitoring
+      a [label = '@@1-1'] # seedling
+      b [label = '@@1-2'] # veg
+      c [label = '@@1-3'] # rep
+      d [label = '@@1-4'] # dormant
+      
+      # name must start with 'cluster_'
+      subgraph cluster_demography {
+        graph [style = dashed, color = Sienna]
+      {rank = min; b}
+      {rank = same; a;c}
+      # {rank = min; b}
+      {rank = max; d}
+      # {rank = max; a;b;c}
+        a -> b [label = '@@2-2']
+        a -> c [label = '@@2-3']
+        a -> d [label = '@@2-4']
+        b -> b [label = '@@3-2']
+        b -> c [label = '@@3-3']
+        b -> d [label = '@@3-4']
+        c -> d [label = '@@4-4']
+        c -> a [style = dashed, color = LimeGreen, label = '@@4-1']
+        c -> b [color = red, label = '@@4-2']
+        c -> c [label = '@@4-3']
+        d -> b [color = red, label = '@@5-2']
+        d -> c [color = red, label = '@@5-3']
+        d -> d [label = '@@5-4']
+        
+        label = 'Demography'
+      }
+      
+      }
+      
+      [1]: c('Seedling','Vegetative','Reproductive','Dormant')
+      [2]: round(A[,1],2) # seedling to
+      [3]: round(A[,2],2) # veg to
+      [4]: round(A[,3],2) # reprod to
+      [5]: round(A[,4],2) # dormant to
+      ")
+
+## Export to save as impage 
 ```
 
 
 
 
 Skip:
-```{r}
+```{r, eval=FALSE}
 ## Testing to make the function above
 # str(all.pva)
 # names(all.pva)
@@ -1641,7 +1684,7 @@ mean(Openplotlambdas); sd(Openplotlambdas)
 
 
 ### OLD, skip
-```{r}
+```{r, eval=FALSE}
 lmdSD(asmi.pva$pro.matrix, 1996, currentyr-2)
 #         lmda        SD
 # [1,] 1.179791 0.9690063
@@ -1677,7 +1720,7 @@ write.csv(tbl4.allopen, file=paste(savepath,"tbl4_allSBCopen.csv"), row.names=TR
 Cebolla all
 1:Mid
 2:North
-```{r}
+```{r, eval=FALSE}
 
 # All
 lmdSD(cebolla.pva$pro.matrix, 2014, currentyr-2)
@@ -1702,7 +1745,7 @@ sapply(mats.list, function(x){
 ```
  
 T-test fenced vs. open after fencing installed   
-```{r T.test paired growth rates}
+```{r T.test paired growth rates, eval=FALSE}
 t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
        lmdAn(asmi.pva$notfenced.pro.matrix, 2005, currentyr-2),
        paired = TRUE)
@@ -1710,7 +1753,7 @@ t.test(lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2),
 ```
 
 T-test for growth rate before and after fencing  
-```{r}
+```{r, eval=FALSE}
 t.test(lmdAn(asmi.pva$fenced.pro.matrix, 1996, 2004),
        lmdAn(asmi.pva$fenced.pro.matrix, 2005, currentyr-2))
 ```
@@ -1739,7 +1782,7 @@ Site 15
 `asmi.pva$Site$"15"` ...        
 
 [[1]]:All; [[2]]:fenced; [[3]]:open
-```{r}
+```{r, eval=FALSE}
 # matord.list <- list(asmi.pva$Site, asmi.pva$fenced,asmi.pva$notfenced)
 matord.list <- list(all.pva$Site, all.pva$fenced,all.pva$notfenced)
 
@@ -1838,7 +1881,7 @@ paste(round(lmdSD(cebolla.pva$notfenced$'2',2014,currentyr-2)[1],2)," (",
 
 Figure 3: Life cycle diagram of Astragalus microcymbus, 1996-currentyr-1 mean transition rates (solid lines) and fecundity rates (dashed lines), and resulting sensitivities and elasticities. Individuals that become reproductive in the first year are classified as seedlings. 
 
-```{r}
+```{r, eval=FALSE}
 # SBC and Cebolla
 eigen.analysis(mean(all.pva$notfenced.pro.matrix))
 mean(all.pva$notfenced.pro.matrix)
@@ -1876,7 +1919,7 @@ Fall: August-November (8-11)
 # South Beaver Creek
 # FRUIT
 Take highest 3 loadings and look at how one affects the other 
-```{r}
+```{r, eval=FALSE}
 ps.asmi.t$Creek <- NA
 
 ps.asmi.t$Creek[ps.asmi.t$Site > 4] <- "South Beaver"
@@ -1912,8 +1955,8 @@ season <- merge(season, lmdas.all, by = c("Prev12","Creek"))
 ```
 
 # Should come in with count of seedlings per year and see how that is impacted by climate
-```{r}
-asmi.env
+```{r, eval=FALSE}
+# asmi.env
 table(season$Site)
 table(asmi.c$Site)
 # aic.asmi <- merge(asmi.all1, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
@@ -1925,7 +1968,7 @@ aic.asmi <- merge(asmi.all, season, by.x = c("year","AsMi_site_id"), by.y = c("P
 Multinomial logistic regression  
 library(nnet)
 
-```{r}
+```{r, eval=FALSE}
 multinom(status ~ ppt.springSummer, aic.asmi)
 
 lm1 <- multinom(status ~ ppt.fall + ppt.winter + ppt.springSummer +
@@ -1956,7 +1999,7 @@ for(i in 2:length(lm.list)){
 ```
 
 single seasonal factor to describe which stage a plant will be in
-```{r}
+```{r, eval=FALSE}
 
 lm1 <- multinom(status ~ ppt.fall, aic.asmi)
 lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
@@ -1985,9 +2028,9 @@ ggplot(aic.asmi, aes(status, ppt.springSummer))+
 ```
 
 # if you were to pick one seasonal factor to describe annual growth rate, what would it be?  None of them 
-So the precipitation and minimum temperature of the months preceeding the census (the spring/summer which is April-July) best describe the combined survival, growth, and germination that is lambda of each year    
+So the precipitation and minimum temperature of the months preceding the census (the spring/summer which is April-July) best describe the combined survival, growth, and germination that is lambda of each year    
 From the AIC models, each Site behaves differently 
-```{r}
+```{r, eval=FALSE}
 aic.asmi.cc <- unique(aic.asmi[,c("AsMi_site_id","tmin.fall","tmax.fall",
                                   "ppt.fall","tmin.springSummer","tmax.springSummer",
                                   "ppt.springSummer","tmin.winter","tmax.winter","ppt.winter","Lmda")])
@@ -2016,14 +2059,14 @@ for(i in 2:length(lm.list)){
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 ggplot(asmi.env, aes(X..Dormant))+
   geom_histogram()+
   facet_grid(~Site)
 ```
 
 # When looking at combinations, no relationship just as good as the interaction of a bunch   
-```{r}
+```{r, eval=FALSE}
 
 
 lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
@@ -2055,7 +2098,7 @@ for(i in 2:length(lm.list)){
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 
 
 lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
@@ -2088,7 +2131,7 @@ for(i in 2:length(lm.list)){
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 
 percentAGG <- do.call(rbind,lapply(unique(ps.asmi.t$Year),function(x){
   thisyear <- ps.asmi.t[ps.asmi.t$Year==x & ps.asmi.t$Site>3,]
@@ -2122,6 +2165,7 @@ Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered",
 ```
 
 
+###########################################################################################################
 Figure 3: Astragalus microcymbus individuals by fenced (open circle, y)
  Figure 8    
 AGG and Dormant: Total.Plants 
@@ -2233,7 +2277,7 @@ ggplot(ps.asmi1[ps.asmi1$Total.Alive>0 & ps.asmi1$Site > 3,],
 ```
 
 # the decline is from one plot, the rest are stable or increasing!
-```{r}
+```{r, eval=FALSE}
 ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "SouthBeaver",], 
        aes(Year, Total.Alive, colour = as.factor(Plot)))+
   geom_point()+
@@ -2453,36 +2497,25 @@ p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,],
 ```
 
 
-Figure 2
+Figure 3
 ```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig3a-d_SouthBeaverCreek.jpg", sep = ""),
-         units = "mm", res = 300, height = 200, width = 200)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#               currentyr,"_asmi/","Fig3a-d_SouthBeaverCreek.jpg", sep = ""),
+#          units = "mm", res = 300, height = 200, width = 200)
 
-# Down each column
-p1SBC + p2SBC + p3SBC + p4SBC + plot_layout(ncol = 2)
+ggsave(paste(savepath, "Fig3a-d.jpg", sep=""),
+       # Down each column
+       p1SBC + p2SBC + p3SBC + p4SBC + plot_layout(ncol = 2), units = "mm", dpi = 300, height = 200, width = 200)
 
-dev.off()
-
-
-```
-Figure 2 Cebolla Creek
-```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/","Fig3e-h_CebollaCreek.jpg", sep = ""),
-         units = "mm", res = 300, height = 200, width = 200)
-
-# Down each column
-p1CC +  p2CC +p3CC + p4CC + plot_layout(ncol=2)
-
-dev.off()
-
+ggsave(paste(savepath, "Fig3e-h.jpg", sep=""),
+       # Down each column
+       p1CC +  p2CC +p3CC + p4CC + plot_layout(ncol=2), units = "mm", dpi = 300, height = 200, width = 200)
 
 ```
 
 
 Of the 797 individuals alive in South Beaver Creek in 1995 ...
-```{r}
+```{r, eval=FALSE}
 
 lifelength <- do.call(rbind, yrsalive)
 
@@ -2569,1459 +2602,21 @@ aggregate(fruit ~ Creek + fence, mean, data = totFrplotyr)
 ```
 
 
-#Intraannual visits
-### Intraannual visits    
-Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA      
-### What is the most common stage class of individuals that were dormant for some portion of the growing season? 
-2013
-```{r}
-intra.2013June <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/AsMiJune2013.csv"), na.strings="")
-
-intra.2013July <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/AsMiJuly2013.csv"), na.strings="")
-
-intra.2013Sept <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/September2013.csv"), na.strings="")
-
-```
-
-Survey dates are wrong, go back and fix. Model according to AsMi_2020_BayesianAddition to impute dormant and reproductive seedling data
-```{r}
-intra <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2015 datasheets/2015_intrayear_asmi.csv"), na.strings="")
-
-intra <- intra[rowSums(is.na(intra[,grep("Ln", names(intra))[-1]])) != length(grep("Ln", names(intra))[-1]),] 
-
-intra$UniqueID <- 1:nrow(intra)
-
-demo.only <- intra[,-c(1:7,13,99:100)] 
-names(demo.only)
-
-# get rid of all NA in the wide form first instead of in the long?
-nrow(demo.only)
-nrow(demo.only[!is.na(demo.only$LnApr20_15),])
-nrow( demo.only[ rowSums(is.na(demo.only[,grep("Ln", names(demo.only))])) != length(grep("Ln", names(demo.only))),] )
-# demo.only <- demo.only[ rowSums(is.na(demo.only[,grep("Ln", names(demo.only))])) != length(grep("Ln", names(demo.only))),] 
-
-
-# need to name the same before binding...
-surname <- names(demo.only[,grep("Ln",names(demo.only))])
-
-demo.only.bydate <- lapply(1:18, function(x){
-  df <- data.frame(intra[,c(1:7,13,99:100)], demo.only[,((5*x-4):(5*x))],Survey = surname[x])
-  names(df) <- c(names(intra[,c(1:7,13,99:100)]), "Ln","Fl","Fr","Br","Comment","Survey")
-  # df[!is.na(df$Ln),]
-  df
-})
-
-head(demo.only.bydate[[15]])
-
-dm <- do.call(rbind, demo.only.bydate)
-
-dm$Site[dm$Plot <= 610 & dm$Plot >= 606] <- "5"
-dm$Site[dm$Plot == 8 | dm$Plot == 578 | dm$Plot == 581 | dm$Plot == 799] <- "15"
-dm$Site[dm$Plot == 300 | dm$Plot <= 515 & dm$Plot >= 512] <- "19"
-dm$Site[dm$Plot == 238 | dm$Plot == 480 |
-          dm$Plot == 598 | dm$Plot == 611 | dm$Plot == 614] <- "26"
-dm$Site[dm$Plot == 22 | dm$Plot == 1 | dm$Plot == 32 | dm$Plot == 42
-        | dm$Plot == 52 ] <- "1"
-
-dm$Site[dm$Plot == 16 | dm$Plot == 96 | dm$Plot == 58
-        | dm$Plot == 89 | dm$Plot == 98 | dm$Plot == 90 ] <- "2"
-
-sites <- c("5","15","19","26","1","2")
-dm$Site <- ordered(dm$Site, levels = sites)
-table(dm$Site)
-#May1 moved to 2014 order from 2015
-levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
-                       substr(levels(dm$Survey)[6],3,7),
-                       substr(levels(dm$Survey)[7:9],3,6)),paste0, "_2014"),
-                       sapply(c(substr(levels(dm$Survey)[10],3,6),
-                       substr(levels(dm$Survey)[11],3,7),
-                       substr(levels(dm$Survey)[12:13],3,6),
-                       substr(levels(dm$Survey)[14],3,7),
-                       substr(levels(dm$Survey)[15:18],3,6)),paste0, "_2015"))
-
-
-#Add actual date to surveys
-table(dm$Survey)
-dm$Date <- NA
-dm$Date <- as.Date("2014-04-21")
-dm$Date[dm$Survey=="May1_2014"] <- as.Date("2014-05-13")
-dm$Date[dm$Survey=="Jun1_2014"] <- as.Date("2014-06-02")
-dm$Date[dm$Survey=="Jun2_2014"] <- as.Date("2014-06-25")
-dm$Date[dm$Survey=="Jul1_2014"] <- as.Date("2014-07-15")
-dm$Date[dm$Survey=="Aug14_2014"] <- as.Date("2014-08-05")
-dm$Date[dm$Survey=="Sep1_2014"] <- as.Date("2014-09-07")
-dm$Date[dm$Survey=="Oct1_2014"] <- as.Date("2014-10-08")
-dm$Date[dm$Survey=="Oct2_2014"] <- as.Date("2014-10-28")
-dm$Date[dm$Survey=="Apr2_2015"] <- as.Date("2015-04-20")
-dm$Date[dm$Survey=="May11_2015"] <- as.Date("2015-05-11")
-dm$Date[dm$Survey=="May2_2015"] <- as.Date("2015-05-26")
-dm$Date[dm$Survey=="June_2015"] <- as.Date("2015-06-08")
-dm$Date[dm$Survey=="June2_2015"] <- as.Date("2015-06-22")
-dm$Date[dm$Survey=="July_2015"] <- as.Date("2015-07-22")
-dm$Date[dm$Survey=="Aug1_2015"] <- as.Date("2015-08-11")
-dm$Date[dm$Survey=="Sept_2015"] <- as.Date("2015-09-01")
-dm$Date[dm$Survey=="Oct6_2015"] <- as.Date("2015-10-06")
-table(dm$Date)
-
-```
-
-
-```{r}
-dm$status <- as.character(NA)
-dm$status[dm$Ln > 0] <- "vegetative"
-dm$status[dm$Fl ==1] <- "reproductive"
-dm$status[dm$Ln == 0] <- "dormant"
-
-table(dm$status, dm$Survey)
-table(dm$Comment[dm$status=="vegetative"], dm$status[dm$status=="vegetative"])
-
-dm$Comment <- as.character(dm$Comment)
-dm$Comment[grep("non-asmi",dm$Comment)] <- "No"
-dm$Comment[grep("no coty",dm$Comment)] <- "No"
-dm$Comment[grep("not new", dm$Comment)] <- "No"
-# dm$status[dm$Comment %in% c("lost", "subsum","same as","tag not","brows","broken", "dried","dea")] <- "dormant"
-
-table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
-
-  
-toMatch <- c("coty","Coty","new pla","seedli","tooth") 
-  
-dm$status[grep(paste(toMatch, collapse="|"),
-               dm$Comment, ignore.case=TRUE)] <- "seedling"
-dm$status[dm$Comment == "new"] <- "seedling"
-
-dm$status[dm$Comment == "might be new"] <- "seedling"
-
-asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
-                                          dm$Comment,
-                                    ignore.case=TRUE)])
-
-# The ones that are seedlings should be nothing "NA" before being seen while the ones that are found but not as seedlings should be dormant before 
-# dm$status[grep("dead",dm$Comment)] <- "dead"
-
-table(dm$Comment[dm$UniqueID %in% asmicoty])
-table(dm$Comment[dm$Ln < 5])
-
-
-dm$Year <- as.numeric(2014)
-dm$Year[grep("2015",dm$Survey)] <- 2015
-
-table(dm$Year, dm$status)
-
-dm[dm$UniqueID %in% dm$UniqueID[dm$status=="dormant"],]
-
-# These should be all that are alive sometime in 2014 or 2015 so can see number of seedlings in each time and number above ground in July each year
-
-# Sometimes cotyledons seen in more than one survey
-morethanoneseedling <- lapply(asmicoty, function(i){
-  if(nrow(dm[dm$UniqueID==i & dm$status == "seedling",])>1){
-    dm[dm$UniqueID==i,]
-  }
-})
-
-seed2 <- do.call(rbind,morethanoneseedling[!unlist(lapply(morethanoneseedling,is.null))])
-doubleseedlingID <- unique(seed2$UniqueID)
-
-for(i in asmicoty){
-  seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE)
-  dm$status[dm$Date < seedlingsurvey & dm$UniqueID == i] <- NA
-# many are nothing because wasnt' seen again after cotyledons, warnings are fine, dealt with in the if statement
-  lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
-
-  # make sure earliest time is marked seedling, NA before and dormant between, later changed to veg or appropriate
-  if(i %in% doubleseedlingID){
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$status=="seedling"] <- "vegetative"
-    }
-  
-  if(is.infinite(lastseen)){
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
-    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- NA
-  } else {
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen] <- "dormant"
-    dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
-    dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- NA
-  }
-
-}
-
-# Assume any that are alive at some point over the two years and not detected as seedlings are dormant the rest of the time. 
-notseedlingones <- unique(dm$UniqueID)[!unique(dm$UniqueID) %in% asmicoty]# setdiff(unique(dm$UniqueID), seedlingones)
-
-table(dm$Year, dm$status)
-table(dm$Comment[dm$UniqueID %in% notseedlingones])
-
-# Inflated ones dormant in 2014, should only be dormant if exisited in prior to 2014
-alivein2013 <- unique(dm$tag)[unique(dm$tag) %in% unique(intra.2013July$Tag)]
-alivein2016 <- unique(dm$tag)[unique(dm$tag) %in% 
-                                unique(asmi.1$tag_no[asmi.1$status != "dead" & asmi.1$year == 2016])]
-
-for(i in notseedlingones){
-  firstseen <- min(dm$Date[dm$UniqueID==i & dm$Ln > 0])
-  lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
-
-  if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2013){
-    dm$status[dm$status == "NA"] <- "dormant"
-    } else {
-      if(is.infinite(lastseen)){
-        dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
-        dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- "NA"
-        } else {
-          dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & dm$status == "NA"] <- "dormant"
-          if(unique(dm$tag[dm$UniqueID==i]) %in% alivein2016){
-          dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dormant"
-          } else {
-            dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
-        }}
-    }
-  }
-
-table(dm$Survey, dm$status)
-
-'%ni%' <- Negate('%in%')
-
-dm <- dm[!is.na(dm$status),]
-
-ggplot(dm[dm$status != "dead",], aes(Survey, status))+
-  # geom_violin()+
-  # geom_jitter()+
-  theme_bw()+
-  geom_count()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggplot(data.frame(table(dm$Date, dm$status)), aes(Var1, Freq, colour = Var2))+
-  geom_point()+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-```
-
-
-```{r}
-table(dm$Site)
-table(season$Site)
-
-dm$Site <- as.numeric(as.character(dm$Site))
-dm.season <- merge(dm, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
-
-
-dm.table <- data.frame(table(dm$Date, dm$status))
-names(dm.table) <- c("Date","status","Count")
-dm.table$Year <- format(as.Date(dm.table$Date, format="%Y-%m-%d"), "%Y")
-dm.table$Month <- format(as.Date(dm.table$Date, format="%Y-%m-%d"), "%m")
-dm.climate <- merge(dm.table, season, by.x = "Year", by.y = "Prev12")
-
-dm.season$Month <- format(as.Date(dm.season$Date, format="%Y-%m-%d"), "%m")
-
-dm.climate.narm <- dm.climate[!is.na(dm.climate$status),]
-dm.season.narm <- dm.season[!is.na(dm.season$status),]
-
-
-ggplot(dm.climate.narm, aes(as.factor(Year), Count, colour = status))+
-  geom_jitter()+
-  geom_boxplot()+
-  theme_bw()
-
-# What is detected in July in a bad to good year
-ggplot(dm.climate.narm[dm.climate.narm$Month == "07" & dm.climate.narm$status != "dead",], aes(as.numeric(Year), Count, colour = status))+
-  geom_point()+
-  # geom_boxplot()+
-  theme_bw()+
-  stat_smooth(method="lm")
-
-# What is detected throughout the year in a bad to good year
-ggplot(dm.climate.narm[dm.climate.narm$status != "dead",], aes(as.numeric(Year), Count, colour = status))+
-  geom_point()+
-  # geom_boxplot()+
-  theme_bw()+
-  stat_smooth(method="lm")
-
-# proportions
-ggplot(dm.season.narm[dm.season.narm$Month == "07" & dm.season.narm$status != "dead",], aes(as.numeric(Year),  fill = status))+
-  geom_bar()+
-  # geom_boxplot()+
-  theme_bw()
-```
-In a bad year, there are many that are dormant in July, In a good year, about half are dormant in July that are above ground some other time during the year    
-```{r}
-dormJuly2014 <- table(dm.season.narm$status[dm.season.narm$Month=="07"],dm.season.narm$Year[dm.season.narm$Month=="07"])[2,1] # Dormant in 2014
-dormJuly2015 <- table(dm.season.narm$status[dm.season.narm$Month=="07"],dm.season.narm$Year[dm.season.narm$Month=="07"])[2,2] # Dormant in 2015
-
-totalAGGandDorm <- colSums(table(dm.season.narm$status[dm.season.narm$Month=="07" & dm.season.narm$status != "dead"],
-              dm.season.narm$Year[dm.season.narm$Month=="07"& dm.season.narm$status != "dead"])) # AGG in either year and dormant
-
-# binomial distribution of dormant or above ground 
-# Poisson distribution of interval that the stage is greater than 2 throughout the year when dormant in July if 1=dead, 2=dormant, 3= seedling, 4=vegetative, and 5=reproductive  
-# or binomial for each stage: dormant or dead; dormant or vegetative; dormant or reproductive given a good or bad year
-
-
-# probability of dormant being AGG other time during the year in a bad year  
-# Give the probability that a dormant plant is something else during the year
-
-# The chance of being dormant each of the possible years (ignore the first and last) in July The probabilty that a plant will be dormant study length-2 or less of the time is...
-pbinom(length(1995:currentyr)-2, size=length(1995:currentyr), 
-       prob= 1-(dormJuly2014/totalAGGandDorm[1])) # 71% were dormant in July 2014 that were alive some other time so reduce this by that probability, they weren't prolonged dormant, just in July
-pbinom(length(1995:currentyr)-2, size=length(1995:currentyr), 
-       prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 13% were dormant in July 2015 of all that were alive
-
-#probability that a plant was dormant for length-2 times becomes: ???
-dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob= dormJuly2014/totalAGGandDorm[1])  # 5.7%
-dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob = dormJuly2015/totalAGGandDorm[2]) # 1.6e^-12%
-
-# probability that each trial that was dormant was actually something else, some AGG
-dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))  # ca 0
-dbinom(length(1995:currentyr)-2, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 5.5%
-
-dbinom(length(1995:currentyr)-3, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))  # ca 0
-dbinom(length(1995:currentyr)-3, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2])) # 5.5%
-
-chanceofprolongeddorm <- do.call(rbind,lapply(2:(length(1995:currentyr)-2), function(x){
-  good <- dbinom(length(1995:currentyr)-x, size=length(1995:currentyr), prob= 1-(dormJuly2014/totalAGGandDorm[1]))
-  bad <- dbinom(length(1995:currentyr)-x, size=length(1995:currentyr), prob = 1-(dormJuly2015/totalAGGandDorm[2]))
-  data.frame(YrsDorm = length(1995:currentyr)-x, good, bad)
-}))
-
-
-ggplot(chanceofprolongeddorm)+
-  geom_point(aes(YrsDorm,good), colour = "green")+
-  geom_point(aes(YrsDorm,bad), colour = "black")+
-  theme_bw()
-```
-
-Or with those probabilies, change the status of each year for all individuals  
-```{r}
-# of those dormant at some point in the season, what is the largest state they get to and were they seedlings? 
-dm$status <- as.factor(dm$status)
-levels(dm$status)
-dm$status <- factor(dm$status, levels=c("dead","dormant","seedling","vegetative","reproductive"))
-
-dorm.transition <- do.call(rbind,lapply(split(dm, dm$UniqueID), function(x){
-  dorm14 <- x[x$status == "dormant" & x$Year == 2014,]
-  dorm15 <- x[x$status == "dormant" & x$Year == 2015,]
-  topStage14 <- max(as.numeric(x$status[x$Year == 2014]))
-  topStage15 <- max(as.numeric(x$status[x$Year == 2015]))
-  
-  if(nrow(dorm14)>0){
-    dorm2014 <- 1
-    seedYN <- x[x$status == "seedling" & x$Year == 2014,]
-    if(nrow(seedYN)>0){ 
-      seed2014 <- 1
-    } else {
-        seed2014 <- 0
-      }
-  } else {
-    dorm2014 <- 0
-    seed2014 <- NA
-  } 
-
-  if(nrow(dorm15)>0){
-    dorm2015 <- 1
-    seedYN15 <- x[x$status == "seedling" & x$Year == 2015,]
-    if(nrow(seedYN15)>0){ 
-      seed2015 <- 1
-      } else {
-        seed2015 <- 0
-      }
-  } else {
-    dorm2015 <- 0
-    seed2015 <- NA
-  } 
-  data.frame(dorm2014,seed2014,topStage14, dorm2015,seed2015, topStage15)
-}))
-
-seedtable2014 <- table(dorm.transition$dorm2014, dorm.transition$seed2014)
-sum(seedtable2014[2,])
-# 26 that had dormance weren't seedlings and 10 were seedlings
-  #    0  1
-  # 0  0  0
-  # 1 26 10
-table2014 <- table(DormantYN = dorm.transition$dorm2014, StageLevel = dorm.transition$topStage14)
-# -Inf 1:dead 2:dormant 3:seedling  4:veg  5:reproductive
-#          StageLevel
-# DormantYN -Inf    3    4    5
-#         0 1185    8  588   92
-#         1    0    5   28    3
-sum(table2014[2,])
-
-seedtable2015 <- table(dorm.transition$dorm2015, dorm.transition$seed2015)
-# I take this to mean that all seedling (163) had a period of dormancy, and survived to get bigger
-  #     0   1
-  # 0   0   0
-  # 1 242 163
-table2015 <- table(DormantYN = dorm.transition$dorm2015, StageLevel = dorm.transition$topStage15)
-#          StageLevel
-# DormantYN -Inf    1    2    3    4    5
-#         0   13  251    0   55 1051  134
-#         1    0    0   26    0  346   33
-sum(table2015[2,])
-
-# add error  Now I want Poisson or assign with probablity of other stage when in dormant  
-# proportionally asaign to other   
-surveys <- unique(dm.season.narm$Survey)
-surveys <- data.frame(surveys, SurvNum = 1:18)
-surveys$surveys <- as.character(surveys$surveys)
-dm.season.narm$Survey <- as.character(dm.season.narm$Survey)
-dm.season.narm.m <- merge(dm.season.narm, surveys, by.x = "Survey", by.y = "surveys")
-
-# .x are time t and .y are t+1; maybe more times when still marked seedling even though not new in that survey?
-dm.season.narm.stagefate <- subset(merge(dm.season.narm.m, dm.season.narm.m, by = "UniqueID", sort = FALSE),
-                              SurvNum.x == SurvNum.y-1)
-
-# table(rows, columns)  
-table(Fate = dm.season.narm.stagefate$status.y, Stage = dm.season.narm.stagefate$status.x)
-transtable <- table(Fate = dm.season.narm.stagefate$status.y, Stage = dm.season.narm.stagefate$status.x)
-transtable[4,2] # dormancy when a seedling
-transtable[3,2] # dormancy and then still reproductive
-transtable[5,2] # dormancy and then vegetative
-sum(transtable[2:5,2]) # All the dormants that are still alive in the next transition
-
-levels(asmi.1$status) # "seedling"     "vegetative"   "reproductive" "dormant"      "dead"  is 1:5
-
-# The probablily of the next transition but not the biggest it gets
-testfoo <- sample(c("seedling","vegetative","reproductive","dormant" ),10, replace=TRUE,
-       prob=c(transtable[4,2]/sum(transtable[2:5,2]),
-              transtable[5,2]/sum(transtable[2:5,2]),
-              transtable[3,2]/sum(transtable[2:5,2]),
-              transtable[2,2]/sum(transtable[2:5,2])))
-
-
-# dorms.error <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
-#   x$status[x$status == "dormant"] <- sample(c("seedling","vegetative","reproductive","dormant" ),
-#                                             nrow(x[x$status == "dormant",]), replace=TRUE,
-#                                             prob=c(transtable[4,2]/sum(transtable[2:5,2]),
-#                                                    transtable[5,2]/sum(transtable[2:5,2]),
-#                                                    transtable[3,2]/sum(transtable[2:5,2]),
-#                                                    transtable[2,2]/sum(transtable[2:5,2])))
-#   dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
-#   out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
-#   out
-# }))
-
-# dormancy and what?
-goodyearprob <- c(seedtable2015[2,2]/sum(seedtable2015[2,]), # 3:seedling
-                  table2015[2,5]/sum(table2015[2,]), # 4:veg
-                  table2015[2,6]/sum(table2015[2,]), # 5:rep
-                  table2015[2,3]/sum(table2015[2,])) # 2:dormant
-badyearprob <- c(seedtable2014[2,2]/sum(seedtable2014[2,]), # 3:seedling
-                  table2014[2,3]/sum(table2014[2,]), # 4:veg
-                  table2014[2,4]/sum(table2014[2,]), # 5:rep
-                  0) # 2:dormant                
-yearprobs <- list(goodyearprob,badyearprob)
-
-goodbad <- data.frame(year = 1995:currentyr, GB = NA)
-asmi.gb <- aggregate(ppt~Prev12, sum, data = asmi.c[asmi.c$Prev12>1994 & asmi.c$Prev12<(currentyr+1),])
-
-goodbad$GB[asmi.gb$ppt > mean(asmi.gb$ppt)] <- 1
-goodbad$GB[asmi.gb$ppt <= mean(asmi.gb$ppt)] <- 2
-asmi.1.gb <- merge(asmi.1, goodbad, by = "year")
-
-# in PhpMyAdmin 1:dead 2:dormant 3:seedling 4:repro 5:veg but reshuffled here
-# to the biggest it got or if it went to a seedling
-dorms.error <- do.call(rbind,lapply(split(asmi.1.gb, asmi.1.gb$AsMi_tag_id), function(x){
-  for(r in which(x$status %in% "dormant")){
-    x$status[r] <- sample(c("seedling","vegetative","reproductive","dormant" ),
-                                              1, replace=TRUE,
-                                              prob= yearprobs[[x$GB[r]]])
-    }
-  
-  dormlns <- rle(as.numeric(x$status))$lengths[rle(as.numeric(x$status))$values==4]
-  out <- data.frame(Tag=rep(unique(x$AsMi_tag_id), length(dormlns)),dorms=dormlns)
-  out
-}))
-
-ggplot(dorms.error, aes(dorms))+
-  geom_histogram(bins = 20)+
-  theme_bw()+
-  ylab("Frequency")+
-  xlab("Consecutive years dormant")
-
-```
-
-```{r}
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig4_witherror.jpg", sep = ""),
-         units = "mm", res = 300, height = 150, width = 180)
- 
-hist(dorms.error$dorms, xlim=c(0,24),  col = rgb(0,0,0,0.5), breaks = 20,
-     ylab = "Frequency", xlab = "Consecutive years dormant", main = "")
-hist(dorms$dorms, add=TRUE, col = rgb(0,0,1,0.5), breaks = 20)
-
-dev.off()
-```
-
-
-```{r}
-
-# x <- seq(0,25, length.out = nrow(dorms.error))
-# y <- with(dorms.error, dnorm(x, dorms), sd(dorms))
-# 
-# hist(dorms$dorms, freq = FALSE)
-# lines(x,y,col="red")
-
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig4_witherror_density.jpg", sep = ""),
-         units = "mm", res = 300, height = 150, width = 180)
- 
-
-plot(density(dorms$dorms), col="blue", ylim=c(0,.205),xlim=c(0.1,length(1995:(currentyr-2))),
-     main = "",xlab="Consecutive years dormant")
-rug(jitter(dorms$dorms), col= rgb(0,0,1,0.05))
-lines(density(dorms.error$dorms, bw = 2), col="gray10")
-rug(jitter(dorms.error$dorms), col=rgb(0,0,0,0.75))
-
-dev.off()
-
-```
-
-
-
-
-
-
-#Tags with growth at any time during the early or late seasons 
-```{r}
-tagsintrayear <- split(dm, dm$tag)
-unique(dm$Survey) #aprl 2014 ... Oct6_2015
-
-tagsintrayear[[2]]
-
-
-dm$TagperPlot <- paste(dm$tag,dm$Plot,sep="_") #dm$Dir, 
-asmi.raw$TagperPlot <- paste(asmi.raw$tag_no,asmi.raw$AsMi_plot_id,sep="_") #asmi.raw$direction,
-
-head(dm)
-head(table(dm$TagperPlot))
-
-#Add rows for dm for dates when the plant wasn't seen
-tagsbydate <- data.frame(table(dm$TagperPlot, dm$Date))
-sort(rowSums(table(dm$TagperPlot, dm$Date))) #all were seen at least once
-tagsbydate[tagsbydate$Freq==1,]
-notalive2014July <- tagsbydate[tagsbydate$Var2 == "2014-07-15" & tagsbydate$Freq == 0,]
-notalive2015July <- tagsbydate[tagsbydate$Var2 == "2015-07-22" & tagsbydate$Freq == 0,]
-
-
-
-ggplot(dm[dm$TagperPlot %in% notalive2015July$Var1,], 
-       aes(Date,Ln, colour=TagperPlot))+
-  geom_point()+
-  geom_line()+
-  facet_wrap(~Site)+
-  theme(legend.position = "none")
-
-ggplot(asmi.raw[asmi.raw$TagperPlot %in% notalive2015July$Var1,],
-       aes(year,length, colour=TagperPlot))+
-  geom_point()+
-  geom_line()+
-  labs(title="Individuals with growth sometime other than July 2015")+
-  facet_wrap(~AsMi_site_id)+
-  theme(legend.position = "none")
-
-#The number of individuals that were alive sometime in 2015, just not the July census
-table(asmi.raw$AsMi_site_id[asmi.raw$TagperPlot %in% notalive2015July$Var1],
-      asmi.raw$year[asmi.raw$TagperPlot %in% notalive2015July$Var1])
-
-#The number of individuals that were alive sometime in 2014, just not the July census
-table(asmi.raw$AsMi_site_id[asmi.raw$TagperPlot %in% notalive2014July$Var1],
-      asmi.raw$year[asmi.raw$TagperPlot %in% notalive2014July$Var1])
-
-
-head(asmi.raw)
-head(table(asmi.raw$TagperPlot),100)
-
-
-ggplot(dm[dm$Date<"2015-01-01",], aes(Date,Ln,group=as.factor(Plot), 
-                                      colour=as.factor(Plot)))+
-  geom_point()+
-  geom_smooth(se=FALSE)+
-  theme_bw()
-
-str(dm)
-
-# Only rows refering to cotyledons
-dm.coty <- dm[grep("coty",dm$Comment),]
-dm.aprcoty <- dm[dm$AprSeedlings==1,]
-# dm.coty <- rbind(dm.coty,dm.aprcoty)
-dm.coty$Comment <- droplevels(dm.coty$Comment)
-table(dm.coty$Comment)
-
-# Don't want
-c("cotyledon of non","no cotyledons")
-
-# dm.coty <- dm.coty[!grepl("cotyledon of non",dm.coty$Comment),]
-dm.coty <- dm.coty[!grepl("no cotyledon",dm.coty$Comment),]
-
-
-ggplot(dm.coty, aes(Date,Ln,colour=as.factor(Date)))+
-  geom_boxplot()
-
-table(dm$Comment[grep("coty",dm$Comment)],dm$Site[grep("coty",dm$Comment)])
-```
-
-
-
-```{r}
-head(asmi.raw$TagperPlot)
-head(asmi.raw)
-head(dm)
-
-table(dm$Date)
-table(dm$Survey)
-
-dm[grep("coty", dm$Comment),]
-
-tagsAGG <- unique(dm$tag[dm$Ln >0])
-length(tagsAGG)
-tagsAGG2 <- unique(dm$TagperPlot[dm$Ln >0])
-length(tagsAGG2)
-
-unique(asmi.raw$AsMi_tag_id)
-
-head(asmi.raw)
-tagsperplotperyear <- lapply( split(asmi.raw, asmi.raw$year), function(x){
-  out <- data.frame(table(x$tag_no,x$AsMi_plot_id))
-  out[out[,3]>1,]
-  })
-
-oopstags <- do.call(rbind,tagsperplotperyear)
-oopstags
-
-sort(unique(asmi.raw$year))
-
-#how many double tags per plot were ones seen in intrayear surveys?  
-#Need to link by tag number, plot, and distance
-double.intra.tags <- unique(dm$tag[dm$tag %in% oopstags$Var1])
-
-length(unique(asmi.raw$tag_no)) #2529
-length(unique(dm$tag)) #1746
-
-#for 2015, tag entered same, won't get tags 'fixed to 0.01 from 0.1
-dm.match.raw <- lapply(1:nrow(dm),function(row){
-  out <- asmi.raw[asmi.raw$AsMi_site_id==dm$Site[row]&
-                    asmi.raw$AsMi_plot_id==dm$Plot[row]&
-                    asmi.raw$distance==dm$Dist..m.[row]&
-                                asmi.raw$year==2016,]
-  })
-
-dm.all <- do.call(rbind,dm.match.raw)
-head(dm.all)
-
-#Just tags with above ground growth in other times of the year
-dm.agg <- dm[dm$Ln>0,]
-dm.agg.match.raw <- lapply(1:nrow(dm.agg),function(row){
-  out <- asmi.raw[asmi.raw$AsMi_site_id==dm.agg$Site[row]&
-                    asmi.raw$AsMi_plot_id==dm.agg$Plot[row]&
-                    asmi.raw$distance==dm.agg$Dist..m.[row],]
-  })
-
-dm.all.agg <- do.call(rbind,dm.agg.match.raw)
-head(unique(dm.all.agg))
-dm.all.agg <- unique(dm.all.agg)
-
-tags.AGG <- split(dm.all.agg[dm.all.agg$length==0 & dm.all.agg$year>2015,],
-                  dm.all.agg$AsMi_tag_id[dm.all.agg$length==0 & dm.all.agg$year>2015])
-
-tags.AGG[[1]]
-tags.AGG <- do.call(rbind,tags.AGG)
-tags.AGG[tags.AGG$length>0,]
-
-
-
-
-#tags with flowering plants
-dm.flfr <- dm[dm$Fl==1,]
-dm.flfr.match.raw <- lapply(1:nrow(dm.flfr),function(row){
-  out <- asmi.raw[asmi.raw$AsMi_site_id==dm.flfr$Site[row]&
-                    asmi.raw$AsMi_plot_id==dm.flfr$Plot[row]&
-                    asmi.raw$distance==dm.flfr$Dist..m.[row],]
-  })
-
-dm.all.flfr <- do.call(rbind,dm.flfr.match.raw)
-head(unique(dm.all.flfr))
-dm.all.flfr <- unique(dm.all.flfr)
-
-tags.flfr <- split(dm.all.flfr[dm.all.flfr$length==0 & dm.all.flfr$year>2015,],
-                  dm.all.flfr$AsMi_tag_id[dm.all.flfr$length==0 & dm.all.flfr$year>2015])
-
-tags.flfr[[1]]
-tags.flfr <- do.call(rbind,tags.flfr)
-tags.flfr[tags.flfr$length>0,]
-
-
-
-dm[dm$tag %in% double.intra.tags,]
-asmi.raw[asmi.raw$tag_no %in% double.intra.tags,]
-
-#For dm, Survey is like year in asmi.raw 
-dm.2merge <- dm[,c("X","Plot","Site","Survey","TagperPlot")] #poop, but sometimes these don't match because of a 0.1 or 0.01 difference! 
-
-```
-
-
-length over the surveys 
-```{r}
-
-ggplot(dm, aes(Survey, Ln, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_sdl', geom="errorbar", fun.args = list(mult=2))+
-  facet_wrap(~Site, ncol=2)+
-  theme_bw()+
-  ylab("Average Length")+
-  xlab("Survey")+
-	theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
-
-```
-
-```{r}
-sites <- unique(dm$Site)
-plot(dm$Survey[dm$Site == sites[1]], dm$Ln[dm$Site == sites[1]])
-plot(dm$Survey[dm$Site == sites[2]], dm$Ln[dm$Site == sites[2]], add=TRUE ,col="red")
-plot(dm$Survey[dm$Site == sites[3]], dm$Ln[dm$Site == sites[3]], add=TRUE ,col="orange")
-plot(dm$Survey[dm$Site == sites[4]], dm$Ln[dm$Site == sites[4]], add=TRUE ,col="yellow")
-plot(dm$Survey[dm$Site == sites[5]], dm$Ln[dm$Site == sites[5]], add=TRUE ,col="green")
-plot(dm$Survey[dm$Site == sites[6]], dm$Ln[dm$Site == sites[6]], add=TRUE ,col="blue")
-
-```
-
-```{r}
-stripchart(Ln~Survey+Site,data=dm, 
-           method="jitter",vertical=TRUE, col=1:6, pch=16,
-           group.names=
-             apply(expand.grid(c(paste("Site",1:6,sep="")),c(1:9,1:9)),
-                   1, function(x){
-                     paste(x[1],x[2])
-                   }))
-
-```
-
-
-#dormancy within a season is preceded or followed by what stage class
-```{r}
-markrecapture <- dm
-markrecapture$Mark <- 0
-markrecapture$Mark[markrecapture$Ln>0] <- 1
-table(markrecapture$Mark,markrecapture$Survey)
-
-byplant <- sapply(split(markrecapture,markrecapture$UniqueID), function(x){
-  table(x$Mark,x$Survey)
-  })
-
-byplantall <- do.call(rbind,byplant)
-head(byplantall)
-
-markrecapture$Stage <- "D" #dormant #only 4 rows
-markrecapture$Stage[markrecapture$Ln > 0] <- "V" #vegetative
-markrecapture$Stage[markrecapture$Ln > 0 & markrecapture$Fl == 1] <- "R" #Reproductive
-
-#When you make a table, only a very few are actually marked dead, most are missing data
-stagebyplant <- sapply(split(markrecapture, markrecapture$UniqueID), function(x){
-  out <- table(x$Stage,x$Survey)
-  if(!is.null(names(out[,1]))){
-    out[1,][out[1,]==1] <- names(out[,1][1])
-    if(length(names(out[,1])>1)){
-      out[2,][out[2,]==1] <- names(out[,1][2])
-      }
-    out
-    }
-  })
-
-nonullstagebyplant <- stagebyplant[!sapply(stagebyplant,is.null)]
-length(which(stagebyplant[[1]][,1]!="0"))
-data.frame(nonullstagebyplant[[1]])
-str(data.frame(nonullstagebyplant[[1]]))
-
-seqclass <- lapply(nonullstagebyplant, function(x){
-  df <- data.frame(x)
-  out <- sapply(split(df,df$Var2),function(r){
-    if(nrow(r[r$Freq=="0",])==2){
-      "0" 
-      } else {
-        as.character(r$Freq[r$Freq!="0"])
-    }
-      })
-  out
-})
-
-seqXclass <- do.call(rbind,seqclass)
-
-nrow(seqXclass)
-##how many individuals were dormant some portion of the surveys?
-seasonallydorm <- lapply(1:nrow(seqXclass),function(x){
-    # if the first and last are removed from rle and there's still some lengths of dormant
-    teststages <- rle(seqXclass[x,])
-    teststages <- data.frame(teststages$lengths,teststages$values,tag=x)
-    teststages <- teststages[-c(1,nrow(teststages)),]
-    out <- teststages[teststages$teststages.values=="0",]
-    out 
-})
-
-foo <- do.call(rbind,seasonallydorm)
-length(unique(foo$tag))
-
-#What is the stage before and after dormancy?
-b4nafter <- lapply(1:nrow(seqXclass),function(x){
-    # if the first and last are removed from rle and there's still some lengths of dormant
-    teststages <- rle(seqXclass[x,])
-    teststages <- data.frame(teststages$lengths,teststages$values,tag=x)
-    teststages <- teststages[-c(1,nrow(teststages)),]
-    before <- teststages[grep("0",teststages$teststages.values)-1,]
-    after <- teststages[grep("0",teststages$teststages.values)+1,]
-    out <- list(before,after)
-    out
-})
-
-b4 <- do.call(rbind,lapply(b4nafter,"[[",1))
-b4 <- b4[complete.cases(b4),]
-aft3r <- do.call(rbind,lapply(b4nafter,"[[",2))
-aft3r <- aft3r[complete.cases(aft3r),]
-
-mean(nrow(b4[b4$teststages.values=="V",])/nrow(b4))
-mean(nrow(b4[b4$teststages.values=="R",])/nrow(b4))
-
-mean(nrow(aft3r[aft3r$teststages.values=="V",])/nrow(aft3r))
-mean(nrow(aft3r[aft3r$teststages.values=="R",])/nrow(aft3r))
-
-
-##Factor w/ 4 levels "0","D","R","V":
-#percent of time goes from Vegetative to dormant
-byplantbefore <- lapply(split(b4, b4$tag), function(x){
-  nrow(x[x$teststages.values=="V",])/
-    nrow(x)
-
-})
-
-
-nrow(beforeandafterstage[beforeandafterstage$outbefore=="R",])/
-  nrow(beforeandafterstage)
-
-```
-
-
-Total AGG per plot per year
-```{r}
-
-#dm is any tags with some length at some point
-
-dm$Fr <- as.numeric(dm$Fr)
-dm$Fl[is.na(dm$Fl)] <- 0
-dm$Fr[is.na(dm$Fr)] <- 0
-
-#levels(dm$Site) <- gsub("Cebolla Mid", "1", levels(dm$Site))
-#levels(dm$Site) <- gsub("Cebolla North", "2",levels(dm$Site))
-
-surveys <- unique(dm$Survey)
-surveys[1:9]
-surveys[10:18]
-
-dm.2014 <- dm[dm$Survey %in% surveys[1:9],]
-dm.2015 <- dm[dm$Survey %in% surveys[10:18],]
-
-
-sum.agg.2014 <- lapply(split(dm.2014,dm.2014$Site), function(y){
-  out <- lapply(split(y,y$Survey), function(x){
-     c(PercentAGG = length(unique(x$tag[x$Ln>0]))/length(unique(y$tag)),
-    PercentFl = length(unique(x$tag[x$Fl == 1]))/length(unique(y$tag)),
-    PercentBr = length(unique(x$tag))/length(unique(y$tag)),
-    TotalFr = sum(x$Fr),
-    PercentFr = length(unique(x$tag[x$Fr> 0]))/length(unique(y$tag)),
-    Site = unique(y$Site),
-    Survey = unique(x$Survey))
-  })
-  do.call(rbind,out)
-})
-sum.agg.2014[[1]]
-
-sum.agg.2015 <- lapply(split(dm.2015,dm.2015$Site), function(y){
-  out <- lapply(split(y,y$Survey), function(x){
-     c(PercentAGG = length(unique(x$tag[x$Ln>0]))/length(unique(y$tag)),
-    PercentFl = length(unique(x$tag[x$Fl == 1]))/length(unique(y$tag)),
-    PercentBr = length(unique(x$tag))/length(unique(y$tag)),
-    TotalFr = sum(x$Fr),
-    PercentFr = length(unique(x$tag[x$Fr> 0]))/length(unique(y$tag)),
-    Site = unique(y$Site),
-    Survey = unique(x$Survey))
-  })
-  do.call(rbind,out)
-})
-sum.agg.2015[[1]]
-
-all.summary14 <- do.call(rbind, sum.agg.2014)
-all.summary15 <- do.call(rbind, sum.agg.2015)
-all.summary <- data.frame(rbind(all.summary14,all.summary15))
-all.summary <- all.summary[all.summary$PercentAGG>0,]
-
-all.sum.mean <- tapply(all.summary$PercentAGG, all.summary$Survey, function(x) mean(x, rm.na=TRUE))
-```
-
-```{r}
-plot(all.summary$Survey, all.summary$PercentAGG, pch=16, las=2,xlab="",ylab="Percent")
-points(all.summary$Survey, all.summary$PercentFl,col="red")
-
-
-stripchart(PercentAGG~Survey,data=all.summary, pch=16, method="jitter",
-           vertical=TRUE, col="grey")
-points(1:18,all.sum.mean, col="red", pch=4, cex=1.2)
-abline(v=9.5)
-```
-```{r}
-
-dm[grep("2015",dm$Survey),]
-
-all.fl.mean <- tapply(all.summary$PercentFl, all.summary$Survey, function(x) mean(x,na.rm=TRUE))
-when.fr <- tapply(all.summary$PercentFr, all.summary$Survey, function(x) mean(x,na.rm=TRUE))
-
-stripchart(PercentFl~Survey,data=all.summary, pch=16, method="jitter",
-           vertical=TRUE, col="grey")
-points(1:18,all.fl.mean, col="red", pch=4, cex=1.2)
-points(1:18,when.fr, col="purple", pch=16)
-
-abline(v=9.5)
-
-```
-
-
-```{r}
-sum.agg <- aggregate(dm$X, dm[,c("Plot","Site","Survey")],
-          FUN = function(x){
-            length(x)
-          })
-
-plotnum <- aggregate(dm$Plot, dm[,c("Site","Survey")],
-                     FUN = function(x){
-                       length(unique(x))
-                     })
-
-# Some Site 5 plot have no plants
-plotnum$x[plotnum$Site == "5"] <- 5
-
-# One Site 15 plot has no plants
-plotnum$x[plotnum$Site == "15"] <- 4
-```
-
-```{r}
-ggplot(sum.agg, aes(Survey, x, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
- # stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  ylab("Average AGG per plot")+
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-  geom_text(data=plotnum, aes(label=x, y=-1, x=Survey, size = 0.9))+
-  ggtitle("a)") +
-  theme(plot.title=element_text(hjust=0))+
-  theme(legend.position="none")
-  
-```
-
-```{r}
-
-## Need percent of total indivduals seen each survey period (per year)
-AGG14 <- dm[grep("2014",dm$Survey),]
-# reset factor levels
-AGG14$Survey <- factor(AGG14$Survey)
-
-AGG15 <- dm[grep("2015",dm$Survey),]
-AGG15$Survey <- factor(AGG15$Survey)
-
-
-#or should it be the number that match? 
-intersect(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == "606" & AGG14$Survey == "Aprl_2014"]),
-unique(AGG14$X[AGG14$Ln>0 & 
-       AGG14$Plot == "606"]))/length(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == "606"]))
-
-AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
-  sapply(unique(AGG14$Survey), function(y){
-    length(intersect(unique(AGG14$X[AGG14$Ln>0 & AGG14$Plot == x &AGG14$Survey == y]),
-    unique(AGG14$X[AGG14$Ln>0 & 
-                   AGG14$Plot == x])))/length(unique(AGG14$X[AGG14$Ln>0&AGG14$Plot == x]))
-  })
-})
-
-AGGpersurvey.14[2]
-```
-
-```{r}
-
-names(AGGpersurvey.14) <- unique(AGG14$Plot)
-
-AGGper <- do.call(rbind,AGGpersurvey.14)
-AGGper <- data.frame(AGGper)
-names(AGGper) <- unique(AGG14$Survey)
-AGGper <- data.frame(Plot=rownames(AGGper),AGGper)
-AGGpSurvey <- reshape(AGGper, direction="long", varying = list(names(AGGper)[-1]),
-                      v.names="AGG",
-                      idvar="Plot",
-                      timevar="Survey",
-                      times=names(AGGper)[-1])
-
-
-AGGpSurvey <- merge(AGGpSurvey,AGG14[,c("Plot","Site")],by = "Plot")
-AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
-names(AGGpSurvey)
-str(AGGpSurvey)
-AGGpSurvey <- AGGpSurvey[AGGpSurvey$AGG!=0,]
-```
-
-
-Figure 6:  (b) The percent of Astragalus microcymbus individuals with AGG at each survey from the total individuals with AGG during the 2014 season. (c) Total number of Astragalus microcymbus individuals per stage class as a percent of the total observed throughout the season.  
-```{r}
-ggplot(AGGpSurvey, aes(Survey, AGG, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar',fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  ylab("Percent of total AGG over the year per survey")+
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-  ggtitle("b)") +
-  theme(plot.title=element_text(hjust=0))+
-  theme(legend.position="none")+
-  scale_y_continuous(labels = percent)
-
-
-```
-
-
-```{r}
-AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
-  sapply(unique(AGG15$Survey), function(y){
-    length(intersect(unique(AGG15$X[AGG15$Ln>0 & 
-                         AGG15$Plot == x & 
-                         AGG15$Survey == y]),
-           unique(AGG15$X[AGG15$Ln>0 & AGG15$Plot == x])))/length(unique(AGG15$X[AGG15$Ln>0 & 
-                                                               AGG15$Plot == x]))
-  })
-})
-
-names(AGGpersurvey.15) <- unique(AGG15$Plot)
-
-
-AGGper15 <- do.call(rbind,AGGpersurvey.15)
-AGGper15 <- data.frame(AGGper15)
-names(AGGper15) <- grep("2015", unique(dm$Survey), value = TRUE)
-AGGper15 <- data.frame(Plot=rownames(AGGper15),AGGper15)
-AGGpSurvey15 <- reshape(AGGper15, direction="long", varying = list(names(AGGper15)[-1]),
-                      v.names="AGG",
-                      idvar="Plot",
-                      timevar="Survey",
-                      times=names(AGGper15)[-1])
-
-AGGpSurvey15 <- merge(AGGpSurvey15,dm[,c("Plot","Site")], by = "Plot")
-tail(AGGpSurvey15)
-```
-
-```{r}
-ggplot(AGGpSurvey15[AGGpSurvey15$AGG>0,], aes(Survey, AGG, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  ylab("Percent of total AGG over the year per survey")+
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
-  ggtitle("b)") +
-  theme(plot.title=element_text(hjust=0))+
-  theme(legend.position="none")+
-  scale_y_continuous(labels = percent)
-
-
-```
-
-
-In 2015, on average across sites in South Beaver Creek and Cebolla Creek...   
-```{r}
-AGGAnyTime15 <- ddply(AGG15, .(Site,Plot), summarise,
-                      TUP = length(unique(tag[Ln>0])))
-
-AGGAnyTimeSite15 <- ddply(AGG15, .(Site), summarise,
-                      UP = length(unique(tag[Ln>0])))
-AGGEachTime15 <- ddply(AGG15, .(Site,Plot,Survey), summarise,
-                      UP = length(unique(tag[Ln>0])))
-
-AGGmerge15 <- merge(AGGAnyTime15, AGGEachTime15, by = c("Site","Plot"))
-```
-
-Percent of total unique individuals seen over course of the growing season
-```{r}
-mean(AGGmerge15$UP[AGGmerge15$Survey =="June2_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="June2_2015"], na.rm = TRUE)
-
-# Both South Beaver Creek and Cebolla Creek
-mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"], na.rm = TRUE)
-
-std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015"]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"], na.rm = TRUE)
-
-# ONly Cebolla Creek
-mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-# ONly South beaver Creek
-mean(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-std.error(AGGmerge15$UP[AGGmerge15$Survey =="July_2015" & AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)]/AGGmerge15$TUP[AGGmerge15$Survey =="July_2015"& AGGmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), AGGmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-```
-
-## This is correct for 6b   
-TUP = Total unique plants per plot over 2015   
-UP = unique plants per plot per survey in 2015
-```{r Figure 6(b)}
-ggplot(AGGmerge15, aes(Survey, UP/TUP)) +
-  stat_summary(fun.y = mean, geom = 'point') +
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1)) +
-	facet_grid(~Site) +
-	ylab('Percent of total AGG per plot over the growing season') +
-	xlab("") +
-	theme_bw() + 
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) +
-  scale_y_continuous(labels = percent)
-
-```
-
-
-```{r intraanual seedlings}
-head(dm)
-dm.15 <- dm[grep("2015",dm$Survey),]
-dm.15$Survey <- factor(dm.15$Survey)
-
-coty.seeds <- ddply(dm.15[grep("coty", dm.15$Comment),],
-                   .(Plot, Site), summarise,
-                   tag = unique(tag))
-
-head(coty.seeds)
-tags.seed <- merge(dm.15, coty.seeds, by = c("Site","Plot","tag"))
-```
-
-
-# Seedlings only in 2015
-```{r}
-ggplot(tags.seed, aes(Survey, Ln, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  xlab("Average Length")+
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
-
-
-```
-
-# how many seedlings up in each survey compared to all seedlings all year    
-```{r}
-aggregate(tag~Survey, function(x) length(unique(x)), data = tags.seed)
-
-# how many had cotyledons in July? None I think
-aggregate(tag~Survey, function(x) length(unique(x)), data = dm.15[grep("coty", dm.15$Comment),])
-
-seedanytime15 <-  ddply(tags.seed, .(Site,Plot), summarise,
-                      TUP = length(unique(tag[Ln>0])))
-seedeachtime15 <- ddply(tags.seed, .(Site,Plot,Survey), summarise,
-                      UP = length(unique(tag[Ln>0])))
-
-seedmerge15 <- merge(seedanytime15, seedeachtime15, by = c("Site","Plot"))
-
-mean(seedmerge15$UP[seedmerge15$Survey =="June2_2015"]/seedmerge15$TUP[seedmerge15$Survey =="June2_2015"], na.rm = TRUE)
-
-# Both South Beaver Creek and Cebolla Creek
-mean(seedmerge15$UP[seedmerge15$Survey =="July_2015"]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"], na.rm = TRUE)
-
-std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015"]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"], na.rm = TRUE)
-
-# ONly Cebolla Creek
-mean(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("1","2"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-# ONly South beaver Creek
-mean(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
-
-std.error(seedmerge15$UP[seedmerge15$Survey =="July_2015" & seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)]/seedmerge15$TUP[seedmerge15$Survey =="July_2015"& seedmerge15$Site %in% grep(paste(c("5","15","19","26"), collapse="|"), seedmerge15$Site, value = TRUE)], na.rm = TRUE)
-```
-
-
-```{r}
-AGG14$Ln[grep("Basal", AGG14$Comment)] <- 0.25
-AGG14 <- AGG14[AGG14$Ln != 0,]
-
-agg14 <- lapply(split(AGG14, list(AGG14$Plot,AGG14$Site)),
-                   function(x){
-                     sapply(unique(x$Survey), function(y){
-                       nrow(x[x$Survey == y,])/nrow(x)
-                       })
-                   })
-
-length(agg14[23][[1]])
-
-length(agg14[23]$"607.5")
-# agg14[vapply(agg14, function(x) dim(x)[1] > 1, NA)]
-#Filter(function(x) dim(x)[1] > 1, agg14)
-agg14[!unlist(lapply(agg14, is.null))]
-
-names(agg14) <- 
-do.call(rbind,agg14[agg14[[1]] > 1])
-```
-
-
-##Figure 6    
-Don't worry about the same plant being up, when are the most plants with AGG
-```{r}
-rm(AGGpersurvey.14)
-AGGpersurvey.14 <- lapply(unique(AGG14$Plot), function(x){
-  sapply(unique(AGG14$Survey), function(y){
-    length(AGG14$X[AGG14$Ln>0 & 
-                     AGG14$Plot == x & 
-                     AGG14$Survey == y])/length(AGG14$X[AGG14$Ln>0 &
-                                                          AGG14$Plot == x])
-           })
-  })
-
-names(AGGpersurvey.14) <- unique(AGG14$Plot)
-AGGper <- do.call(rbind,AGGpersurvey.14)
-AGGper <- data.frame(AGGper)
-names(AGGper) <- unique(AGG14$Survey)
-AGGper <- data.frame(Plot=rownames(AGGper),AGGper)
-siteplot <- data.frame(table(AGG14$Plot, AGG14$Site))
-siteplot <- siteplot[siteplot$Freq > 0,]
-names(siteplot) <- c("Plot","Site","Freq")
-
-AGGpSurvey <- reshape(AGGper, direction="long", varying = list(names(AGGper)[-1]),
-                      v.names="AGG",
-                      idvar="Plot",
-                      timevar="Survey",
-                      times=names(AGGper)[-1])
-
-AGGpSurvey <- merge(AGGpSurvey,siteplot,by = "Plot")
-AGGpSurvey$Survey <- factor(AGGpSurvey$Survey, levels = unique(AGG14$Survey))
-```
-
-```{r}
-ggplot(AGGpSurvey[AGGpSurvey$AGG > 0,], aes(Survey, AGG, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  ylab("Percent of total AGG over the year per survey")+
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
-  ggtitle("b)") +
-  theme(plot.title=element_text(hjust=0))+
-  theme(legend.position="none")+
-  scale_y_continuous(labels = percent)
-
-
-```
-
-```{r}
-rm(AGGpersurvey.15)
-AGGpersurvey.15 <- lapply(unique(AGG15$Plot), function(x){
-  sapply(unique(AGG15$Survey), function(y){
-    length(AGG15$X[AGG15$Ln>0 & 
-                     AGG15$Plot == x & 
-                     AGG15$Survey == y])/length(AGG15$X[AGG15$Ln>0 &
-                                                          AGG15$Plot == x])
-           })
-  })
-
-names(AGGpersurvey.15) <- unique(AGG15$Plot)
-AGGper.15 <- do.call(rbind,AGGpersurvey.15)
-AGGper.15 <- data.frame(AGGper.15)
-names(AGGper.15) <- unique(AGG15$Survey)
-AGGper.15 <- data.frame(Plot=rownames(AGGper.15),AGGper.15)
-
-AGGpSurvey.15 <- reshape(AGGper.15, direction="long", varying = list(names(AGGper.15)[-1]),
-                      v.names="AGG",
-                      idvar="Plot",
-                      timevar="Survey",
-                      times=names(AGGper.15)[-1])
-
-AGGpSurvey.15 <- merge(AGGpSurvey.15,siteplot,by = "Plot")
-AGGpSurvey.15$Survey <- factor(AGGpSurvey.15$Survey, levels = unique(AGG15$Survey))
-```
-
-```{r}
-ggplot(AGGpSurvey.15[AGGpSurvey.15$AGG > 0,], aes(Survey, AGG, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  ylab("Percent of total AGG over the year per survey")+
-  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5))+
-#  geom_text(data=plotnum, aes(label=x, y=1, x=Survey, size = 0.9))+
-#  ggtitle("b)") +
-  theme(plot.title=element_text(hjust=0))+
-  theme(legend.position="none")+
-  scale_y_continuous(labels = percent)
-
-
-```
-
-figure 6c
-```{r}
-# set status
-head(dm)
-dm$status <- "dead"
-dm$status[dm$Ln > 0 & dm$Fl == 0] <- "vegetative"
-dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
-
-table(dm$status,dm$Survey)
-
-#One case says 'no cotyledons'
-#Seedlings in 2014
-dm.14 <- dm[grep("2014",dm$Survey),]
-dm.14$Survey <- factor(dm.14$Survey)
-
-coty.seeds14 <- ddply(dm.14[grep("coty", dm.14$Comment),],
-                   .(Plot, Site), summarise,
-                   tag = unique(tag))
-
-head(coty.seeds14)
-tags.seed14 <- merge(dm.14, coty.seeds14, by = c("Site","Plot","tag"))
-
-#Seedlings in 2015
-dm.15 <- dm[grep("2015",dm$Survey),]
-dm.15$Survey <- factor(dm.15$Survey)
-
-coty.seeds15 <- ddply(dm.15[grep("coty", dm.15$Comment),],
-                   .(Plot, Site), summarise,
-                   tag = unique(tag))
-
-head(coty.seeds15)
-tags.seed15 <- merge(dm.15, coty.seeds15, by = c("Site","Plot","tag"))
-tags.seedall <- rbind(tags.seed14, tags.seed15)
-
-table(dm$Comment)
-unique(dm$Comment[grep("coty", dm$Comment)])
-dm$Comment[grep("no coty", dm$Comment)] <- "Cotyledons "
-seedlings <- dm[grep("coty", dm$Comment),] 
-seedlings$Comment <- factor(seedlings$Comment)
-table(seedlings$Comment, seedlings$Ln)
-
-table(tags.seedall$status)
-tags.seedall[tags.seedall$status == "reproductive",]
-dm[dm$tag == 273 & dm$Site == 26,]
-
-
-ggplot(tags.seed15, aes(Survey, Ln, group = Site))+
-  stat_summary(fun.y = mean, geom="point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)
-
-
-#Set seedling status to tags that we saw cotyledons in 2014 or 2015
-
-
-# one seedling became reproductive after germinating in 2015
-dm$status[dm$Ln > 0 & dm$Fl == 1] <- "reproductive"
-
-#dormant would have an existing tag and length at a later time
-length(unique(dm$tag[dm$status == "dead"]))
-
-dm$status <- factor(dm$status, levels = c("seedling","vegetative","reproductive","dormant","dead"))
-
-
-unique.season <- ddply(dm, .(Site, Plot, status), summarise,
-                       UniqueNumAGG = length(unique(X[Ln >0])))
-
-#unique.season <- lapply(split(dm, dm[,c("Site","Plot","status")]), function(x){
-#  if(nrow(x) > 0){
-#    cbind(x[1,c("Site","Plot","status")], num = nrow(x))
-#    }
-#})
-# Filter(function(x) dim(x)[1] > 0, unique.season)
-
-unique.season
-
-number.time <- ddply(dm, .(Site, Plot, Survey, status), summarise,
-                     NumAGG = length(unique(X[Ln >0])))
-
-merge.num.season <- merge(unique.season, number.time, by = c("Site","Plot","status"))
-
-merge.num.season$Percent <- merge.num.season$NumAGG/merge.num.season$UniqueNumAGG
-
-ggplot(merge.num.season, aes(status, Percent, colour = status)) +
-  geom_boxplot() +
-  theme_bw() +
-	facet_grid(~ Survey)+
-	ylab("Percent of total") +
-	theme(axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0))+
-  ggtitle("c)") +
-  theme(plot.title=element_text(hjust=0))+
-  scale_y_continuous(labels = percent)
-
-```
-
-July census     
-Size of seedlings in July, are all less than 10cm, can we use that as metric for future annual measurements?    
-Becky's comment: "For the july census can we say that all seedlings were less than 10 cm and all re-emerging plants are greater than 10cm? I.e., can we use these data to have a cut off for the July census..kind of like we do with Scgl for reproductive vs non-reproductive? If so then we could use this to back track and re-assess all prior years data and also use it going forward with just the July census."
-
-```{r}
-unique(merge.num.season$Survey)
-aggregate(Percent~Survey+status, mean, data = merge.num.season)
-
-head(dm)
-aggregate(Ln~Survey+status, mean, data = dm)
-
-head(tags.seed15)
-aggregate(Ln~Survey+status, mean, data = tags.seed15) #aaaahhh, lengths for dead??
-aggregate(Ln~Survey+status, max, data = tags.seed15) #aaaahhh, lengths for dead??
-
-#try again to classify seedlings for the whole year even if they become reproductive later
-head(tags.seedall) # all tags with coty seed at some point in that year, 2014, or within 2015
-aggregate(Ln~Survey, mean, data = tags.seedall) # July 5.6cm
-aggregate(Ln~Survey, max, data = tags.seedall)
-
-ggplot(aggregate(Ln~Survey, mean, data = tags.seedall), aes(Survey, Ln)) +
-  geom_point() 
-
-ggplot(aggregate(Ln~Survey, max, data = tags.seedall), aes(Survey, Ln)) +
-  geom_point() 
-```
-
-
-```{r learned from intra, eval=FALSE}
-dm$SurveyNum <- as.numeric(dm$Survey)
-dm$tag[dm$status == "seedling"]
-
-tags <- ddply(dm, .(status), summarise,
-              Tags = unique(tag))
-
-tags.plot <- tags$Tags[tags$status == "seedling"]
-
-tags.seed <- merge(dm, data.frame(tag = tags.plot), by = "tag")
-
-# For the most part stayed under 10cm if saw cotyledons
-ggplot(tags.seed, aes(Survey, Ln, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~Site)+
-  theme_bw()+
-  xlab("Average Length")+
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
-
-ggplot(tags.seed, aes(Survey, Ln, group = Site))+
-  stat_summary(fun.y = mean, geom = "point")+
-  stat_summary(fun.data='mean_cl_normal', geom='errorbar', fun.args = list(mult=1))+
-  facet_grid(~status)+
-  theme_bw()+
-  xlab("Average Length")+
-    theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust = 0.5)) 
-
-
-dm.pva <- subset(merge(dm, dm, by = c("Site","Plot","X")), SurveyNum.x == SurveyNum.y - 1)
-
-
-```
-
 
 Figure for Becky annual report 01232018
 ```{r}
 alive.byyear <- aggregate(length~year, data=alive[alive$AsMi_site_id>3,],
                           FUN= sum)
 
-ggsave("Q:/Research/MEDL_folder/AsMi_yr.jpg",device="jpeg",
+# ggsave("Q:/Research/MEDL_folder/AsMi_yr.jpg",device="jpeg",
 ggplot(alive.byyear, aes(year,length))+
   geom_line(colour="blue")+
   ggtitle("Astragalus microcymbus")+
   theme_classic()+
-  ylab("Total Population"))
+  ylab("Total Population")
+# )
   
-write.csv(alive.byyear,"Q:/Research/MEDL_folder/AsMi_yr.csv")
+# write.csv(alive.byyear,"Q:/Research/MEDL_folder/AsMi_yr.csv")
 
 ```
 
@@ -4251,17 +2846,18 @@ dorms <- do.call(rbind,lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(x){
 
 table(dorms$dorms) 
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig4.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 130)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#               currentyr,"_asmi/Fig4.jpg", sep = ""),
+#          units = "mm", res = 300, height = 100, width = 130)
+ggsave(paste(savepath, "FigDormancy.jpg", sep=""),
+  ggplot(dorms, aes(dorms))+
+    geom_histogram(bins = 20)+
+    theme_bw()+
+    ylab("Frequency")+
+    xlab("Consecutive years dormant"),
+width=130, height = 100, units = 'mm', dpi = 300)
 
-ggplot(dorms, aes(dorms))+
-  geom_histogram(bins = 20)+
-  theme_bw()+
-  ylab("Frequency")+
-  xlab("Consecutive years dormant")
-
-dev.off()
+# dev.off()
 ```
 
 #only South beaver creek
@@ -4951,6 +3547,119 @@ ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(YrsD, Yearsalive, colour=
 
 dev.off()
 ```
+
+
+
+
+################################################################################################################
+#########################   Run once per year!! ################################################################
+# Download climate data  
+###Environmental Data from PRISM:   
+<http://prism.oregonstate.edu/explorer/>  
+<https://github.com/ropensci/prism>
+
+Process takes a while   
+Can go back to folder and delete old provisional data to replace with more current   
+```{r, eval = FALSE}
+# Set wd for prism
+options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+
+#Precipitation total, rain and snow
+get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+#Maximum temperature (average)
+get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+#Minimum temperature (average)
+get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+
+```
+
+Error, didn't download
+```{r, eval=FALSE}
+get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
+get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
+get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
+```
+
+
+
+#########################################################################################################################
+### Takes forever, just load and move on after first time
+# Want Site, Year, Month, ppt, tmin, tmax
+```{r, eval = FALSE}
+maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
+mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
+ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
+
+length(maxs)
+length(mins)
+length(ppt)
+
+avgTemps.max <- lapply(maxs, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+avgTemps.min <- lapply(mins, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+avgPrecip <- lapply(ppt, function(x){
+  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+})
+
+mins.avg <- do.call(rbind, avgTemps.min)
+maxs.avg <- do.call(rbind, avgTemps.max)
+ppt.avg <- do.call(rbind, avgPrecip)
+
+mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
+
+
+mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 1,4))
+ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
+                                   function(x) x[5], character(1)), 5,6))
+
+
+# Check that all get downloaded
+asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
+                                                         "asmilatlong.Tag_Commen"))
+names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
+asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
+                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
+names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
+# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+
+table(asmi.climate$Site)
+asmi.climate$SiteNum <- 1
+asmi.climate$SiteNum[asmi.climate$Site == "Cebolla North"] <- 2
+asmi.climate$SiteNum[asmi.climate$Site == "Site 15"] <- 15
+asmi.climate$SiteNum[asmi.climate$Site == "Site 5"] <- 5
+asmi.climate$SiteNum[asmi.climate$Site == "Site 19"] <- 19
+asmi.climate$SiteNum[asmi.climate$Site == "Site 26"] <- 26
+table(asmi.climate$SiteNum, asmi.climate$Site)
+
+save(asmi.climate, file = paste(rawdatapath, "asmi.climate", currentyr,".Rdata", sep=""))
+```
+#########################################################################################################################
+#################################### only once per year #################################################################
+
+
 
 
 
