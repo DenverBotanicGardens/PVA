@@ -3,8 +3,8 @@ title: "AsMi_annual report"
 author: "Michelle DePrenger-Levin"
 date: "Tuesday, October 27, 2015"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 The git remote is "AsMiPVA"
 AsMiPVA
@@ -1065,6 +1065,21 @@ table(asmi.all$status)
 Results: Demographic monitoring   
 "No rain since May"
 ```{r}
+
+ggplot(aggregate(ppt ~ Creek + Year, mean, data = asmi.c), aes(Year, ppt, colour = Creek))+
+  # geom_jitter(width = 0.1, height = 0)+
+  geom_point()+
+  stat_smooth(method = 'glm', se = FALSE)+
+  theme_bw()
+
+ggplot(aggregate(ppt ~ Creek + Prev12, mean, data = asmi.c[asmi.c$Prev12 > 2012 & asmi.c$Prev12 < 2016,]), 
+       aes(Prev12, ppt, colour = Creek))+
+  # geom_jitter(width = 0.1, height = 0)+
+  geom_point()+
+  stat_smooth(method = 'glm', se = FALSE)+
+  theme_bw()
+
+
 ggplot(asmi.climate[asmi.climate$Year == 2020,], aes(Month, ppt, colour = Site))+
   geom_jitter(width = 0.1, height = 0)+
   stat_smooth(se = FALSE)+
@@ -1180,11 +1195,11 @@ Narrow down to
 [7] "fence.x"        "status.x"       "status.y"     
 ```{r}
 cols <- c("AsMi_site_id.x","AsMi_tag_id","year.x","length.x",
-          "fruit.x","browsed.x","fence.x","status.x","status.y","AsMi_plot_id.x")
+          "fruit.x","browsed.x","fence.x","status.x","status.y","AsMi_plot_id.x", "length.y")
 asmi.all2 <- asmi.all1[, names(asmi.all1) %in% unique(grep(paste(cols,collapse="|"),
-                                                  names(asmi.all1), value = TRUE))]
+                                                  names(asmi.all1), value = TRUE))] # T/F so in the order of data frame
 colnames(asmi.all2) <- c( "tag","year","length","fruits","stage","plot",
-                       "site","fenced","browse","fate")
+                       "site","fenced","browse","length1","fate")
 
 ## re-number
 rownames(asmi.all2) <- 1:nrow(asmi.all2)
@@ -2920,7 +2935,7 @@ ggplot(plotrepros, aes(x=Var2, y=Freq ))+
 ```
 
 ```{r}
-#is survival associate diwht a continutous classifying variable?
+#is survival associated with a continuous classifying variable?
 surv.asmi <- asmi.all2  # asmi.2
 surv.asmi$surv <- 1
 surv.asmi$surv[surv.asmi$fate=="dead"] <- 0
@@ -3016,21 +3031,24 @@ plot(surv.asmi$length,
 ```
 
 
+Does this not only want the max YrsAlive per tag? Yes I think so 
 # Another way to look at survival curves
 ```{r}
 fit <- survfit(Surv(length, surv) ~ fenced, 
                data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
 
-jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
-              currentyr,"_asmi/Fig9_Surv_fence_size.jpg", sep = ""),
-         units = "mm", res = 300, height = 100, width = 150)
+# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
+#               currentyr,"_asmi/Fig9_Surv_fence_size.jpg", sep = ""),
+#          units = "mm", res = 300, height = 100, width = 150)
 
-ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.table = FALSE, xlab = "length", conf.int = TRUE)
+ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,], 
+           risk.table = FALSE, xlab = "length", conf.int = TRUE)
 
-dev.off()
+# dev.off()
 ```
 
 # Fit these with dampening survival estimates? based on what are likely to be seen in the rest of the year but dormant in July? 
+
 
 ```{r}
 fit <- survfit(Surv(length, surv) ~ site, 
@@ -3056,10 +3074,14 @@ asmi.1[asmi.1$AsMi_tag_id==11,] # Some tag made in error I guess
 #Probability of being reproductive given years alive
 levels(asmi.raw.1$status) # 3 is reproductive; 1 is dead
 # Should add at least 1 year to the years alive if reproductive 
+# test
+x <- split(asmi.raw.1, asmi.raw.1$AsMi_tag_id)[[100]]
+
+## not quite appropriate for survival analysis. Example is from a set time, diagnosis of cancer, to how long after is survival and then right censoring to say measured up until a time but don't know after that if still alove vs. measured through to this time and died then 'status = 0 if stopped measuring and 1 if dead at that time. 
 
 notdeadyet <- do.call(rbind,lapply(split(asmi.raw.1, asmi.raw.1$AsMi_tag_id), function(x){
   if(nrow(x[x$status!="dead",])>0){
-    if(x$status[1] == "reproductive"){
+    if(x$status[1] == "reproductive"){ # if the first year was reproductive then it wasn't a seedling for sure
       addyear <- 1
     } else {
       addyear <- 0
@@ -3088,7 +3110,7 @@ plot(surv.asmi.1$YrsAlive,
 
 ```
 
-
+Does this not only want the max YrsAlive per tag?
 ```{r}
 surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
 
@@ -3119,7 +3141,7 @@ MacKenzie et al. 2009 Modeling species occurrence dynamics...
 Kellner and Swihart 2014 Accounting for Imperfect detection...
 Chandler et al. 2018 Estimating recruitment from capture-recapture data...
 Mark-recapture   
-```{r}
+```{r, eval=FALSE}
 
 library(RMark)
 
@@ -3138,7 +3160,7 @@ Autoregressive and moveing average modeling method   (Liu and Guo 2019)
 does not approach to 0 at each lag order, and truncation on
 order p and q means ACF and PACF   
 Fruit is episodic, mast seeding, would make sense to add a sin and/or cos wave to the fit    
-```{r}
+```{r, eval=FALSE}
 library(astsa)
 
 head(asmi.raw)
@@ -3174,12 +3196,6 @@ lines(co2_2, col="green")
 
 ```
 
-```{r}
-
-
-```
-
-
 Steps for model order selection   
      1. residual vaiogram   
      2. order determination using F test   
@@ -3195,14 +3211,8 @@ ARMA(p,q)
 arima() estimates underlying mean of time series unless d?0
 x_t = mu + rho(x_t-1 - mu) + white noise  
 
-```{r}
-
-
-```
-
-
 Simulate stationary processes  
-```{r}
+```{r, eval=FALSE}
 ## ARMA(2,2) description for arim.sim()
 ARMA22 <- list(order=c(2,0,2), ar=c(-0.7,0.2), ma=c(0.7,0.2))
 ## mean of process
@@ -3221,7 +3231,7 @@ arima(x=ARMA.sim, order=c(2,0,2))
 ```
 
 <https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc44a.htm>    
-```{r}
+```{r, eval=FALSE}
 # R commands and output:
 
 ## Read the data and save as a time series object.
@@ -3368,7 +3378,7 @@ lines(c(145:156), U90, col="red")
 
 # Add error and variance to dormancy
 # change dormant to reproductive, seedling???, or vegetative in a given year based on climate   
-```{r}
+```{r, eval=FALSE}
 # relationship of climate and likelyhood of being stage given climate; ppt.springSummer best descriptor of status in July
 season
 
@@ -3382,7 +3392,7 @@ Going to skip this after 2016 since know that plants aren't below ground the who
 Need to change from set amount of time dormant to find the most likely length of dormancy given that 25-50 percent are actually veg, seedlings, or reproductive when not detected in July
 
 ### Years alive    
-```{r}
+```{r, eval=FALSE}
 dormyrs <- currentyr-1995
 
 path <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
@@ -3412,7 +3422,7 @@ head(yrsalive[[4]])
 #autocorrelations   
 https://campus.datacamp.com/courses/introduction-to-time-series-analysis/correlation-analysis-and-the-autocorrelation-function?ex=9#next    
 alive.site$length are the number of indiviudals with length>0 and that aren't na per site per year (and per fenced or not plots)
-```{r}
+```{r, eval=FALSE}
 # Not sure what trying to do? Take away the first row each time?
 # length_tmin1 <- split(alive.site$length[-1],alive.site$AsMi_site_id)
 length_tmin1 <- split(alive.site$length,alive.site$AsMi_site_id)
@@ -3428,14 +3438,14 @@ length_t.removed
 autocor <- mapply(cbind,length_t.removed,length_tmin1.removed)
 ```
 
-```{r}
+```{r, eval=FALSE}
 plot(autocor[[1]], xlim=c(0,325), ylim=c(0,350), pch=20)
 for(i in 2:6){
   points(autocor[[i]], col=i, pch=20)
 }
 ```
 
-```{r}
+```{r, eval=FALSE}
 autocor1 <- do.call(rbind,autocor)
 # sample covariance in acf is scaled with 1/(n-1) instead of 1/n
 cor(autocor1[,1],autocor1[,2])*(nrow(autocor1)/(nrow(autocor1)+1))
@@ -3450,7 +3460,7 @@ lapply(split(alive.site$length,alive.site$AsMi_site_id), function(x){
 
 
 # 2017 June 2 for NCAR
-```{r}
+```{r, eval=FALSE}
 
 uniqclim <- unique(asmi.c[,c("Year","tmin","tmax","ppt")])
 clim_agg <- merge(uniqclim, ps.asmi, by = "Year")
@@ -3476,7 +3486,7 @@ ggplot(asmi.c, aes(Year, ppt))+
   facet_wrap(~Month+Site)
 ```
 
-```{r}
+```{r, eval=FALSE}
 ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individuals per plot") & clim_agg_long$Site>3,], 
        aes(Year, value))+
 #  geom_point()+
@@ -3485,7 +3495,7 @@ ggplot(clim_agg_long[clim_agg_long$variable%in% c("Minimum temperature","Individ
   theme_bw()
 ```
 
-```{r}
+```{r, eval=FALSE}
 ggplot(clim_agg_long[clim_agg_long$Site>3,], 
        aes(as.factor(Year), value))+
 #  geom_point()+
@@ -3499,7 +3509,7 @@ ggplot(clim_agg_long[clim_agg_long$Site>3,],
 
 
 Figure 3: Was: Average life span of Astragalus microcymbus (with one standard error from the mean) given consecutive assumptions on length of possible whole plant dormancy. (b) Distribution of consecutive years of dormancy when dormancy is not limited.  
-```{r}
+```{r, eval=FALSE}
 ggplot(smya, aes(YrsD, Yearsalive))+
 #  stat_smooth()+
   geom_errorbar(aes(ymin=Yearsalive-se, ymax=Yearsalive+se), 
@@ -3511,7 +3521,7 @@ ggplot(smya, aes(YrsD, Yearsalive))+
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 sumYrsAlive <- lapply(yrsalive, function(x){
   summarySE(x[complete.cases(x),], measurevar="Yearsalive",groupvars="YrsD")
 })
@@ -3547,6 +3557,97 @@ ggplot(yrsaliveall[yrsaliveall$AsMi_site_id > 3,], aes(YrsD, Yearsalive, colour=
 
 dev.off()
 ```
+
+## 2021 attempt at imputation of stage and lengths for dormants
+## Frequentist approximation of length given climate to impute some lengths for dormant. Need some measure of last time seen or go through if dormant previous year or years since last seen above ground   
+```{r}
+
+asmi.climate.plot <- aggregate(asmi.c[,names(asmi.c) %in% grep(paste(c("tmin","tmax","ppt"),collapse="|"),
+                                          names(asmi.c), value=TRUE)],
+                               asmi.c[,c("season","Creek","Prev12","Plot","Site","Site.1")],
+                               function(x) mean(x, na.rm=TRUE))
+
+seasonXplot <- reshape(asmi.climate.plot[asmi.climate.plot$Prev12 < currentyr+1 & asmi.climate.plot$Prev12 > 1994,],
+                  idvar=c("Creek","Prev12","Plot","Site","Site.1"),
+                  timevar = "season",
+                  direction="wide")
+
+# asmi.raw.climate <- merge(asmi.all2, asmi.climate.plot, by.x = c("year","plot","site"), by.y = c("Prev12","Plot","Site"))
+asmi.raw.climate <- merge(asmi.all2, seasonXplot, by.x = c("year","plot","site"), 
+                          by.y = c("Prev12","Plot","Site"))
+
+asmi.raw.climate[asmi.raw.climate$length1 < 1,]
+
+## length ~ stage and climate
+lm1 <- glmer(length1 ~ length + (1|year), family = Gamma(link = "log"),
+             data = asmi.raw.climate[asmi.raw.climate$length > 0 & asmi.raw.climate$length1 > 0,])
+summary(lm1)
+
+
+# library(nnet)
+# multinom(fate ~ ppt.springSummer + stage, asmi.raw.climate)
+# 
+# lm1 <- multinom(status ~ ppt.fall + ppt.winter + ppt.springSummer +
+#             tmax.winter + tmax.fall + tmax.springSummer +
+#             tmin.springSummer + tmin.fall + tmin.winter, aic.asmi)
+# lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
+# lm3 <- multinom(status ~ tmin.winter + tmax.springSummer, aic.asmi) 
+# lm4 <- multinom(status ~ ppt.winter, aic.asmi)
+# lm5 <- multinom(status ~ 1, aic.asmi)
+# lm6 <- multinom(status ~ AsMi_site_id, aic.asmi)
+# # lm7 <- multinom(Lmda ~ Prev12, aic.asmi)
+# lm7 <- multinom(status ~ year, aic.asmi)
+# lm8 <- multinom(status ~ ppt.fall + ppt.winter +
+#             tmax.winter + tmax.fall +  tmax.springSummer +
+#             tmin.fall + tmin.winter, aic.asmi)
+# lm9 <- multinom(status ~ ppt.winter*tmax.winter*tmin.winter, aic.asmi)
+# lm10 <- multinom(status ~ ppt.fall*tmax.fall*tmin.fall, aic.asmi)
+# lm11 <- multinom(status ~ ppt.fall*ppt.winter*tmax.winter*tmax.fall*tmax.springSummer*tmin.fall*tmin.winter, aic.asmi)
+# # lm1,
+# lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
+# lm.names <- as.character(unlist(lapply(lm.list,formula)))
+# (lm.results <- aictab(lm.list, modnames=lm.names))
+# #evidence ratio 
+# for(i in 2:length(lm.list)){
+#   print(exp(0.5*lm.results$Delta_AICc[i]))
+# }
+
+```
+
+# 2021
+## Discussion
+## biotic or climate driven dormancy, reproduction, recruitment  
+```{r}
+ps.asmi.lag.climate <- merge(ps.asmi.lag,  seasonXplot, by.x = c("Year.y","Plot","Site", "Creek"), # link to next year.y from previous 12 months climate to .y
+                          by.y = c("Prev12","Plot","Site","Creek"))
+
+glm1 <- glm(Total.Alive.y ~ X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # AGG ~ br last year
+glm2 <- glm(Total.Alive.y ~ X..Flowered.x, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # ~ percent flower last year
+glm3 <- glm(Total.Alive.y ~ Total.Alive.x, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # ~ AGG last year
+glm4 <- glm(Total.Alive.y ~  X..Browsed.x * Fence, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm5 <- glm(Total.Alive.y ~ 1, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm6 <- glm(Total.Alive.y ~ X..Browsed.y, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # br in current year
+glm7 <- glm(Total.Alive.y ~ X..Browsed.y * Fence, family = poisson(link = 'log'), data = ps.asmi.lag.climate) 
+glm8 <- glm(Total.Alive.y ~ Total.Alive.x * X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+
+glm9 <- glm(Total.Alive.y ~ ppt.fall*ppt.springSummer*ppt.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # AGG ~ br last year
+glm10 <- glm(Total.Alive.y ~ ppt.fall*ppt.springSummer, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # ~ percent flower last year
+glm11 <- glm(Total.Alive.y ~ ppt.springSummer*ppt.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate) # ~ AGG last year
+glm12 <- glm(Total.Alive.y ~  ppt.fall*ppt.winter * Fence, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm13 <- glm(Total.Alive.y ~ 1, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm14 <- glm(Total.Alive.y ~ tmax.fall*tmax.springSummer*tmax.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate) 
+glm15 <- glm(Total.Alive.y ~ tmax.fall*tmax.springSummer, family = poisson(link = 'log'), data = ps.asmi.lag.climate) 
+glm16 <- glm(Total.Alive.y ~ tmax.springSummer*tmax.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm17 <- glm(Total.Alive.y ~ tmax.fall*tmax.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+glm18 <- glm(Total.Alive.y ~ tmax.winter, family = poisson(link = 'log'), data = ps.asmi.lag.climate)
+
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8,glm9, glm10, glm11, glm12, glm13, glm14, glm15, glm16, glm17)
+# glm.list <- list(glm9, glm10, glm11, glm12, glm13, glm14, glm15, glm16, glm17)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
+
+```
+
 
 
 

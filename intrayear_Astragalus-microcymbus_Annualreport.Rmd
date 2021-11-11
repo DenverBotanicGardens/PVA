@@ -12,7 +12,7 @@ Will want to ignore sites that were not visited - deal with differently than pla
 ### What is the most common stage class of individuals that were dormant for some portion of the growing season? 
 2013
 ```{r}
-intra.2013June <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/AsMiJune2013.csv"), na.strings="")
+intra.2013June <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/AsMiJune2013.csv")
 
 intra.2013July <- read.csv(path.expand("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Raw Data/2013/AsMiJuly2013.csv"), na.strings="")
 
@@ -35,7 +35,6 @@ names(demo.only)
 nrow(demo.only)
 nrow(demo.only[!is.na(demo.only$LnApr20_15),])
 nrow( demo.only[ rowSums(is.na(demo.only[,grep("Ln", names(demo.only))])) != length(grep("Ln", names(demo.only))),] )
-# demo.only <- demo.only[ rowSums(is.na(demo.only[,grep("Ln", names(demo.only))])) != length(grep("Ln", names(demo.only))),] 
 
 
 # need to name the same before binding...
@@ -44,7 +43,6 @@ surname <- names(demo.only[,grep("Ln",names(demo.only))])
 demo.only.bydate <- lapply(1:18, function(x){
   df <- data.frame(intra[,c(1:7,13,99:100)], demo.only[,((5*x-4):(5*x))],Survey = surname[x])
   names(df) <- c(names(intra[,c(1:7,13,99:100)]), "Ln","Fl","Fr","Br","Comment","Survey")
-  # df[!is.na(df$Ln),]
   df
 })
 
@@ -80,24 +78,25 @@ levels(dm$Survey) <- c(sapply(c(substr(levels(dm$Survey)[1:5],3,6),
 #Add actual date to surveys
 table(dm$Survey)
 dm$Date <- NA
-dm$Date <- as.Date("2014-04-21")
-dm$Date[dm$Survey=="May1_2014"] <- as.Date("2014-05-13")
-dm$Date[dm$Survey=="Jun1_2014"] <- as.Date("2014-06-02")
-dm$Date[dm$Survey=="Jun2_2014"] <- as.Date("2014-06-25")
-dm$Date[dm$Survey=="Jul1_2014"] <- as.Date("2014-07-15")
-dm$Date[dm$Survey=="Aug14_2014"] <- as.Date("2014-08-05")
-dm$Date[dm$Survey=="Sep1_2014"] <- as.Date("2014-09-07")
-dm$Date[dm$Survey=="Oct1_2014"] <- as.Date("2014-10-08")
-dm$Date[dm$Survey=="Oct2_2014"] <- as.Date("2014-10-28")
-dm$Date[dm$Survey=="Apr2_2015"] <- as.Date("2015-04-20")
-dm$Date[dm$Survey=="May11_2015"] <- as.Date("2015-05-11")
-dm$Date[dm$Survey=="May2_2015"] <- as.Date("2015-05-26")
-dm$Date[dm$Survey=="June_2015"] <- as.Date("2015-06-08")
-dm$Date[dm$Survey=="June2_2015"] <- as.Date("2015-06-22")
-dm$Date[dm$Survey=="July_2015"] <- as.Date("2015-07-22")
-dm$Date[dm$Survey=="Aug1_2015"] <- as.Date("2015-08-11")
-dm$Date[dm$Survey=="Sept_2015"] <- as.Date("2015-09-01")
-dm$Date[dm$Survey=="Oct6_2015"] <- as.Date("2015-10-06")
+dm$Date <- as.Date("2014-04-21") # All assigned this # LnAprl14  
+dm$Date[dm$Survey=="LnMay12"] <- as.Date("2014-05-13") # May1_2014
+dm$Date[dm$Survey=="LnJun14"] <- as.Date("2014-06-02") # Jun1_2014
+dm$Date[dm$Survey=="LnJun214"] <- as.Date("2014-06-25") # Jun2_2014
+dm$Date[dm$Survey=="LnJul14"] <- as.Date("2014-07-15") # Jul1_2014
+dm$Date[dm$Survey=="LnAug14"] <- as.Date("2014-08-05") # Aug14_2014
+dm$Date[dm$Survey=="LnSep14"] <- as.Date("2014-09-07") # Sep1_2014
+dm$Date[dm$Survey=="LnOct14"] <- as.Date("2014-10-08") # Oct1_2014
+dm$Date[dm$Survey=="LnOct2814"] <- as.Date("2014-10-28") # Oct2_2014
+
+dm$Date[dm$Survey== "LnApr20_15"] <- as.Date("2015-04-20") # "Apr2_2015"
+dm$Date[dm$Survey=="LnMay11_15"] <- as.Date("2015-05-11") # May11_2015
+dm$Date[dm$Survey=="LnMay26_15"] <- as.Date("2015-05-26") # May2_2015
+dm$Date[dm$Survey=="LnJune8_15"] <- as.Date("2015-06-08") # June_2015
+dm$Date[dm$Survey=="LnJune22.24"] <- as.Date("2015-06-22") # June2_2015
+dm$Date[dm$Survey=="LnJuly20.23_15"] <- as.Date("2015-07-22") # July_2015
+dm$Date[dm$Survey== "LnAug12.14_15"] <- as.Date("2015-08-11") # "Aug1_2015"
+dm$Date[dm$Survey=="LnSept1.3_15"] <- as.Date("2015-09-01") # Sept_2015
+dm$Date[dm$Survey=="LnOct6.8_15"] <- as.Date("2015-10-06") # Oct6_2015
 table(dm$Date)
 
 ```
@@ -112,16 +111,16 @@ dm$status[dm$Ln == 0] <- "dormant"
 table(dm$status, dm$Survey)
 table(dm$Comment[dm$status=="vegetative"], dm$status[dm$status=="vegetative"])
 
+# change to character to remove things that turned out not to be asmi or are saying no cotyledons 
 dm$Comment <- as.character(dm$Comment)
 dm$Comment[grep("non-asmi",dm$Comment)] <- "No"
 dm$Comment[grep("no coty",dm$Comment)] <- "No"
 dm$Comment[grep("not new", dm$Comment)] <- "No"
-# dm$status[dm$Comment %in% c("lost", "subsum","same as","tag not","brows","broken", "dried","dea")] <- "dormant"
 
 table(dm$Comment[dm$Ln < 10],dm$status[dm$Ln < 10])
-
+#Toothpicks placed when cotyledons were seen
   
-toMatch <- c("coty","Coty","new pla","seedli","tooth") 
+toMatch <- c("coty","Coty","new pla","seedli") # ,"tooth")  # toothpick could be there when cotyledons are not
   
 dm$status[grep(paste(toMatch, collapse="|"),
                dm$Comment, ignore.case=TRUE)] <- "seedling"
@@ -132,16 +131,16 @@ dm$status[dm$Comment == "might be new"] <- "seedling"
 asmicoty <- unique(dm$UniqueID[grep(paste(toMatch, collapse="|"),
                                           dm$Comment,
                                     ignore.case=TRUE)])
+sort(asmicoty)
 
 # The ones that are seedlings should be nothing "NA" before being seen while the ones that are found but not as seedlings should be dormant before 
-# dm$status[grep("dead",dm$Comment)] <- "dead"
 
 table(dm$Comment[dm$UniqueID %in% asmicoty])
 table(dm$Comment[dm$Ln < 5])
 
-
 dm$Year <- as.numeric(2014)
-dm$Year[grep("2015",dm$Survey)] <- 2015
+dm$Year[grep("15",dm$Survey)] <- 2015
+dm$Year[dm$Survey == "LnJune22.24"] <- 2015
 
 table(dm$Year, dm$status)
 
@@ -151,30 +150,36 @@ dm[dm$UniqueID %in% dm$UniqueID[dm$status=="dormant"],]
 
 # Sometimes cotyledons seen in more than one survey
 morethanoneseedling <- lapply(asmicoty, function(i){
-  if(nrow(dm[dm$UniqueID==i & dm$status == "seedling",])>1){
+  if(nrow(dm[dm$UniqueID==i & dm$status == "seedling" & !is.na(dm$status),])>1){
     dm[dm$UniqueID==i,]
   }
 })
+
+lapply(morethanoneseedling[!unlist(lapply(morethanoneseedling,is.null))], function(x) rle(x$status[!is.na(x$status)]))
+morethanoneseedling[!unlist(lapply(morethanoneseedling,is.null))][[1]]
 
 seed2 <- do.call(rbind,morethanoneseedling[!unlist(lapply(morethanoneseedling,is.null))])
 doubleseedlingID <- unique(seed2$UniqueID)
 
 for(i in asmicoty){
-  seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE)
+  dm[dm$UniqueID==i,]
+  seedlingsurvey <- min(dm$Date[dm$UniqueID==i & !is.na(dm$status) ], na.rm=TRUE) # the first date cotyledon was seen
   dm$status[dm$Date < seedlingsurvey & dm$UniqueID == i] <- NA
-# many are nothing because wasnt' seen again after cotyledons, warnings are fine, dealt with in the if statement
+# many are nothing because wasn't seen again after cotyledons, warnings are fine, dealt with in the if statement
   lastseen <- max(dm$Date[dm$UniqueID==i & dm$status %in% c("vegetative","reproductive")], na.rm=TRUE)
 
   # make sure earliest time is marked seedling, NA before and dormant between, later changed to veg or appropriate
   if(i %in% doubleseedlingID){
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$status=="seedling"] <- "vegetative"
+    dm[dm$Date >= seedlingsurvey & dm$UniqueID==i & dm$status=="seedling" & !is.na(dm$status),]
+    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$status=="seedling"& !is.na(dm$status)] <- "vegetative"
     }
   
   if(is.infinite(lastseen)){
     dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i] <- "dead"
     dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i] <- NA
   } else {
-    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen] <- "dormant"
+    # dm[dm$Date>=seedlingsurvey & dm$UniqueID==i & dm$Date<=lastseen,]
+    dm$status[dm$Date>seedlingsurvey & dm$UniqueID==i & dm$Date<lastseen & is.na(dm$status)] <- "dormant"
     dm$status[dm$Date>lastseen & dm$UniqueID==i] <- "dead"
     dm$status[dm$Date<seedlingsurvey & dm$UniqueID==i ] <- NA
   }
@@ -183,6 +188,16 @@ for(i in asmicoty){
 
 # Assume any that are alive at some point over the two years and not detected as seedlings are dormant the rest of the time. 
 notseedlingones <- unique(dm$UniqueID)[!unique(dm$UniqueID) %in% asmicoty]# setdiff(unique(dm$UniqueID), seedlingones)
+
+dormtags <- unique(dm$UniqueID[dm$status == "dormant" & !is.na(dm$status)])
+sort(dormtags)
+
+ggplot(dm[dm$UniqueID %in% dormtags & !is.na(dm$status) & dm$status != "dead",], aes(status, fill = status))+
+  geom_bar()+
+  facet_wrap(~Date, ncol = 9)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
 
 table(dm$Year, dm$status)
 table(dm$Comment[dm$UniqueID %in% notseedlingones])
