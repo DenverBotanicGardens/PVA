@@ -175,7 +175,10 @@ Put the new data in folder currentyr_asmi and name it RawData_currentyr
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 
-rawdatapath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+##To change if someone other than Michelle is running code
+userpath <- "C:/Users/DePrengm/"
+
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 # rawdatapath2 <- paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",
 #                      currentyr,"_asmi/RawData_",
 #                      currentyr, ".csv", collapse = '', sep = '')
@@ -186,7 +189,7 @@ asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 
 
 # For the path and start of the name of each file
-savepath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_", collapse = '', sep = '')
+savepath <- paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
 
 
 asmi.raw$length[is.na(asmi.raw$length)] <- 0
@@ -267,7 +270,8 @@ r <- log(R)
 
 UTM Zone 13 from ArcGIS
 ```{r}
-asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
+# asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
+asmilatlong <- read.csv("C:\Users\deprengm\Denver Botanic Gardens\Conservation - General\AllProjectsBySpecies\Astragalus-microcymbus\Astragalus-microcymbus_AnnualReports\2016_Astragalus-microcymbus_AnnualReport\UTM_asmiplots.csv")
 
 # Convert from UTM to lat/long
 asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
