@@ -417,6 +417,10 @@ Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)])) 
 
+totalyr <- aggregate(length~AsMi_site_id, data = alive[alive$year == currentyr,], sum)
+sum(totalyr$length[1:2])
+sum(totalyr$length[3:6])
+
 ## Test
 # plotyr <- split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year), drop=TRUE)[[100]]
 # rm(plotyr)
@@ -427,30 +431,9 @@ alive2 <- do.call(rbind,lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.
 }))
 
 
-# alive2 <- do.call(rbind, lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id,asmi.raw$year)), 
-#                                 function(x){
-#                                   if(nrow(x)==0){
-#                                     out <- c(Plot=NA,Year=NA,Site=NA,Fence=NA,AGG=NA,Alive=NA)
-#                                     out
-#                                   } else {
-#                                   AGG <- nrow(x[x$length>0,])
-#                                   Alive <- length(x$status[x$status!="dead"])
-#                                   out <- data.frame(Plot = unique(x$AsMi_plot_id),
-#                                                     Year = unique(x$year),
-#                                                     Site = unique(x$AsMi_site_id),
-#                                                     Fence = unique(x$fence),
-#                                                     AGG, Alive)
-#                                   out}
-#                                   }))
-
-alive2<- alive2[complete.cases(alive2),]
-
-totalyr <- aggregate(length~AsMi_site_id, data = alive[alive$year == currentyr,], sum)
-sum(totalyr$length[1:2])
-sum(totalyr$length[3:6])
-
+# plot <- split(alive2,alive2$Plot)[[1]]
 # What percent of original size are all plots?
-totalPerOriginal <- lapply(split(alive2,alive2$Plot),
+totPOrig <- do.call(rbind,lapply(split(alive2,alive2$Plot),
                                   function(plot){
                                     first <- plot$AGG[plot$Year==min(plot$Year)]
                                     last <- plot$AGG[plot$Year==max(plot$Year)]
@@ -460,12 +443,15 @@ totalPerOriginal <- lapply(split(alive2,alive2$Plot),
                                                            c("Year","AGG","Alive")],
                                                       percent)
                                     out
-                                    })
-totPOrig <- do.call(rbind,totalPerOriginal)
+                                    }))
 
-outdata <- (aggregate(percent~Site+Fence, data=totPOrig, mean))
+outdata <- do.call(rbind,lapply(unique(totPOrig$Site), function(pl){
+  data.frame(totPOrig[totPOrig$Site == pl,],average = mean(totPOrig$percent[totPOrig$Site == pl]))
+       }))
 outdata[with(outdata, order(percent,Site,Fence)),]
+aggregate(AGG ~ Site, data = outdata, sum)
 
+aggregate(AGG.1 ~ Site, data = outdata, sum)
 
 #AGG and dormant
 aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
@@ -479,6 +465,15 @@ ggplot(alive, aes(year, length, group= as.factor(AsMi_plot_id)))+
   xlab("Year")+
   theme_bw()+
   facet_wrap(~as.factor(AsMi_site_id))
+
+ggplot(alive, aes(year, length, group= as.factor(AsMi_plot_id)))+
+ geom_point()+
+  stat_smooth(se=FALSE)+
+  ylab("Individuals per plot")+
+  xlab("Year")+
+  theme_bw()+
+  facet_wrap(~as.factor(AsMi_site_id))+
+  ylim(c(0,10))
 
 ```
 
