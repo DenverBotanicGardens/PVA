@@ -15,7 +15,9 @@ AsMiPVA
 On Onedrive "C:\Users\DePrengm\OneDrive - Denver Botanic Gardens\P drive\hackathon\GitPVA\"
 
 ```{r}
-library(reshape2)
+# library(reshape2) 
+library(dplyr)
+library(tidyr)
 library(ggplot2)
 # library(psych)
 library(popbio)
@@ -23,18 +25,17 @@ library(devtools)
 library(sciplot)
 library(plotrix)
 library(scales)
-library(plyr)
-library(devtools)
+# library(plyr)
 library(digest)
 library(RCurl)
 # library(roxygen2)  # only need if files have roxygen2 comments
 # install_github(repo = "prism", username = "ropensci")
 library(prism)
+prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 library(rgdal)
 library(raster)
 library(Rmisc)
 # library(data.table)
-# install.packages('survminer')
 library(survminer)
 
 library(car) # line 381
@@ -278,7 +279,8 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
 asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 # only if made it for current year, then load here and skip the climate chunks that follow
-load( paste(rawdatapath, "asmi.climate", currentyr, ".Rdata", sep=""))
+load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
 ```
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
@@ -286,7 +288,13 @@ asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Mo
 ### Drop to bottom to download new climate data!!
 
 ```{r}
-asmi.c <- asmi.climate
+## I think wants wide instead of long as in asmi.annual
+# asmi.c <- asmi.climate
+asmi.c <- asmi.annual %>%
+  pivot_wider(names_from = Variable, values_from = Value) %>%
+  dplyr::mutate(across(ppt:tmin, scale, .names = "{.col}_scaled")) %>%
+  mutate(Year = Prev12)
+  
 
 # Get a list of sites and plots per Creek to merge with asmi.c
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
@@ -297,64 +305,27 @@ asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
 names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
 head(asmi.c)
 
-#Label Prev12 as 08 through 12 of the previous year and give it the year for 01-07 (of the previous year (the next year) 
-asmi.c$Prev12 <- asmi.c$Year
-asmi.c$Prev12[asmi.c$Month > 7] <- asmi.c$Year[asmi.c$Month > 7]+1
-# months after July go with the next year; t+1 is t month 8-12 and t+1 months 1-1
+
 ```
 
 
 ```{r}
-asmi.c <- asmi.c[with(asmi.c, order(Year,Month,Site,Plot)),]
 
-# write.table(asmi.c, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/" ,currentyr,"asmi.c.csv",sep=""), sep=",")
-
-## Environmental Data but this is average monthly, not Prev12
-aggregate(asmi.c[,c("tmin","tmax","ppt")], list(Creek=asmi.c$Creek), function(x) mean(x)) #Average monthly... 
-sort(unique(asmi.c$Year))
-
-# first add by all prev12 then average all by creek
-# Precipitation: ppt But with changes ppt is x 
-## 2021 - remove Plot for the aggregation, don't need a new value for each plot within a site
-prev12clim <- aggregate(asmi.c[,c("ppt")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot,
-                                     YearPrev12=asmi.c$Prev12),
-                        function(x) sum(x)) # Only want to sum ppt, not tmin and tmax 
 # 1980 to currentyr
-# aggregate(prev12clim$ppt, list(Creek=prev12clim$Creek), mean)
-## Want only one measure per site, not per plot within a site
-prev12clim <- prev12clim[!duplicated(prev12clim[,c("Creek","Site","YearPrev12","x")]),]
-aggregate(prev12clim$x, list(Creek=prev12clim$Creek), mean)
-
-aggregate(prev12clim$x, list(Creek=prev12clim$Creek), sd)
-
-# over the study period 1995-currentyr
-# aggregate(prev12clim$ppt[prev12clim$YearPrev12 > 1994], 
-#           list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
-aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
-          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), mean)
-
-aggregate(prev12clim$x[prev12clim$YearPrev12 > 1994], 
-          list(Creek=prev12clim$Creek[prev12clim$YearPrev12 > 1994]), sd)
+## These are now scaled and centered
+asmi.c %>% 
+  group_by(Creek) %>%
+  dplyr::summarise(across(ppt:tmin, mean))
 
 
-# Temperature: tmin and tmax
-prev12clim.temp <- aggregate(asmi.c[,c("tmin","tmax")], list(Creek=asmi.c$Creek, Site=asmi.c$Site, 
-                                     Plot=asmi.c$Plot, YearPrev12=asmi.c$Prev12),
-                        function(x) mean(x)) # Only want to sum ppt, not tmin and tmax 
-prev12clim.temp <- prev12clim.temp[!duplicated(prev12clim.temp[,c("Creek","Site","YearPrev12","tmin","tmax")]),]
-# 1980 to currentyr
-aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), mean)
+asmi.c %>%
+  pivot_longer(cols = ppt_scaled:tmin_scaled, names_to = "variable", values_to = "value") %>%
+ggplot(  aes(Prev12, value, color = site, group = site))+
+  geom_point()+
+  stat_smooth()+
+  facet_grid(Creek~variable)
 
-aggregate(prev12clim.temp[,c("tmin","tmax")], list(Creek=prev12clim$Creek), sd)
 
-# over the study period 1995-currentyr
-aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
-          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), mean)
-
-aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")], 
-          list(Creek=prev12clim.temp$Creek[prev12clim.temp$YearPrev12 > 1994]), sd)
- 
 ```
 
 
@@ -364,7 +335,7 @@ aggregate(prev12clim.temp[prev12clim.temp$YearPrev12 > 1994,c("tmin","tmax")],
 ```{r}
 length(1995:currentyr)
 
-creekyear.avg <- aggregate(ppt~Creek+Prev12+Month, data = asmi.c[asmi.c$Year > 1994,], mean)
+creekyear.avg <- aggregate(ppt~Creek+Prev12, data = asmi.c[asmi.c$Year > 1994,], mean)
 creekyear <- aggregate(ppt~Creek+Prev12, data = creekyear.avg, sum)
 
 #ppt mm
@@ -1975,170 +1946,7 @@ aic.asmi <- merge(asmi.all, season, by.x = c("year","AsMi_site_id"), by.y = c("P
 
 ```
 
-Multinomial logistic regression  
-library(nnet)
 
-```{r, eval=FALSE}
-multinom(status ~ ppt.springSummer, aic.asmi)
-
-lm1 <- multinom(status ~ ppt.fall + ppt.winter + ppt.springSummer +
-            tmax.winter + tmax.fall + tmax.springSummer +
-            tmin.springSummer + tmin.fall + tmin.winter, aic.asmi)
-lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
-lm3 <- multinom(status ~ tmin.winter + tmax.springSummer, aic.asmi) 
-lm4 <- multinom(status ~ ppt.winter, aic.asmi)
-lm5 <- multinom(status ~ 1, aic.asmi)
-lm6 <- multinom(status ~ AsMi_site_id, aic.asmi)
-# lm7 <- multinom(Lmda ~ Prev12, aic.asmi)
-lm7 <- multinom(status ~ year, aic.asmi)
-lm8 <- multinom(status ~ ppt.fall + ppt.winter +
-            tmax.winter + tmax.fall +  tmax.springSummer +
-            tmin.fall + tmin.winter, aic.asmi)
-lm9 <- multinom(status ~ ppt.winter*tmax.winter*tmin.winter, aic.asmi)
-lm10 <- multinom(status ~ ppt.fall*tmax.fall*tmin.fall, aic.asmi)
-lm11 <- multinom(status ~ ppt.fall*ppt.winter*tmax.winter*tmax.fall*tmax.springSummer*tmin.fall*tmin.winter, aic.asmi)
-# lm1,
-lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-```
-
-single seasonal factor to describe which stage a plant will be in
-```{r, eval=FALSE}
-
-lm1 <- multinom(status ~ ppt.fall, aic.asmi)
-lm2 <- multinom(status ~ ppt.springSummer, aic.asmi)
-lm9 <- multinom(status ~ ppt.winter, aic.asmi)
-lm3 <- multinom(status ~ tmin.winter, aic.asmi) 
-lm8 <- multinom(status ~ tmin.fall, aic.asmi)
-lm4 <- multinom(status ~ tmin.springSummer, aic.asmi)
-lm5 <- multinom(status ~ 1, aic.asmi)
-lm6 <- multinom(status ~ AsMi_site_id, aic.asmi)
-lm7 <- multinom(status ~ year, aic.asmi)
-lm10 <- multinom(status ~ tmax.fall, aic.asmi)
-lm11 <- multinom(status ~ tmax.winter, aic.asmi)
-lm12 <- multinom(status ~ tmax.springSummer, aic.asmi)
-# lm1,
-lm.list <- list(lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11,lm12)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-ggplot(aic.asmi, aes(status, ppt.springSummer))+
-  geom_boxplot()+
-  theme_bw()
-```
-
-# if you were to pick one seasonal factor to describe annual growth rate, what would it be?  None of them 
-So the precipitation and minimum temperature of the months preceding the census (the spring/summer which is April-July) best describe the combined survival, growth, and germination that is lambda of each year    
-From the AIC models, each Site behaves differently 
-```{r, eval=FALSE}
-aic.asmi.cc <- unique(aic.asmi[,c("AsMi_site_id","tmin.fall","tmax.fall",
-                                  "ppt.fall","tmin.springSummer","tmax.springSummer",
-                                  "ppt.springSummer","tmin.winter","tmax.winter","ppt.winter","Lmda")])
-
-lm1 <- lm(Lmda ~ ppt.fall, aic.asmi.cc)
-lm2 <- lm(Lmda ~ ppt.springSummer, aic.asmi.cc)
-lm3 <- lm(Lmda ~ ppt.winter, aic.asmi.cc)
-lm4 <- lm(Lmda ~ tmin.winter, aic.asmi.cc)
-lm5 <- lm(Lmda ~ tmin.springSummer, aic.asmi.cc) 
-lm6 <- lm(Lmda ~ tmin.fall, aic.asmi.cc)
-lm7 <- lm(Lmda ~ 1, aic.asmi.cc)
-lm8 <- lm(Lmda ~ AsMi_site_id, aic.asmi.cc)
-lm9 <- lm(Lmda ~ tmax.winter, aic.asmi.cc)
-lm10 <- lm(Lmda ~ tmax.fall, aic.asmi.cc)
-lm11 <- lm(Lmda ~ tmax.springSummer, aic.asmi.cc)
-
-
-lm.list <- list(lm1, lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9, lm10, lm11)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-```
-
-```{r, eval=FALSE}
-ggplot(asmi.env, aes(X..Dormant))+
-  geom_histogram()+
-  facet_grid(~Site)
-```
-
-# When looking at combinations, no relationship just as good as the interaction of a bunch   
-```{r, eval=FALSE}
-
-
-lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
-lm2 <- lm(Lmda ~ ppt.springSummer, season)
-lm3 <- lm(Lmda ~ tmin.winter + tmax.springSummer, season) 
-lm4 <- lm(Lmda ~ ppt.winter, season)
-lm5 <- lm(Lmda ~ 1, season)
-
-lm6 <- lm(Lmda ~ ppt.fall, season)
-
-lm7 <- lm(Lmda ~ tmax.fall, season)
-
-lm8 <- lm(Lmda ~ tmax.springSummer, season)
-
-lm9 <- lm(Lmda ~ (ppt.fall + ppt.winter + tmax.winter)^2, season)
-# lm6 <- lm(Lmda ~ Site, season)
-# 
-# lm7 <- lm(Lmda ~ Prev12, season)
-
-lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-
-```
-
-```{r, eval=FALSE}
-
-
-lm1 <- lm(Lmda ~ ppt.fall + ppt.winter + tmax.winter, season)
-lm2 <- lm(Lmda ~ ppt.springSummer*tmin.springSummer, season)
-lm3 <- lm(Lmda ~ tmin.winter * ppt.springSummer, season) 
-lm4 <- lm(Lmda ~ ppt.winter, season)
-lm5 <- lm(Lmda ~ 1, season)
-
-lm6 <- lm(Lmda ~ ppt.fall, season)
-
-lm7 <- lm(Lmda ~ tmin.springSummer, season)
-
-lm8 <- lm(Lmda ~ ppt.springSummer, season)
-
-lm9 <- lm(Lmda ~ (ppt.springSummer + ppt.springSummer + ppt.winter)^2, season)
-# lm6 <- lm(Lmda ~ Site, season)
-# 
-# lm7 <- lm(Lmda ~ Prev12, season)
-
-lm.list <- list(lm1,lm2, lm3, lm4, lm5, lm6, lm7, lm8, lm9)
-lm.names <- as.character(unlist(lapply(lm.list,formula)))
-(lm.results <- aictab(lm.list, modnames=lm.names))
-
-#evidence ratio 
-for(i in 2:length(lm.list)){
-  print(exp(0.5*lm.results$Delta_AICc[i]))
-}
-
-
-```
 
 
 ```{r, eval=FALSE}
@@ -3654,7 +3462,7 @@ Process takes a while
 Can go back to folder and delete old provisional data to replace with more current   
 ```{r, eval = FALSE}
 # Set wd for prism
-options(prism.path = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 
 #Precipitation total, rain and snow
 get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
@@ -3680,73 +3488,84 @@ get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
 ### Takes forever, just load and move on after first time
 # Want Site, Year, Month, ppt, tmin, tmax
 ```{r, eval = FALSE}
-maxs <- grep("tmax", ls_prism_data(absPath=TRUE)[,2])
-mins <- grep("tmin", ls_prism_data(absPath = TRUE)[,2])
-ppt <- grep("ppt", ls_prism_data(absPath = TRUE)[,2])
 
-length(maxs)
-length(mins)
-length(ppt)
-
-avgTemps.max <- lapply(maxs, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
+m.ppt <- lapply(prism_archive_subset("ppt", "monthly", years = 1986:currentyr), function(x){
+  x_rast <- pd_to_file(x)
+  rastertemps <- raster(x_rast)
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
+             date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
+})
+m.tmax <- lapply(prism_archive_subset("tmax","monthly",years = 1986:currentyr), function(x){
+  x_rast <- pd_to_file(x)
+  rastertemps <- raster(x_rast)
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
+             date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
+})
+m.tmin <- lapply(prism_archive_subset("tmin","monthly",years = 1986:currentyr), function(x){
+  x_rast <- pd_to_file(x)
+  rastertemps <- raster(x_rast)
+  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
+             date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
 })
 
-avgTemps.min <- lapply(mins, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-avgPrecip <- lapply(ppt, function(x){
-  rastertemps <- raster(ls_prism_data(absPath=TRUE)[x,2])
-  data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]), date = ls_prism_data()[x,])
-})
-
-mins.avg <- do.call(rbind, avgTemps.min)
-maxs.avg <- do.call(rbind, avgTemps.max)
-ppt.avg <- do.call(rbind, avgPrecip)
-
-mins.avg <- data.frame(mins.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-maxs.avg <- data.frame(maxs.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
-ppt.avg <- data.frame(ppt.avg, asmilatlong$Tag__, asmilatlong$Tag_Commen)
 
 
-mins.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-mins.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(mins.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
+mins.avg <- do.call(rbind, m.tmin)
+maxs.avg <- do.call(rbind, m.tmax)
+ppt.avg <- do.call(rbind, m.ppt)
 
-maxs.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-maxs.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(maxs.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
-
-ppt.avg$Year <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 1,4))
-ppt.avg$Month <- as.numeric(substr(vapply(strsplit(as.character(ppt.avg$date), '_'), 
-                                   function(x) x[5], character(1)), 5,6))
+asmi.climate <- rbind(do.call(rbind, m.tmin), 
+                    do.call(rbind, m.tmax),
+                    do.call(rbind, m.ppt))
 
 
-# Check that all get downloaded
-asmi.climate_tminmax <- merge(mins.avg, maxs.avg, by = c("Year","Month","asmilatlong.Tag__",
-                                                         "asmilatlong.Tag_Commen"))
-names(asmi.climate_tminmax) <- c("Year","Month","Plot","Site","tmin","date.tmin","tmax", "date.tmax")
-asmi.climate <- merge(asmi.climate_tminmax, ppt.avg, by.x = c("Year","Month","Plot","Site"),
-                      by.y = c("Year","Month","asmilatlong.Tag__","asmilatlong.Tag_Commen"))
-names(asmi.climate) <- c(names(asmi.climate)[1:8],"ppt","date.ppt")
-# asmi.climate <- cbind(mins.avg, maxs.avg[,1], ppt.avg[,1])
+asmi.climate.monthly <- asmi.climate %>%
+  mutate(Year = as.numeric(substr(date,  (nchar(date)+1)-10,nchar(date)-6)),
+         Month = as.numeric(substr(date, (nchar(date)+1)-6, nchar(date)-4)),
+         # Make previous 12 months match year (previous to May survey)
+         Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  #extract the climate variable name from the prism long name
+  separate(date, sep = "_", into = c(NA,"Variable",NA,NA,NA,NA)) %>%
+  # mutate(season = "winter") %>%
+  mutate(season = case_when(Month %in% c(1,2,3,12) ~ "winter",
+                            Month>3 & Month<8 ~ "springSummer",
+                            Month>7 & Month<12 ~ "fall"))
 
-table(asmi.climate$Site)
-asmi.climate$SiteNum <- 1
-asmi.climate$SiteNum[asmi.climate$Site == "Cebolla North"] <- 2
-asmi.climate$SiteNum[asmi.climate$Site == "Site 15"] <- 15
-asmi.climate$SiteNum[asmi.climate$Site == "Site 5"] <- 5
-asmi.climate$SiteNum[asmi.climate$Site == "Site 19"] <- 19
-asmi.climate$SiteNum[asmi.climate$Site == "Site 26"] <- 26
-table(asmi.climate$SiteNum, asmi.climate$Site)
+asmi.c <- asmi.climate.monthly %>%
+  pivot_wider(names_from = Variable, values_from = data)
 
-save(asmi.climate, file = paste(rawdatapath, "asmi.climate", currentyr,".Rdata", sep=""))
+asmi.climate.season.ppt <- asmi.climate.monthly %>%
+  filter(Variable == "ppt") %>%
+  group_by(Variable, site, Plot, season, Prev12) %>%
+  dplyr::summarise(Value = sum(data), .groups = "keep") 
+  
+asmi.climate.season.temp <- asmi.climate.monthly %>%
+  filter(Variable != "ppt") %>%
+  group_by(Variable, Plot, site, season, Prev12) %>%
+  dplyr::summarise(Value = mean(data), .groups = "keep")
+  
+asmi.season <- bind_rows(list(asmi.climate.season.ppt, asmi.climate.season.temp))
+asmi.season.wide <- asmi.season %>%
+  pivot_wider(names_from = c(Variable,season), values_from = Value)
+asmi.annual.ppt <- asmi.climate.monthly %>%
+  filter(Variable == "ppt") %>%
+  group_by(Variable, Plot, site,Prev12) %>%
+  dplyr::summarise(Value = sum(data), .groups = "keep")
+  
+asmi.annual.temp <- asmi.climate.monthly %>%
+  filter(Variable != "ppt") %>%
+  group_by(Variable, Plot, site, Prev12) %>%
+  dplyr::summarise(Value = mean(data), .groups = "keep")
+
+asmi.annual <- do.call(rbind, list(as.data.frame(asmi.annual.ppt),
+                                   as.data.frame(asmi.annual.temp)))
+
+```
+
+```{r}
+
+save(asmi.climate, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+save(asmi.annual, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
 ```
 #########################################################################################################################
 #################################### only once per year #################################################################
