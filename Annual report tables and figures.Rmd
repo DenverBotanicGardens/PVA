@@ -36,9 +36,9 @@ library(rgdal)
 library(raster)
 library(Rmisc)
 # library(data.table)
-library(survminer)
+# library(survminer)
 
-library(car) # line 381
+library(car) 
 
 # AIC
 require(AICcmodavg)
@@ -301,17 +301,22 @@ asmi.c <- asmi.annual %>%
 
 # Get a list of sites and plots per Creek to merge with asmi.c
 plots.site <- asmi.raw[!duplicated(asmi.raw$AsMi_plot_id),c("AsMi_plot_id","AsMi_site_id")]
+plots.site <- plots.site[complete.cases(plots.site),]
 plots.site$Creek <- "SouthBeaver"
 plots.site$Creek[plots.site$AsMi_site_id < 3] <- "Cebolla"
 
 asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
-names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
-head(asmi.c)
+asmi.c <- asmi.c %>%
+  dplyr::rename(Plot = AsMi_plot_id, SiteID = AsMi_site_id)
 
-asmi.season %>%
+asmi.season.wide %>%
+  ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% #, .names = "{.col}_scaled")) %>%
+  # pivot_longer(cols = ppt_fall_scaled:tmin_winter_scaled, names_to = "VarSeason",
+  pivot_longer(cols = ppt_fall:tmin_winter, names_to = "VarSeason",
+               values_to = "Value") %>%
   left_join(plots.site, by = c('Plot' = 'AsMi_plot_id')) %>%
-  group_by(Variable) %>%
-  mutate 
+  separate(VarSeason, c("Variable","season"), sep = "_") %>%
   ggplot(  aes(Prev12, Value, color = site))+
     geom_point()+
     stat_smooth()+
@@ -368,38 +373,8 @@ mean(creekyear$ppt)
 # Set seasonal climate factors
 
 ```{r}
-
-asmi.c$season <- "winter"
-asmi.c[asmi.c$Month>3 & asmi.c$Month<8, "season"] <- "springSummer"
-asmi.c[asmi.c$Month>7 & asmi.c$Month<12, "season"] <- "fall"
-
-asmi.c <- asmi.c[,!grepl("date.", names(asmi.c))]
-asmi.c.summary <- aggregate(asmi.c[,names(asmi.c) %in% 
-                                     grep(paste(c("tmin","tmax","ppt"),collapse="|"),
-                                          names(asmi.c), value=TRUE)], 
-                            asmi.c[,c("season","Creek","Prev12")],
-                            FUN = function(x) mean(x, na.rm = TRUE))
-
-head(asmi.c.summary)
-
-# currentyr-1? should it just be currentyr? or not less than currentyr? 
-season <- reshape(asmi.c.summary[asmi.c.summary$Prev12 < currentyr+1 & asmi.c.summary$Prev12 > 1994,],
-                  idvar=c("Creek","Prev12"),
-                  timevar = "season",
-                  direction="wide")
-head(season)
-
-ggplot(season, aes(Prev12, ppt.fall, colour = Creek))+
-  geom_line()+
-  geom_point()+
-  theme_bw()
-
-
-ggplot(season, aes(Prev12, ppt.winter, colour = Creek))+
-  geom_line()+
-  geom_point()+
-  theme_bw()
-
+# head(asmi.c.summary)
+head(asmi.season.wide)
 ```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
@@ -413,9 +388,7 @@ totalyr <- aggregate(length~AsMi_site_id, data = alive[alive$year == currentyr,]
 sum(totalyr$length[1:2])
 sum(totalyr$length[3:6])
 
-## Test
-# plotyr <- split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year), drop=TRUE)[[100]]
-# rm(plotyr)
+
 alive2 <- do.call(rbind,lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.raw$year), drop=TRUE), function(plotyr){
   AGG <- length(unique(plotyr$AsMi_tag_id[plotyr$length > 0 & !is.na(plotyr$length)]))
   data.frame(Plot = plotyr$AsMi_plot_id[1], Year = plotyr$year[1], Site = plotyr$AsMi_site_id[1],
@@ -423,7 +396,6 @@ alive2 <- do.call(rbind,lapply(split(asmi.raw, list(asmi.raw$AsMi_plot_id, asmi.
 }))
 
 
-# plot <- split(alive2,alive2$Plot)[[1]]
 # What percent of original size are all plots?
 totPOrig <- do.call(rbind,lapply(split(alive2,alive2$Plot),
                                   function(plot){
@@ -618,7 +590,8 @@ plotdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/A
                       collapse = '', sep = '')
 ps.asmi <- read.csv(plotdatapath)
 # Don't need the climate data from database, will download from PRISM
-ps.asmi <- ps.asmi[,1:11] # old climate data that isn't updated in the database
+ps.asmi <- ps.asmi %>%
+  dplyr::select(Year:Fence) ##ps.asmi[,1:11] # old climate data that isn't updated in the database
 
 # Have data for all years but were only in place in the listed years
 ps.asmi$Year[ps.asmi$Plot == 89] # 2014-2019
@@ -634,30 +607,26 @@ ps.asmi <- ps.asmi[!(ps.asmi$Plot == 238 & ps.asmi$Year < 1996),]
 
 
 ## What was the total population size in plots that eventually are fenced?
-aggregate(Total.Plants ~ Fence + Year, data = ps.asmi[ps.asmi$Site == 5,], sum)
+ps.asmi %>%
+  filter(Site == 5) %>%
+  group_by(Fence, Year) %>%
+  dplyr::summarise(TotalPlant = sum(Total.Plants), 
+                   AGG = sum(Total.Alive), .groups = "keep") %>%
+  print(n=56)
+# aggregate(Total.Plants ~ Fence + Year, data = ps.asmi[ps.asmi$Site == 5,], sum)
 
 # remove the moniker of 'y' from fenced plots before they are fenced.
 ps.asmi$Fence[ps.asmi$Year<2006] <- 'n'
-
 
 ps.asmi$Creek <- "SouthBeaver"
 ps.asmi$Creek[ps.asmi$Site < 3] <- "Cebolla" 
 ps.asmi$Creek <- as.factor(ps.asmi$Creek)
 
-## Number of individuals alive in 1995; total.plants AGG and dormant
-ggplot(ps.asmi[ps.asmi$Site == 5 & ps.asmi$Year>2019,], aes(Year, Total.Plants, colour = Fence))+ # as.factor(Plot)))+
-  geom_jitter(height = 0)+
-  stat_smooth(se=FALSE)+
-  theme_bw()
-
-aggregate(Total.Plants ~ Fence + Year, data = ps.asmi[ps.asmi$Site == 5,], sum)
-
-aggregate(Total.Alive ~ Fence + Year, data = ps.asmi[ps.asmi$Site == 5,], sum)
-
-ps.asmi[ps.asmi$Site==5,]
-asmi.raw[asmi.raw$AsMi_site_id == 5 & asmi.raw$year > 2019 & asmi.raw$length > 0,]
-
 ## Number of individuals alive in current year compared to start of Cebolla Creek == 2014
+# ps.asmi %>%
+#   filter(Site < 3) %>%
+#   group_by(Fence, Site, Year) %>%
+#   dplyr::summarise(sum(Total.Plants))
 lapply(split(ps.asmi[ps.asmi$Site < 3,], list(ps.asmi$Fence[ps.asmi$Site < 3],  
                                                    ps.asmi$Site[ps.asmi$Site < 3]), drop=TRUE), 
        function(x){
