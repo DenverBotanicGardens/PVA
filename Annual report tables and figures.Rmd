@@ -281,11 +281,14 @@ asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$
 # only if made it for current year, then load here and skip the climate chunks that follow
 load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+
 ```
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
 
-### Drop to bottom to download new climate data!!
+### Drop to bottom to download new climate data!! and to make and save annual, seasonal data
 
 ```{r}
 ## I think wants wide instead of long as in asmi.annual
@@ -305,6 +308,15 @@ asmi.c <- merge(plots.site, asmi.c, by.x="AsMi_plot_id", by.y="Plot")
 names(asmi.c) <- c("Plot","Site",names(asmi.c)[3:length(asmi.c)])
 head(asmi.c)
 
+asmi.season %>%
+  left_join(plots.site, by = c('Plot' = 'AsMi_plot_id')) %>%
+  group_by(Variable) %>%
+  mutate 
+  ggplot(  aes(Prev12, Value, color = site))+
+    geom_point()+
+    stat_smooth()+
+    theme_bw()+
+    facet_grid(Variable ~ season + Creek)
 
 ```
 
@@ -325,7 +337,16 @@ ggplot(  aes(Prev12, value, color = site, group = site))+
   stat_smooth()+
   facet_grid(Creek~variable)
 
+asmi.c %>%
+  pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
+  group_by(Creek, variable) %>%
+  dplyr::summarise(mean1980_2022 = mean(value), sd1980_2022 = sd(value)) 
 
+asmi.c %>%
+  pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
+  filter(Year > 1994) %>%
+  group_by(Creek, variable) %>%
+  dplyr::summarise(mean1995_2022 = mean(value), sd1995_2022 = sd(value)) 
 ```
 
 
@@ -1895,45 +1916,7 @@ Winter: December-March (12-3)
 Spring/summer: April-July (4-7)    
 Fall: August-November (8-11)   
 
-### LIKELY SKIP!!
 
-# South Beaver Creek
-# FRUIT
-Take highest 3 loadings and look at how one affects the other 
-```{r, eval=FALSE}
-ps.asmi.t$Creek <- NA
-
-ps.asmi.t$Creek[ps.asmi.t$Site > 4] <- "South Beaver"
-ps.asmi.t$Creek[ps.asmi.t$Site < 3] <- "Cebolla"
-table(ps.asmi.t$Creek)
-
-asmi.env <- merge(season, ps.asmi.t, by.x = c("Creek","Prev12"), by.y = c("Creek","Year"))
-names(asmi.env)
-
-openlmdas <- data.frame(Year = 1995:(currentyr-1), 
-                        Lmda = lmdAn(all.pva$notfenced.pro.matrix, 1995, currentyr-1)[1,], Fence = "n")
-
-lmda5 <- data.frame(Site = 5,Lmda = lmdAn(all.pva$Site$'5', 1995, currentyr-1)[1,], 
-                              Prev12 = 1995:(currentyr-1), Creek = "South Beaver")
-lmda15 <- data.frame(Site = 15,Lmda = lmdAn(all.pva$Site$'15', 1995, currentyr-1)[1,],
-                   Prev12 = 1995:(currentyr-1), Creek = "South Beaver")
-lmda19 <- data.frame(Site = 19,Lmda = lmdAn(all.pva$Site$'19', 1995, currentyr-1)[1,],
-                   Prev12 = 1995:(currentyr-1), Creek = "South Beaver")
-lmda26 <- data.frame(Site = 26,Lmda = lmdAn(all.pva$Site$'26', 1995, currentyr-1)[1,],
-                   Prev12 = 1995:(currentyr-1), Creek = "South Beaver")
-lmda1 <- data.frame(Site = 1,Lmda = lmdAn(all.pva$Site$'1', 2014, currentyr-1)[1,],
-                   Prev12 = 2014:(currentyr-1), Creek = "Cebolla")
-lmda2 <- data.frame(Site = 2,Lmda = lmdAn(all.pva$Site$'2', 2014, currentyr-1)[1,],
-                   Prev12 = 2014:(currentyr-1), Creek = "Cebolla")
-
-lmdas.all <- rbind(lmda5,lmda15,lmda19,lmda26,lmda1,lmda2)
-
-ggplot(lmdas.all, aes(Prev12, Lmda, colour=Creek))+
-  geom_point()
-
-season <- merge(season, lmdas.all, by = c("Prev12","Creek"))
-
-```
 
 # Should come in with count of seedlings per year and see how that is impacted by climate
 ```{r, eval=FALSE}
@@ -3547,6 +3530,7 @@ asmi.climate.season.temp <- asmi.climate.monthly %>%
 asmi.season <- bind_rows(list(asmi.climate.season.ppt, asmi.climate.season.temp))
 asmi.season.wide <- asmi.season %>%
   pivot_wider(names_from = c(Variable,season), values_from = Value)
+
 asmi.annual.ppt <- asmi.climate.monthly %>%
   filter(Variable == "ppt") %>%
   group_by(Variable, Plot, site,Prev12) %>%
@@ -3566,6 +3550,9 @@ asmi.annual <- do.call(rbind, list(as.data.frame(asmi.annual.ppt),
 
 save(asmi.climate, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
 save(asmi.annual, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+save(asmi.season, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+
 ```
 #########################################################################################################################
 #################################### only once per year #################################################################
