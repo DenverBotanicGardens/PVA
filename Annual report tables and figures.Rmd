@@ -32,7 +32,8 @@ library(RCurl)
 # install_github(repo = "prism", username = "ropensci")
 library(prism)
 prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
-library(rgdal)
+# library(rgdal) Will go away in 2023 https://r-spatial.org/r/2022/04/12/evolution.html and https://github.com/r-spatial/evolution rgdal: version: 1.6-2, (SVN revision 1183)
+
 library(raster)
 library(Rmisc)
 # library(data.table)
@@ -55,6 +56,7 @@ library(patchwork)
 Remove all variables, keep functions
 ```{r reset values, eval = FALSE}
 rm(list = setdiff(ls(), lsf.str()))
+rm(list = ls())
 ```
 
 summarySE function borrowed from http://www.cookbook-r.com/Manipulating_data/Summarizing_data/  
@@ -328,8 +330,7 @@ asmi.season.wide %>%
 
 ```{r}
 
-# 1980 to currentyr
-## These are now scaled and centered
+# 1986 to currentyr
 asmi.c %>% 
   group_by(Creek) %>%
   dplyr::summarise(across(ppt:tmin, mean))
@@ -370,12 +371,6 @@ mean(creekyear$ppt[creekyear$Creek == "SouthBeaver"])
 mean(creekyear$ppt)
 ```
 
-# Set seasonal climate factors
-
-```{r}
-# head(asmi.c.summary)
-head(asmi.season.wide)
-```
 
 Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
@@ -562,12 +557,12 @@ Table1b <- data.frame(tbl1b[[3]],tbl1b[[4]],tbl1b[[5]],tbl1b[[6]])
 names(Table1b) <- c("Site 05 (5 plots)"," ","Site 15 (4 plots)"," ",
                    "Site 19 (5 plots)"," ","Site 26 (5 plots)"," ")
 
-write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1b, file=paste(savepath,"Table1b_SouthBeaverCreek.csv", sep=""), sep=",", row.names=FALSE, col.names = TRUE)
 
 Table1b_Cebolla <- data.frame(tbl1b[[1]],tbl1b[[2]])
 names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
-write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv"), sep=",", row.names=FALSE, col.names = TRUE)
+write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv", sep=""), sep=",", row.names=FALSE, col.names = TRUE)
 ```
 
 #Correlated biotic factors
@@ -658,9 +653,10 @@ Flawed still, too many factors/parameters, not enough data.
 Just look at differences separating site and not, separate plot or not. 
 Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
 
-# Table 3
+# Table 3 Differences by site, fencing, and within site among plots?
 AGG 
-Should be a Poisson for counts of individuals
+Should be a Poisson for counts of individuals   
+Fixed effects (site, creek, fence) are constant across individuals; random intercepts have parallel lines for each individual (year or plot in these cases)
 ```{r}
 # 2020 report
 ps.asmi.reduced <- ps.asmi[!is.na(ps.asmi$Total.Alive),]
@@ -702,6 +698,71 @@ for(i in 2:length(glm.list)){
 ```
 Year and site differ for the total allive with AGG. 
 
+# Climate factors  
+```{r}
+asmi.merged <- asmi.raw %>%
+  group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
+  left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%
+  dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
+  filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
+  filter(length.x > 0) %>%
+  filter(!is.na(length.x)) %>%
+  left_join(asmi.season.wide, by = c("AsMi_plot_id" = "Plot")) %>%
+  mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
+                          length.y == 0 | is.na(length.y) ~ 0))
+
+
+ggplot(asmi.merged, aes(length.x, length.y, color = as.factor(AsMi_plot_id)))+
+  geom_point()+
+  stat_smooth(method="lm")
+
+ggsave(paste(savepath, "Fig4AGGsurv.jpg", sep = ""),
+ggplot(asmi.merged, aes(length.x, surv, color = site))+
+  geom_point(pch="|")+
+  # facet_wrap(~site)+
+  theme_bw()+
+  ylab("survival")+
+  xlab("Length of longest stem (cm)")+
+  scale_color_discrete("")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
+  , width=250, height=300,units='mm', dpi=300)
+
+
+ps.asmi.seasonal <- ps.asmi.reduced
+
+glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm1 <- glmer(Total.Alive ~ 1 + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
+summary(nlm1)
+glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm2 <- glmer(Total.Alive ~ as.factor(Site) + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
+nlm3 <- glmer(Total.Alive ~ Creek + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
+glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm4 <- glmer(Total.Alive ~ Fence + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm5 <- glmer(Total.Alive ~ 1 + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm6 <- glmer(Total.Alive ~ as.factor(Site) + (1|Plot), family = poisson(link = 'log'), data = ps.asmi.reduced)
+glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
+nlm7 <- glmer(Total.Alive ~ Creek + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced) 
+glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
+nlm8 <- glmer(Total.Alive ~ Fence + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+nlm.list <- list(nlm1,nlm2,nlm3,nlm4,nlm5,nlm6,nlm7,nlm8)
+# glm.list <- list(glm1,glm2,glm4,glm5,glm6,glm8) # if no Cebolla
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+nlm.names <- as.character(unlist(lapply(nlm.list, formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
+(nlm.results <- aictab(nlm.list, modnames=nlm.names)) # Right, just the same, not needed
+
+#evidence ratio 
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
+}
+```
+
+
 Only during censuses at both drainage 2014 - currentYr
 Table 3b
 ```{r}
@@ -726,91 +787,34 @@ for(i in 2:length(glm.list)){
 
 ```
 
-Use the ggplots instead of the xyplot
-```{r, eval=FALSE}
-xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi[ps.asmi$Year > 2013,],
-       type = c("g","p","r"),
-       layout = c(2, 3),
-       index.cond = list(1:6),
-       as.table = TRUE,
-       index = function(x,y) coef(lm(y~x))[1],
-                  panel = function(x, y) {
-        panel.grid(v=2)
-        panel.xyplot(x, y)
-        panel.loess(x, y, span = .8, degree = 1, family="gaussian")
-        panel.abline(lm(y~x))
-           },
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
-
-```
-
-
 
 ## ggplot Figure 2
 ```{r}
 
 ps.asmi[ps.asmi$Plot == 89,]
 
-ggplot(ps.asmi, aes(Year, Total.Alive))+
-  stat_smooth(se=FALSE, aes(colour = as.factor(Plot)))+
-  stat_summary(fun = mean, geom="line", size = 1)+
-  theme_bw()+
-  facet_wrap(~Site, scales="free_y")+
-  geom_point(aes(as.factor(Plot)))
-
-
-Fig2_a <- ggplot(ps.asmi, aes(Year, Total.Alive, colour = as.factor(Plot)))+
+Fig2_a <- ggplot(ps.asmi, aes(Year, Total.Alive, color = as.factor(Site)))+
   stat_smooth(se = FALSE)+
   geom_point()+
   ggtitle("a)")+
   facet_wrap(~Site, scales="free_y")+
   theme_bw()+
   ylab("Individuals with AGG")+
-  scale_colour_discrete(guide=FALSE)
+  scale_colour_discrete(guide="none") #, values = terrain.colors(6))
 
-Fig2_b <- ggplot(ps.asmi[ps.asmi$Year > 2013,], aes(Year, Total.Alive, colour = as.factor(Plot)))+
+Fig2_b <- ggplot(ps.asmi[ps.asmi$Year > 2013,], aes(Year, Total.Alive, colour = as.factor(Site)))+
   stat_smooth(se = FALSE)+
   geom_point()+
   ggtitle("b)")+
   facet_wrap(~Site, scales = "free_y")+
   theme_bw()+
   ylab("Individuals with AGG")+
-  scale_colour_discrete(guide=FALSE)
+  scale_colour_discrete(guide="none")
 
 ggsave(paste(savepath, "Fig2.jpg", sep = ""),
        Fig2_a/Fig2_b, width=250, height=300,units='mm', dpi=300)
 
 ```
-
-```{r}
-
-# jpeg(paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Excel/Yearly Summaries/",currentyr,"_asmi/",
-# jpeg(paste(savepath,
-#            # currentyr,"_asmi/",
-#            "Fig2-latticeplot_6Sites.jpg", sep = ""),
-#          units = "mm", res = 300, height = 200, width = 200)
-
-xyplot(Total.Alive ~ Year|as.factor(Site), ps.asmi,
-       type = c("g","p","r"),
-       layout = c(2, 3),
-       index.cond = list(1:6),
-       as.table = TRUE,
-       index = function(x,y) coef(lm(y~x))[1],
-           panel = function(x, y) {
-        panel.grid(v=2)
-        panel.xyplot(x, y)
-        panel.loess(x, y, span = .8, degree = 1, family="gaussian")
-        panel.abline(lm(y~x))
-           },
-       xlab = "Year", 
-       ylab = "Individuals with AGG", aspect = "xy")
-
-# dev.off()
-
-
-```
-
 
 Table 3e
 #AIC for fruit  
@@ -819,11 +823,30 @@ Table 3e
 
 ggplot(ps.asmi.reduced, aes(as.factor(Site), Total.Fruit))+
   geom_boxplot()+
+  facet_wrap(~Year)+
   geom_jitter(height = 0.01)
 
-ggplot(ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,], aes(as.factor(Site), Total.Fruit))+
-  geom_boxplot()+
-  geom_jitter(height = 0.01)
+ps.asmi.reduced %>%
+  filter(Total.Fruit > 0) %>%
+ggplot(  aes(Year, log(Total.Fruit)))+
+  # geom_boxplot()+
+  geom_point()+
+  stat_smooth()+
+  facet_wrap(~Site, scales = "free_x")
+
+## Fruit and reproduction
+ggsave(paste(savepath, "Fig4.jpg", sep = ""),
+       
+ps.asmi.reduced %>%
+  mutate(FlYN = case_when(Total.Fruit >0 ~ 1, Total.Fruit == 0 ~ 0)) %>%
+ggplot(  aes(Total.Alive, FlYN))+
+  geom_point()+
+  facet_wrap(~Site, scales = "free_x")+
+  xlab("AGG")+
+  ylab("Fruit")+
+  theme_bw()+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
+, width=200, height=150,units='mm', dpi=300)
 
 #Candidate models  
 glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
