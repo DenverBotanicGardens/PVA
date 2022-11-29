@@ -417,15 +417,21 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
 
-ggplot(alive, aes(year, length, group= as.factor(AsMi_plot_id)))+
+## Figure 2: Number of AsMi with AGG
+
+alive %>%
+  
+ggplot(alive, aes(year, length, color= as.factor(AsMi_plot_id)))+
  geom_point()+
   stat_smooth(se=FALSE)+
   ylab("Individuals per plot")+
   xlab("Year")+
   theme_bw()+
-  facet_wrap(~as.factor(AsMi_site_id))
+  facet_wrap(~as.factor(AsMi_site_id))+
+  scale_color_discrete(guide = "none")
+  
 
-ggplot(alive, aes(year, length, group= as.factor(AsMi_plot_id)))+
+ggplot(alive, aes(year, length, color = as.factor(AsMi_plot_id)))+
  geom_point()+
   stat_smooth(se=FALSE)+
   ylab("Individuals per plot")+
@@ -655,40 +661,57 @@ Can look at these and then work forward to test predictive on new data (like the
 
 # Table 3 Differences by site, fencing, and within site among plots?
 Survival instead of AGG 
-Should be a Poisson for counts of individuals   
-Fixed effects (site, creek, fence) are constant across individuals; random intercepts have parallel lines for each individual (year or plot in these cases)
 ```{r}
-# 2020 report
-ps.asmi.reduced <- ps.asmi[!is.na(ps.asmi$Total.Alive),]
 
-# Total.Alive are observable; Total.Plants include dormant
-head(ps.asmi.reduced[order(ps.asmi.reduced$Plot),])
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+ggplot(  aes(year.y, surv, color = site))+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  geom_jitter(shape = "|", height=0)+
+  facet_wrap(~Creek, scales = "free_x")+
+  theme_light()+
+  xlab("Year")+
+  ylab("Survival")
 
-glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm1 <- glmer(Total.Alive ~ 1 + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-summary(nlm1)
-glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm2 <- glmer(Total.Alive ~ as.factor(Site) + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
-nlm3 <- glmer(Total.Alive ~ Creek + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
-glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm4 <- glmer(Total.Alive ~ Fence + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm5 <- glmer(Total.Alive ~ 1 + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm6 <- glmer(Total.Alive ~ as.factor(Site) + (1|Plot), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
-nlm7 <- glmer(Total.Alive ~ Creek + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced) 
-glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm8 <- glmer(Total.Alive ~ Fence + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+ggplot( aes(year.y, surv, color = status.x))+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  geom_point(shape = "|")+
+  theme_light()+
+  xlab("Year")+
+  facet_wrap(~Creek, scales = "free_x")+
+  ylab("Survival")
+
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+ggplot( aes(year.y, surv, color = fence))+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  geom_point(shape = "|")+
+  theme_light()+
+  xlab("Year")+
+  facet_wrap(~Creek, scales = "free_x")+
+  ylab("Survival")
+
+asmi.merged <- asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) 
+
+glm1 <- glm(surv ~ year.y, family = binomial, data = asmi.merged)
+glm2 <- glm(surv ~ year.y*as.factor(site), family = binomial, data = asmi.merged)
+glm3 <- glm(surv ~ year.y*Creek, family = binomial, data = asmi.merged) 
+glm4 <- glm(surv ~ year.y*fence, family = binomial, data = asmi.merged)
+glm5 <- glm(surv ~ 1, family = binomial, data = asmi.merged)
+glm6 <- glm(surv ~ as.factor(site), family = binomial, data = asmi.merged)
+glm7 <- glm(surv ~ Creek, family = binomial, data = asmi.merged) 
+glm8 <- glm(surv ~ fence, family = binomial, data = asmi.merged)
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
-nlm.list <- list(nlm1,nlm2,nlm3,nlm4,nlm5,nlm6,nlm7,nlm8)
-# glm.list <- list(glm1,glm2,glm4,glm5,glm6,glm8) # if no Cebolla
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
-nlm.names <- as.character(unlist(lapply(nlm.list, formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
-(nlm.results <- aictab(nlm.list, modnames=nlm.names)) # Right, just the same, not needed
 
 #evidence ratio 
 for(i in 2:length(glm.list)){
