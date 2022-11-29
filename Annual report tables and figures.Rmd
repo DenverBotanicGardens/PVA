@@ -31,7 +31,7 @@ library(RCurl)
 # library(roxygen2)  # only need if files have roxygen2 comments
 # install_github(repo = "prism", username = "ropensci")
 library(prism)
-prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+# prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 # library(rgdal) Will go away in 2023 https://r-spatial.org/r/2022/04/12/evolution.html and https://github.com/r-spatial/evolution rgdal: version: 1.6-2, (SVN revision 1183)
 
 library(raster)
@@ -654,7 +654,7 @@ Just look at differences separating site and not, separate plot or not.
 Can look at these and then work forward to test predictive on new data (like the BLM or sites we visit this year)
 
 # Table 3 Differences by site, fencing, and within site among plots?
-AGG 
+Survival instead of AGG 
 Should be a Poisson for counts of individuals   
 Fixed effects (site, creek, fence) are constant across individuals; random intercepts have parallel lines for each individual (year or plot in these cases)
 ```{r}
@@ -700,6 +700,8 @@ Year and site differ for the total allive with AGG.
 
 # Climate factors  
 ```{r}
+
+## use scaled numbers!
 asmi.merged <- asmi.raw %>%
   group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
   left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%
@@ -707,12 +709,15 @@ asmi.merged <- asmi.raw %>%
   filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
   filter(length.x > 0) %>%
   filter(!is.na(length.x)) %>%
-  left_join(asmi.season.wide, by = c("AsMi_plot_id" = "Plot")) %>%
+  # left_join(asmi.c, by = c("AsMi_plot_id" = "Plot", 
+  #                                    "year.y" = "Year")) %>%
+  left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
+                                      "year.y" = "Prev12")) %>%
   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
                           length.y == 0 | is.na(length.y) ~ 0))
 
 
-ggplot(asmi.merged, aes(length.x, length.y, color = as.factor(AsMi_plot_id)))+
+ggplot(asmi.merged, aes(length.x, length.y, color = site))+
   geom_point()+
   stat_smooth(method="lm")
 
@@ -725,37 +730,74 @@ ggplot(asmi.merged, aes(length.x, surv, color = site))+
   xlab("Length of longest stem (cm)")+
   scale_color_discrete("")+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
-  , width=250, height=300,units='mm', dpi=300)
+  , width=200, height=150,units='mm', dpi=300)
 
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+  ungroup() %>%
+  dplyr::mutate(across(ppt_fall:tmin_winter, scale, .names = "{.col}_scaled")) %>%
+  dplyr::mutate(tmax_fall_bin = cut(tmax_fall_scaled, breaks = 2)) %>%
+                                    # breaks = c(min(tmax_fall_scaled)-0.1, 
+                                    #            mean(tmax_fall_scaled),
+                                    #            max(tmax_fall_scaled)+0.1),
+                                    # labels = FALSE))%>%
+ggplot(  aes(ppt_springSummer_scaled, surv, color = site))+
+  geom_point(pch="|")+
+  # facet_wrap(~site)+
+  theme_bw()+
+  facet_grid(Creek~tmax_fall_bin)+
+  ylab("survival")+
+  xlab("ppt")+
+  scale_color_discrete("")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
 
-ps.asmi.seasonal <- ps.asmi.reduced
+## Precipitation
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+  ungroup() %>%
+  dplyr::mutate(across(ppt_fall:tmin_winter, scale, .names = "{.col}_scaled")) %>%
+ggplot(  aes(ppt_springSummer_scaled, surv, color = site))+
+  geom_point(pch="|")+
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")+
+  ylab("survival")+
+  xlab("ppt summer")+
+  scale_color_discrete("")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
 
-glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm1 <- glmer(Total.Alive ~ 1 + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-summary(nlm1)
-glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm2 <- glmer(Total.Alive ~ as.factor(Site) + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
-nlm3 <- glmer(Total.Alive ~ Creek + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced) #Need add creek!
-glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm4 <- glmer(Total.Alive ~ Fence + (1|Year), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm5 <- glmer(Total.Alive ~ 1 + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm6 <- glmer(Total.Alive ~ as.factor(Site) + (1|Plot), family = poisson(link = 'log'), data = ps.asmi.reduced)
-glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced) 
-nlm7 <- glmer(Total.Alive ~ Creek + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced) 
-glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced)
-nlm8 <- glmer(Total.Alive ~ Fence + (1|Site), family = poisson(link = 'log'), data = ps.asmi.reduced)
+asmi.merged %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+  ungroup() %>%
+  dplyr::mutate(across(ppt_fall:tmin_winter, scale, .names = "{.col}_scaled")) %>%
+ggplot(  aes(ppt_winter_scaled, surv, color = site))+
+  geom_point(pch="|")+
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")+
+  ylab("survival")+
+  xlab("tmin winter")+
+  scale_color_discrete("")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
+```
+
+```{r}
+glm1 <- glm(surv ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_fall+tmax_springSummer +
+tmax_winter+tmin_fall+tmin_springSummer + tmin_winter, family = poisson(link = 'log'), data = asmi.merged)
+glm2 <- glm(surv ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_springSummer +
+              tmin_winter , family = poisson(link = 'log'), data = asmi.merged)
+glm3 <- glm(surv ~ ppt_winter + tmax_springSummer +
+              tmin_winter , family = poisson(link = 'log'), data = asmi.merged) #Need add creek!
+glm4 <- glm(surv ~ ppt_springSummer, family = poisson(link = 'log'), data = asmi.merged)
+glm5 <- glm(surv ~ 1, family = poisson(link = 'log'), data = asmi.merged)
+glm6 <- glm(surv ~ ppt_winter, family = poisson(link = 'log'), data = asmi.merged)
+glm7 <- glm(surv ~ tmax_springSummer, family = poisson(link = 'log'), data = asmi.merged) 
+glm8 <- glm(surv ~ ppt_fall, family = poisson(link = 'log'), data = asmi.merged)
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
-nlm.list <- list(nlm1,nlm2,nlm3,nlm4,nlm5,nlm6,nlm7,nlm8)
-# glm.list <- list(glm1,glm2,glm4,glm5,glm6,glm8) # if no Cebolla
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
-nlm.names <- as.character(unlist(lapply(nlm.list, formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
-(nlm.results <- aictab(nlm.list, modnames=nlm.names)) # Right, just the same, not needed
-
 #evidence ratio 
 for(i in 2:length(glm.list)){
   print(exp(0.5*glm.results$Delta_AICc[i]))
