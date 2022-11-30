@@ -843,34 +843,12 @@ for(i in 2:length(glm.list)){
 ```
 
 
-Only during censuses at both drainage 2014 - currentYr
-Table 3b
-```{r}
-
-glm1 <- glm(Total.Alive ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm2 <- glm(Total.Alive ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm3 <- glm(Total.Alive ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
-glm4 <- glm(Total.Alive ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm5 <- glm(Total.Alive ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm6 <- glm(Total.Alive ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm7 <- glm(Total.Alive ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
-glm8 <- glm(Total.Alive ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-
-glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
-glm.names <- as.character(unlist(lapply(glm.list,formula)))
-(glm.results <- aictab(glm.list, modnames=glm.names))
-
-#evidence ratio 
-for(i in 2:length(glm.list)){
-  print(exp(0.5*glm.results$Delta_AICc[i]))
-}
-
-```
 
 
 Table 3e
 #AIC for fruit  
-# 2021 switched to number of fruit for only those that are reproductive
+# 2021 switched to number of fruit for only those that are reproductive  
+ps.asmi.reduced are plot summaries
 ```{r}
 
 ggplot(ps.asmi.reduced, aes(as.factor(Site), Total.Fruit))+
@@ -915,50 +893,46 @@ asmi.reproductive <-
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) 
 
 #Candidate models  
-glm1 <- glm(FlYN ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_fall+tmax_springSummer +
-tmax_winter+tmin_fall+tmin_springSummer + tmin_winter, family = poisson(link = 'log'), data = asmi.reproductive)
-glm2 <- glm(FlYN ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_springSummer +
-              tmin_winter , family = poisson(link = 'log'), data = asmi.reproductive)
-glm3 <- glm(FlYN ~ ppt_winter + tmax_springSummer +
-              tmin_winter , family = poisson(link = 'log'), data = asmi.reproductive) #Need add creek!
-glm4 <- glm(FlYN ~ ppt_springSummer, family = poisson(link = 'log'), data = asmi.reproductive)
-glm5 <- glm(FlYN ~ 1, family = poisson(link = 'log'), data = asmi.reproductive)
-glm6 <- glm(FlYN ~ ppt_winter, family = poisson(link = 'log'), data = asmi.reproductive)
-glm7 <- glm(FlYN ~ tmax_springSummer, family = poisson(link = 'log'), data = asmi.reproductive) 
-glm8 <- glm(FlYN ~ ppt_fall, family = poisson(link = 'log'), data = asmi.reproductive)
-
+glm1 <- glm(FlYN ~ ppt_winter*site, family = binomial, data = asmi.reproductive)
+glm2 <- glm(FlYN ~ tmax_springSummer*ppt_winter*site, family = binomial, data = asmi.reproductive)
+glm3 <- glm(FlYN ~ tmin_winter*ppt_winter*site, family = binomial, data = asmi.reproductive) 
+glm4 <- glm(FlYN ~ ppt_fall*site, family = binomial, data = asmi.reproductive)
+glm5 <- glm(FlYN ~ 1*site, family = binomial, data = asmi.reproductive)
+glm6 <- glm(FlYN ~ ppt_springSummer*site, family = binomial, data = asmi.reproductive)
+glm7 <- glm(FlYN ~ tmax_springSummer*site, family = binomial, data = asmi.reproductive) 
+glm8 <- glm(FlYN ~ tmin_winter*site, family = binomial, data = asmi.reproductive)
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
-
-#evidence ratio 
 for(i in 2:length(glm.list)){
   print(exp(0.5*glm.results$Delta_AICc[i]))
 }
 ```
 
-Table 3f
-Only during the time both creeks were monitored? 
 ```{r}
-  
-#Candidate models  
-glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) #Need add creek!
-glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
-glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,]) 
-glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Year > 2013,])
+## Figure 4b reproduction or none
+Fig4bReprodYN <- asmi.reproductive %>%
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+ggplot(  aes(tmax_springSummer,FlYN))+
+  geom_point()+
+  theme_bw()+
+  facet_grid(~ppt_winter_bin, scales = "free")+
+  xlab("Summer maximum temperature")+
+  ylab("Fruit production by plot")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  ggtitle("b)")
 
-glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
-glm.names <- as.character(unlist(lapply(glm.list,formula)))
-(glm.results <- aictab(glm.list, modnames=glm.names))
+Fig4bReprodYN_site <- asmi.reproductive %>%
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
+  geom_point()+
+  theme_bw()+
+  facet_wrap(~ppt_winter_bin, scales = "free")+
+  xlab("Summer maximum temperature")+
+  ylab("Fruit production by plot")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  ggtitle("c)")
 
-#evidence ratio 
-for(i in 2:length(glm.list)){
-  print(exp(0.5*glm.results$Delta_AICc[i]))
-}
 ```
 
 #AIC for reproductive
@@ -2384,14 +2358,14 @@ mastseeding <- noreproductiveyears %>%
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
   filter(AsMi_site_id > 3) ## as of 2022, no years with no reproduction
 
-glm1 <- glm(flower ~ ppt_winter, family = binomial, data = mastseeding)
-glm2 <- glm(flower ~ tmax_springSummer*ppt_winter, family = binomial, data = mastseeding)
-glm3 <- glm(flower ~ tmin_winter*ppt_winter, family = binomial, data = mastseeding) 
-glm4 <- glm(flower ~ ppt_fall, family = binomial, data = mastseeding)
-glm5 <- glm(flower ~ 1, family = binomial, data = mastseeding)
-glm6 <- glm(flower ~ ppt_springSummer, family = binomial, data = mastseeding)
-glm7 <- glm(flower ~ tmax_springSummer, family = binomial, data = mastseeding) 
-glm8 <- glm(flower ~ tmin_winter, family = binomial, data = mastseeding)
+glm1 <- glm(flower ~ ppt_winter*site, family = binomial, data = mastseeding)
+glm2 <- glm(flower ~ tmax_springSummer*ppt_winter*site, family = binomial, data = mastseeding)
+glm3 <- glm(flower ~ tmin_winter*ppt_winter*site, family = binomial, data = mastseeding) 
+glm4 <- glm(flower ~ ppt_fall*site, family = binomial, data = mastseeding)
+glm5 <- glm(flower ~ 1*site, family = binomial, data = mastseeding)
+glm6 <- glm(flower ~ ppt_springSummer*site, family = binomial, data = mastseeding)
+glm7 <- glm(flower ~ tmax_springSummer*site, family = binomial, data = mastseeding) 
+glm8 <- glm(flower ~ tmin_winter*site, family = binomial, data = mastseeding)
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
@@ -2403,9 +2377,9 @@ for(i in 2:length(glm.list)){
 
 ```{r}
 
-ggsave(paste(savepath, "Fig4mastnofruit.jpg", sep = ""),
+# ggsave(paste(savepath, "Fig4mastnofruit.jpg", sep = ""),
        ## d) fruit or no fruit
-noreproductiveyears %>%
+Fig4emastseed <- noreproductiveyears %>%
   mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
                           AsMi_site_id == 2 ~ "Cebolla North",
                           AsMi_site_id == 5 ~ "Site 5",
@@ -2415,14 +2389,15 @@ noreproductiveyears %>%
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
   ungroup() %>% 
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
-ggplot(  aes(ppt_springSummer,flower))+ #,colour=as.factor(AsMi_site_id)))+
+ggplot(  aes(tmax_springSummer,flower, colour=site))+
   geom_point()+
   theme_bw()+
   xlab("Summer precipitation")+
-  ylab("Fruit production")+
+  ylab("Fruit production by year")+
+  ggtitle("e)")+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
   # facet_grid(~Creek, scales = "free")
-, width=100, height=100,units='mm', dpi=300)
+# , width=100, height=100,units='mm', dpi=300)
 
 
 #how many years are there no reproductive individuals per site
