@@ -868,34 +868,6 @@ for(i in 2:length(glm.list)){
 ```
 
 
-## ggplot Figure 2
-```{r}
-
-ps.asmi[ps.asmi$Plot == 89,]
-
-Fig2_a <- ggplot(ps.asmi, aes(Year, Total.Alive, color = as.factor(Site)))+
-  stat_smooth(se = FALSE)+
-  geom_point()+
-  ggtitle("a)")+
-  facet_wrap(~Site, scales="free_y")+
-  theme_bw()+
-  ylab("Individuals with AGG")+
-  scale_colour_discrete(guide="none") #, values = terrain.colors(6))
-
-Fig2_b <- ggplot(ps.asmi[ps.asmi$Year > 2013,], aes(Year, Total.Alive, colour = as.factor(Site)))+
-  stat_smooth(se = FALSE)+
-  geom_point()+
-  ggtitle("b)")+
-  facet_wrap(~Site, scales = "free_y")+
-  theme_bw()+
-  ylab("Individuals with AGG")+
-  scale_colour_discrete(guide="none")
-
-ggsave(paste(savepath, "Fig2.jpg", sep = ""),
-       Fig2_a/Fig2_b, width=250, height=300,units='mm', dpi=300)
-
-```
-
 Table 3e
 #AIC for fruit  
 # 2021 switched to number of fruit for only those that are reproductive
@@ -928,15 +900,26 @@ ggplot(  aes(Total.Alive, FlYN))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
 , width=200, height=150,units='mm', dpi=300)
 
+asmi.reproductive <- 
+  ps.asmi.reduced %>%
+  left_join(asmi.season.wide,  by = c("Site" = "site",
+                                      "Year" = "Prev12")) %>%
+  mutate(FlYN = case_when(Total.Fruit > 0 ~ 1, Total.Fruit == 0 ~ 0)) %>%
+  ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) 
+
 #Candidate models  
-glm1 <- glm(Total.Fruit ~ Year, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
-glm2 <- glm(Total.Fruit ~ Year*as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
-glm3 <- glm(Total.Fruit ~ Year*Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,]) #Need add creek!
-glm4 <- glm(Total.Fruit ~ Year*Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
-glm5 <- glm(Total.Fruit ~ 1, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
-glm6 <- glm(Total.Fruit ~ as.factor(Site), family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
-glm7 <- glm(Total.Fruit ~ Creek, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,]) 
-glm8 <- glm(Total.Fruit ~ Fence, family = poisson(link = 'log'), data = ps.asmi.reduced[ps.asmi.reduced$Total.Fruit>0,])
+glm1 <- glm(FlYN ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_fall+tmax_springSummer +
+tmax_winter+tmin_fall+tmin_springSummer + tmin_winter, family = poisson(link = 'log'), data = asmi.reproductive)
+glm2 <- glm(FlYN ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_springSummer +
+              tmin_winter , family = poisson(link = 'log'), data = asmi.reproductive)
+glm3 <- glm(FlYN ~ ppt_winter + tmax_springSummer +
+              tmin_winter , family = poisson(link = 'log'), data = asmi.reproductive) #Need add creek!
+glm4 <- glm(FlYN ~ ppt_springSummer, family = poisson(link = 'log'), data = asmi.reproductive)
+glm5 <- glm(FlYN ~ 1, family = poisson(link = 'log'), data = asmi.reproductive)
+glm6 <- glm(FlYN ~ ppt_winter, family = poisson(link = 'log'), data = asmi.reproductive)
+glm7 <- glm(FlYN ~ tmax_springSummer, family = poisson(link = 'log'), data = asmi.reproductive) 
+glm8 <- glm(FlYN ~ ppt_fall, family = poisson(link = 'log'), data = asmi.reproductive)
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
