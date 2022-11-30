@@ -820,28 +820,28 @@ ggplot(  aes(ppt_winter_scaled, surv, color = site))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
 ```
 
-```{r}
-glm1 <- glm(surv ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_fall+tmax_springSummer +
-tmax_winter+tmin_fall+tmin_springSummer + tmin_winter, family = poisson(link = 'log'), data = asmi.merged)
-glm2 <- glm(surv ~ ppt_fall + ppt_springSummer + ppt_winter + tmax_springSummer +
-              tmin_winter , family = poisson(link = 'log'), data = asmi.merged)
-glm3 <- glm(surv ~ ppt_winter + tmax_springSummer +
-              tmin_winter , family = poisson(link = 'log'), data = asmi.merged) #Need add creek!
-glm4 <- glm(surv ~ ppt_springSummer, family = poisson(link = 'log'), data = asmi.merged)
-glm5 <- glm(surv ~ 1, family = poisson(link = 'log'), data = asmi.merged)
-glm6 <- glm(surv ~ ppt_winter, family = poisson(link = 'log'), data = asmi.merged)
-glm7 <- glm(surv ~ tmax_springSummer, family = poisson(link = 'log'), data = asmi.merged) 
-glm8 <- glm(surv ~ ppt_fall, family = poisson(link = 'log'), data = asmi.merged)
 
+AIC for survival   
+```{r}
+glm1 <- glm(surv ~ ppt_winter*site, family = binomial, data = asmi.merged)
+glm2 <- glm(surv ~ tmax_springSummer*ppt_winter*site, family = binomial, data = asmi.merged)
+glm3 <- glm(surv ~ tmin_winter*ppt_winter*site, family = binomial, data = asmi.merged) 
+glm4 <- glm(surv ~ ppt_fall*site, family = binomial, data = asmi.merged)
+glm5 <- glm(surv ~ 1*site, family = binomial, data = asmi.merged)
+glm6 <- glm(surv ~ ppt_springSummer*site, family = binomial, data = asmi.merged)
+glm7 <- glm(surv ~ tmax_springSummer*site, family = binomial, data = asmi.merged) 
+glm8 <- glm(surv ~ tmin_winter*site, family = binomial, data = asmi.merged)
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
-#evidence ratio 
 for(i in 2:length(glm.list)){
   print(exp(0.5*glm.results$Delta_AICc[i]))
 }
 ```
 
+```{r}
+ggplot(asmi.merged, aes())
+```
 
 
 
@@ -851,10 +851,6 @@ Table 3e
 ps.asmi.reduced are plot summaries
 ```{r}
 
-ggplot(ps.asmi.reduced, aes(as.factor(Site), Total.Fruit))+
-  geom_boxplot()+
-  facet_wrap(~Year)+
-  geom_jitter(height = 0.01)
 
 ps.asmi.reduced %>%
   filter(Total.Fruit > 0) %>%
@@ -864,8 +860,8 @@ ggplot(  aes(Year, log(Total.Fruit)))+
   stat_smooth()+
   facet_wrap(~Site, scales = "free_x")
 
-## Fruit and reproduction
-ggsave(paste(savepath, "Fig4.jpg", sep = ""),
+## Fruit and reproduction by above ground growth - correlated
+# ggsave(paste(savepath, "Fig4.jpg", sep = ""),
        
 ps.asmi.reduced %>%
   mutate(FlYN = case_when(Total.Fruit >0 ~ 1, Total.Fruit == 0 ~ 0)) %>%
@@ -876,7 +872,7 @@ ggplot(  aes(Total.Alive, FlYN))+
   ylab("Fruit")+
   theme_bw()+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
-, width=200, height=150,units='mm', dpi=300)
+# , width=200, height=150,units='mm', dpi=300)
 
 asmi.reproductive <- 
   ps.asmi.reduced %>%
@@ -887,6 +883,7 @@ asmi.reproductive <-
                           Site == 19 ~ "Site 19",
                           Site == 26 ~ "Site 26")) %>%
   left_join(asmi.season.wide,  by = c("site" = "site",
+                                      "Plot" = "Plot",
                                       "Year" = "Prev12")) %>%
   mutate(FlYN = case_when(Total.Fruit > 0 ~ 1, Total.Fruit == 0 ~ 0)) %>%
   ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
@@ -930,7 +927,7 @@ ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
   facet_wrap(~ppt_winter_bin, scales = "free")+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.1)+
   ggtitle("c)")
 
 ```
@@ -992,29 +989,7 @@ for(i in 2:length(m.list)){
 }
 ```
 
-Table 3g   
-```{r}
-ps.asmi.lag <- subset(merge(ps.asmi.reduced, ps.asmi.reduced, by = c("Site","Plot","Creek","Fence")),
-                      Year.x == Year.y - 1)
-head(ps.asmi.lag)
 
-glm1 <- glm(Total.Alive.y ~ X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag) # AGG ~ br last year
-glm2 <- glm(Total.Alive.y ~ X..Flowered.x, family = poisson(link = 'log'), data = ps.asmi.lag) # ~ percent flower last year
-glm3 <- glm(Total.Alive.y ~ Total.Alive.x, family = poisson(link = 'log'), data = ps.asmi.lag) # ~ AGG last year
-glm4 <- glm(Total.Alive.y ~  X..Browsed.x * Fence, family = poisson(link = 'log'), data = ps.asmi.lag)
-glm5 <- glm(Total.Alive.y ~ 1, family = poisson(link = 'log'), data = ps.asmi.lag)
-glm6 <- glm(Total.Alive.y ~ X..Browsed.y, family = poisson(link = 'log'), data = ps.asmi.lag) # br in current year
-glm7 <- glm(Total.Alive.y ~ X..Browsed.y * Fence, family = poisson(link = 'log'), data = ps.asmi.lag) 
-glm8 <- glm(Total.Alive.y ~ Total.Alive.x * X..Browsed.x, family = poisson(link = 'log'), data = ps.asmi.lag)
-glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
-glm.names <- as.character(unlist(lapply(glm.list,formula)))
-(glm.results <- aictab(glm.list, modnames=glm.names))
-#evidence ratio 
-for(i in 2:length(glm.list)){
-  print(exp(0.5*glm.results$Delta_AICc[i]))
-}
-
-```
 
 
 Table 5: Average Astragalus microcymbus fruit per plot within the South Beaver Creek Drainage near Gunnison, CO and Cebolla Creek drainage. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek North. Standard errors are given in parentheses. 
@@ -2300,7 +2275,7 @@ chisq.test(table(fencing_ind_dorm$Dorm, fencing_ind_dorm$Fence))
 ```
 
 
-
+AIC for annual fruit production: none or a mast year
 #Episodic fruit production paragraph   
 ```{r}
 noreproductiveyears <- aggregate(flower~AsMi_site_id+year, data=asmi.raw,
@@ -2344,6 +2319,7 @@ ggplot(  aes(tmax_springSummer,flower))+#,colour=as.factor(AsMi_site_id)))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
   # facet_grid(~Creek, scales = "free")
 
+## exclude Cebolla creek that has never had a year without seeding
 mastseeding <- noreproductiveyears %>%
   mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
                           AsMi_site_id == 2 ~ "Cebolla North",
@@ -2387,16 +2363,26 @@ Fig4emastseed <- noreproductiveyears %>%
                           AsMi_site_id == 19 ~ "Site 19",
                           AsMi_site_id == 26 ~ "Site 26")) %>%
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
+  filter(AsMi_site_id > 3) %>%
   ungroup() %>% 
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+  filter(AsMi_site_id > 3) %>%
 ggplot(  aes(tmax_springSummer,flower, colour=site))+
   geom_point()+
   theme_bw()+
-  xlab("Summer precipitation")+
+  facet_grid(~ppt_winter_bin, scales = "free", 
+             labeller = labeller(ppt_winter_bin =
+                                   c("(-1.82,-0.185]" = "low winter precipitation", 
+                                     "(-0.185,1.45]" = "mid winter precipitation",
+                                     "(1.45,3.09]" = "high winter precipitation"))
+             )+
+             # labeller = labeller(.cols = label_both))+
+  xlab("Summer maximum temperature")+
   ylab("Fruit production by year")+
   ggtitle("e)")+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
-  # facet_grid(~Creek, scales = "free")
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.1)#+
+  # facet_grid(~Creek, scales = "free")  ## for later years if Cebolla reproduction fails
 # , width=100, height=100,units='mm', dpi=300)
 
 
