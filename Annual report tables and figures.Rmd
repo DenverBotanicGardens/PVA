@@ -419,26 +419,41 @@ aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
 
 ## Figure 2: Number of AsMi with AGG
 
-alive %>%
-  
-ggplot(alive, aes(year, length, color= as.factor(AsMi_plot_id)))+
- geom_point()+
-  stat_smooth(se=FALSE)+
-  ylab("Individuals per plot")+
+ggsave(paste(savepath, "Fig2AGG.jpg", sep = ""),
+(alive %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+ggplot(  aes(as.factor(year), length)) + 
+  geom_boxplot()+
+  ylab("Individuals with AGG per plot")+
   xlab("Year")+
   theme_bw()+
-  facet_wrap(~as.factor(AsMi_site_id))+
-  scale_color_discrete(guide = "none")
-  
+  facet_wrap(~as.factor(AsMi_site_id) + Creek, scales = "free")+
+  scale_color_discrete(guide = "none")+ 
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  ggtitle("a)"))
+/
 
-ggplot(alive, aes(year, length, color = as.factor(AsMi_plot_id)))+
- geom_point()+
-  stat_smooth(se=FALSE)+
-  ylab("Individuals per plot")+
+(aggdorm %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+   filter(if_else(AsMi_site_id > 3, year > 1995, year > 2014)) %>%
+   filter(if_else(AsMi_plot_id == 598, year > 2004, year > 1995)) %>%
+   filter(if_else(AsMi_plot_id %in% c(238,300), year > 1996, year > 1995)) %>%
+   filter(if_else(AsMi_plot_id == 89, year < 2020, year < currentyr)) %>% ## Tags removed in 2020 by unknown
+   filter(year < currentyr) %>%
+  ggplot(  aes(as.factor(year), status)) + 
+  geom_boxplot()+
+  ylab("Individuals with AGG and dormant per plot")+
   xlab("Year")+
   theme_bw()+
-  facet_wrap(~as.factor(AsMi_site_id))+
-  ylim(c(0,10))
+  facet_wrap(~as.factor(AsMi_site_id) + Creek, scales = "free")+
+  scale_color_discrete(guide = "none")+ 
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+   ggtitle(("b)"))), 
+width=275, height=250,units='mm', dpi=300)
+
+
 
 ```
 
@@ -1974,55 +1989,6 @@ Spring/summer: April-July (4-7)
 Fall: August-November (8-11)   
 
 
-
-# Should come in with count of seedlings per year and see how that is impacted by climate
-```{r, eval=FALSE}
-# asmi.env
-table(season$Site)
-table(asmi.c$Site)
-# aic.asmi <- merge(asmi.all1, season, by.x = c("Year","Site"), by.y = c("Prev12","Site"))
-# .x is t and .y is t+1
-aic.asmi <- merge(asmi.all, season, by.x = c("year","AsMi_site_id"), by.y = c("Prev12","Site"))
-
-```
-
-
-
-
-```{r, eval=FALSE}
-
-percentAGG <- do.call(rbind,lapply(unique(ps.asmi.t$Year),function(x){
-  thisyear <- ps.asmi.t[ps.asmi.t$Year==x & ps.asmi.t$Site>3,]
-  percentalive <- sum(thisyear$Total.Alive)/sum(thisyear$Total.Plants)
-  out <- data.frame(percentalive,year=x)
-  out
-}))
-
-percentAGGCebollaandBeaver <- do.call(rbind,lapply(unique(ps.asmi.t$Year),function(x){
-  thisyear <- ps.asmi.t[ps.asmi.t$Year==x,]
-  percentalive <- sum(thisyear$Total.Alive)/sum(thisyear$Total.Plants)
-  out <- data.frame(percentalive,year=x)
-  out
-}))
-
-#Total.Plants - AGG and dormant
-AGGDorm <- summarySE(ps.asmi.t, measurevar="Total.Plants",
-                     groupvars=c("Fence","Year","Site","Creek"))
-#Total.Alive - AGG
-AGG <- summarySE(ps.asmi.t, measurevar="Total.Alive",
-                 groupvars=c("Fence","Year","Site","Creek"))
-
-#Total.Fruit
-Fruit <- summarySE(ps.asmi.t, measurevar="Total.Fruit",
-                   groupvars=c("Fence","Year","Site","Creek"))
-
-#X..Flowered - %flowered
-Repro <- summarySE(ps.asmi.t, measurevar="X..Flowered",
-                   groupvars=c("Fence","Year","Site","Creek"))
-
-```
-
-
 ###########################################################################################################
 Figure 3: Astragalus microcymbus individuals by fenced (open circle, y)
  Figure 8    
@@ -2055,7 +2021,7 @@ p2SBC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "SouthBeaver",],
   stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG and dormant")+
+  ylab("AGG and dormant")+
   ggtitle("b)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2089,7 +2055,7 @@ p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",],
   stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG and dormant per Plot")+
+  ylab("AGG and dormant")+
   ggtitle("f)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
@@ -2104,55 +2070,8 @@ p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",],
 ```
 
 
-#Gina Gleene suggestion   
-log transformed! 
-```{r}
-ps.asmi1 <- ps.asmi[ps.asmi$Site<3 & ps.asmi$Year>2013 | ps.asmi$Site>4,]
-
-# added plots 238 (site 26) and 300 (site 19) in 1996
-# added 598 (site 26) in 2004 
-ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 238 & ps.asmi1$Year < 1996),]
-ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 300 & ps.asmi1$Year < 1996),]
-ps.asmi1 <- ps.asmi1[!(ps.asmi1$Plot == 598 & ps.asmi1$Year < 2004),]
-
-
-ggplot(ps.asmi1[ps.asmi1$Total.Alive>0 & ps.asmi1$Site > 3,], 
-       aes(Year, Total.Alive, colour = as.factor(Site)))+
-  geom_point()+
-  stat_smooth(method="lm", se=TRUE, alpha=0.1)+
-#  geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
-#              aes(color = NULL, group = factor(Site))) + 
-  geom_line(stat='smooth', method = "lm", alpha=0.3)+
-  theme_bw() +
-  ylab("Average AGG per Plot")+
-  ggtitle("a)") +
-  theme(plot.title=element_text(hjust=0))+
-  geom_vline(xintercept = 2005.75)+
-  geom_vline(xintercept = 2015.5)+
-  geom_vline(xintercept = 2006.75, lty = 4)+
-  theme(legend.justification=c(1,1), legend.position=c(1,1),
-        legend.background = element_rect(fill=alpha('white', 0.1)))
-```
-
-# the decline is from one plot, the rest are stable or increasing!
-```{r, eval=FALSE}
-ggplot(ps.asmi.t[ps.asmi.t$Total.Alive>0 & ps.asmi.t$Creek == "SouthBeaver",], 
-       aes(Year, Total.Alive, colour = as.factor(Plot)))+
-  geom_point()+
- # geom_ribbon(stat='smooth', method = "lm", se=TRUE, alpha=0.1, 
-#              aes(color = NULL, group = factor(Plot))) +
-  geom_line(stat='smooth', method = "lm")+
-  theme_bw() +
-  ylab("Average AGG per Plot")+
-  ggtitle("a)") +
-  theme(plot.title=element_text(hjust=0))+
-  geom_vline(xintercept = 2005.75)+
-  geom_vline(xintercept = 2006.75, lty = 4)+
-  theme(legend.position="none") 
-
-```
-
 South Beaver
+Figure 3
 AGG
 ```{r}
 
@@ -2170,7 +2089,7 @@ p1SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,],
   stat_summary(fun = mean,
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG per Plot")+
+  ylab("Above Ground Growth")+
   ggtitle("a)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2204,7 +2123,7 @@ p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,],
   stat_summary(fun = mean, position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
-  ylab("Average AGG per Plot")+
+  ylab("Above Ground Growth")+
   ggtitle("e)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
@@ -2226,7 +2145,12 @@ Fruit
 South Beaver Creek
 ```{r}
 
-p3SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,], 
+
+p3SBC <- 
+  ps.asmi.reduced %>%
+  filter(Site > 3) %>%
+  mutate(Total.Fruit = log(Total.Fruit)) %>%
+  ggplot(  
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
                fun.min = function(x) mean(x) - std.error(x),
@@ -2239,7 +2163,7 @@ p3SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,],
   stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
-  ylab("Average Total Fruit per Plot")+
+  ylab("log(Total Fruit)")+
   ggtitle("c)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2264,7 +2188,11 @@ aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site<3,],
           std.error)
 
 
-p3CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site <3,], 
+p3CC <- 
+  ps.asmi.reduced %>%
+  filter(Site < 3) %>%
+  mutate(Total.Fruit = log(Total.Fruit)) %>%
+  ggplot( 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
                fun.min = function(x) mean(x) - std.error(x),
@@ -2275,7 +2203,7 @@ p3CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site <3,],
   stat_summary(fun = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
-  ylab("Average Total Fruit per Plot")+
+  ylab("log(Total Fruit)")+
   ggtitle("g)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site", 
@@ -2308,7 +2236,7 @@ p4SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Creek == "SouthBeaver",],
   stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
   theme_bw() +
-  ylab("% Reproductive per Plot")+
+  ylab("% Reproductive")+
   ggtitle("d)") +
   theme(plot.title=element_text(hjust=0))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
@@ -2339,7 +2267,7 @@ p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,],
   stat_summary(fun = mean,position=position_dodge(width=0.15),
                geom = "line")+
   theme_bw() +
-  ylab("% Reproductive per Plot")+
+  ylab("% Reproductive")+
   ggtitle("h)") +
   theme(plot.title=element_text(hjust=0))+
   scale_color_manual("Site",
@@ -2359,7 +2287,8 @@ Figure 3
 ```{r}
 ggsave(paste(savepath, "Fig3a-d.jpg", sep=""),
        # Down each column
-       p1SBC + p2SBC + p3SBC + p4SBC + plot_layout(ncol = 2), units = "mm", dpi = 300, height = 200, width = 200)
+       p1SBC + p2SBC + p3SBC + p4SBC + plot_layout(ncol = 2), units = "mm", 
+    dpi = 300, height = 200, width = 200)
 
 ggsave(paste(savepath, "Fig3e-h.jpg", sep=""),
        # Down each column
@@ -2367,16 +2296,6 @@ ggsave(paste(savepath, "Fig3e-h.jpg", sep=""),
 
 ```
 
-
-Of the 797 individuals alive in South Beaver Creek in 1995 ...
-```{r, eval=FALSE}
-
-lifelength <- do.call(rbind, yrsalive)
-
-
-mean(lifelength$Yearsalive[lifelength$YrsD < 8]) #2.5
-mean(lifelength$Yearsalive)
-```
 
 # Results: Herbivory
 Dormancy    
@@ -2427,12 +2346,97 @@ noreproductiveyears <- aggregate(flower~AsMi_site_id+year, data=asmi.raw,
                                  } else {
                                    0
                                  })
-
-ggplot(noreproductiveyears, aes(year,flower,colour=as.factor(AsMi_site_id)))+
+noreproductiveyears %>%
+  mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
+                          AsMi_site_id == 2 ~ "Cebolla North",
+                          AsMi_site_id == 5 ~ "Site 5",
+                          AsMi_site_id == 15 ~ "Site 15",
+                          AsMi_site_id == 19 ~ "Site 19",
+                          AsMi_site_id == 26 ~ "Site 26")) %>%
+  left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+ggplot(  aes(ppt_winter,flower,colour=as.factor(AsMi_site_id)))+
   geom_point()+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
   facet_grid(~AsMi_site_id)
 
-#how many years are there no reproductive indiviudals per site
+
+noreproductiveyears %>%
+  mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
+                          AsMi_site_id == 2 ~ "Cebolla North",
+                          AsMi_site_id == 5 ~ "Site 5",
+                          AsMi_site_id == 15 ~ "Site 15",
+                          AsMi_site_id == 19 ~ "Site 19",
+                          AsMi_site_id == 26 ~ "Site 26")) %>%
+  # mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+  #                          AsMi_site_id > 3 ~ "South Beaver")) %>%
+  filter(AsMi_site_id > 3) %>% ## as of 2022, no years with no reproduction
+  left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+ggplot(  aes(tmax_springSummer,flower))+#,colour=as.factor(AsMi_site_id)))+
+  geom_point()+
+  xlab("Summer maximum temperature")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
+  # facet_grid(~Creek, scales = "free")
+
+mastseeding <- noreproductiveyears %>%
+  mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
+                          AsMi_site_id == 2 ~ "Cebolla North",
+                          AsMi_site_id == 5 ~ "Site 5",
+                          AsMi_site_id == 15 ~ "Site 15",
+                          AsMi_site_id == 19 ~ "Site 19",
+                          AsMi_site_id == 26 ~ "Site 26")) %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) %>%
+  left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12"))%>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+  filter(AsMi_site_id > 3) ## as of 2022, no years with no reproduction
+
+glm1 <- glm(flower ~ ppt_winter, family = binomial, data = mastseeding)
+glm2 <- glm(flower ~ tmax_springSummer*ppt_winter, family = binomial, data = mastseeding)
+glm3 <- glm(flower ~ tmin_winter*ppt_winter, family = binomial, data = mastseeding) 
+glm4 <- glm(flower ~ ppt_fall, family = binomial, data = mastseeding)
+glm5 <- glm(flower ~ 1, family = binomial, data = mastseeding)
+glm6 <- glm(flower ~ ppt_springSummer, family = binomial, data = mastseeding)
+glm7 <- glm(flower ~ tmax_springSummer, family = binomial, data = mastseeding) 
+glm8 <- glm(flower ~ tmin_winter, family = binomial, data = mastseeding)
+glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.names <- as.character(unlist(lapply(glm.list,formula)))
+(glm.results <- aictab(glm.list, modnames=glm.names))
+for(i in 2:length(glm.list)){
+  print(exp(0.5*glm.results$Delta_AICc[i]))
+}
+
+```
+
+```{r}
+
+ggsave(paste(savepath, "Fig4mastnofruit.jpg", sep = ""),
+       ## d) fruit or no fruit
+noreproductiveyears %>%
+  mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
+                          AsMi_site_id == 2 ~ "Cebolla North",
+                          AsMi_site_id == 5 ~ "Site 5",
+                          AsMi_site_id == 15 ~ "Site 15",
+                          AsMi_site_id == 19 ~ "Site 19",
+                          AsMi_site_id == 26 ~ "Site 26")) %>%
+  left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+ggplot(  aes(ppt_springSummer,flower))+ #,colour=as.factor(AsMi_site_id)))+
+  geom_point()+
+  theme_bw()+
+  xlab("Summer precipitation")+
+  ylab("Fruit production")+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
+  # facet_grid(~Creek, scales = "free")
+, width=100, height=100,units='mm', dpi=300)
+
+
+#how many years are there no reproductive individuals per site
 1-aggregate(flower~AsMi_site_id, data=noreproductiveyears,
           function(x) sum(x)/length(x))
 
@@ -2445,13 +2449,9 @@ mean(c(1-aggregate(flower~AsMi_site_id,
 mean(c(1-aggregate(flower~AsMi_site_id, data=noreproductiveyears,
           function(x) sum(x)/length(x))[-(1:2),2]))*(length(1995:currentyr))
 
-#Number of years of no reproductive for South Beaver Creek (not correct for Cebolla)
+#Number of years of no reproductive for South Beaver Creek (not correct for Cebolla) order is 1,2,5,15,19,26
 length(1995:currentyr)-aggregate(flower~AsMi_site_id, data=noreproductiveyears,sum)
 
-
-# Results: Herbivory  
-totFrplotyr <- aggregate(fruit ~ Creek + fence + AsMi_plot_id + year, sum, data = asmi.raw)
-aggregate(fruit ~ Creek + fence, mean, data = totFrplotyr)
 
 ```
 
