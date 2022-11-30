@@ -902,7 +902,13 @@ ggplot(  aes(Total.Alive, FlYN))+
 
 asmi.reproductive <- 
   ps.asmi.reduced %>%
-  left_join(asmi.season.wide,  by = c("Site" = "site",
+  mutate(site = case_when(Site == 1 ~ "Cebolla Mid",
+                          Site == 2 ~ "Cebolla North",
+                          Site == 5 ~ "Site 5",
+                          Site == 15 ~ "Site 15",
+                          Site == 19 ~ "Site 19",
+                          Site == 26 ~ "Site 26")) %>%
+  left_join(asmi.season.wide,  by = c("site" = "site",
                                       "Year" = "Prev12")) %>%
   mutate(FlYN = case_when(Total.Fruit > 0 ~ 1, Total.Fruit == 0 ~ 0)) %>%
   ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
