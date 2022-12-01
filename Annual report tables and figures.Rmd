@@ -2220,7 +2220,7 @@ summary(glm(surv~ stage +as.factor(site), family=binomial(link = "logit"), surv.
 #survival as a cox proportional hazards regression model
 library(survival)
 
-# interval data, the starting time for the interval (so the year is the stage year and survival is based on fate, next year); "righ censoring" means date of death is unknown, which it is actually! 
+# interval data, the starting time for the interval (so the year is the stage year and survival is based on fate, next year); "right censoring" means date of death is unknown, which it is actually! 
 #Survival curve is probability that time of death is greater than some specified time
 survObj <- Surv(time = surv.asmi$year, event=as.logical(surv.asmi$surv))
 model <- coxph(survObj ~ strata(factor(site)), data=surv.asmi)
@@ -2235,9 +2235,7 @@ summary(model_fence_site)
 
 model_stage <- coxph(survObj ~ stage, data=surv.asmi)
 summary(model_stage)
-
-#plotting time to death
-
+levels(surv.asmi$stage)
 
 ```
 
@@ -2257,7 +2255,7 @@ for(i in sort(unique(surv.asmi$year))){
 }
 
 plot(surv.asmi$length, 
-       surv.asmi$surv, main= "1996 - 2017", xlab="length",ylab="Probability of survival")
+       surv.asmi$surv, main= "1996 - 2022", xlab="length",ylab="Probability of survival")
   g<- glm(surv~length, family=binomial,surv.asmi)
   curve(predict(g,data.frame(length=x),type="resp"), col="green4",add=TRUE)
 
