@@ -1,0 +1,126 @@
+---
+title: "Astragalus microcymbus mark-recapture"
+author: "Michelle DePrenger-Levin"
+date: "2023-05-25"
+output:
+  word_document: default
+  html_document: default
+---
+
+MacKenzie et al 2009 Modeling species occurrence dynamics with multiple states and imperfect detection       
+        1. Define the region (population) for occurrence, state classification (of the whole population, not individual) - Population level dynamics. close, not quite    
+        2. However, if could combine the idea of uncertainty only going one direction (if observed, could be vegetative, or reproductive) to individuals, then this would be great.   
+      
+Treat each site as an individual?     
+Occupied in state m: $\phi^[m]$    
+The state vector must sum to 1   
+   $\phi^1$: seedling in year t    
+   $\phi^2$: seedling after last census (t-1) and resprout  
+   $\phi^3$: vegetative (age 2+)
+   $\phi^4$: reproductive (age 2+)    
+   1-$\phi^1$-$\phi^2$-$\phi^3$-$\phi^3$: unoccupied    
+   
+$\phi_0$ = [1-$\phi^1$-$\phi^2$-$\phi^3$-$\phi^3$      $\phi^1$       $\phi^2$       $\phi^3$        $\phi^4$]
+Ambiguity of observations only extends in one direction -->    
+   
+   
+Detection probability matrix   
+    For any true state, survey must result in one of the observed states; probability of observing state l during survey j when true state is m $p^(l,m)_j$   
+Observed state: 0=unobserved, 1=cotyledons, 2=small and no cotyledons, 3=thicker stem and no reproduction, 4=flower or fruit    
+True state: 0=unoccupied- not alive, 1=seedling year t, 2=seedling year t-1, 3=vegetative, 4=reproductive   
+If you observe cotyledons then it cannot be vegetative, reproductive, or germinated in the previous year after the last census
+
+Cotyledons == recruit in year t   
+Small could be recruit in year t or t-1 after last census (so unmarked)  
+and recruit could be from reproductive in year t-1 or t-x (some years in the past)     
+
+_____________________________________________________________________________________________________
+Occupied in state m: $\phi^[m]$    
+The state vector must sum to 1   
+All individuals will be at least vegetative and possibly reproductive at some point during the growing season
+   $\phi^1$: Vegetative    
+   $\phi^2$: Reproductive
+   1-$\phi^1$-$\phi^2$-$\phi^3$: unoccupied (not alive)     
+        
+$\phi_0$ = [1-$\phi^1$-$\phi^2$      $\phi^1$       $\phi^2$]
+Ambiguity of observations only extends in one direction -->    
+
+Observed state: 0=unobserved, 1=Vegetative and no reproduction, 2=flower or fruit    
+True state: 0=unoccupied- not alive, 1=vegetative, 2=reproductive   
+$$
+    \begin{bmatrix}
+    1                           & 0             & 0\\
+    1- p^(1,1)_j                & p^(1,1)_j     & 0\\
+    1- p^(1,1)_j - p^(2,2)_j    & p^(1,2)_j     & p^(2,2)_j\\
+    \end{bmatrix}
+$$
+    
+    
+Observing 1 means 0 isn't true, observing 2 means 1 and 0 aren't true state   
+$h_i$ = 120, then the state dependent probability vector is:    
+ 
+
+$$ 
+    p_120 =  
+    \begin{bmatrix}
+    0 \\
+    0 \\
+    p^(1,2)_1  p^(2,2)_2  (1-p^(1,2)_1 - p^(2,2)_2 
+    \end{bmatrix}
+$$
+
+
+Reparameterized as sets of conditional binomial probabilities; so that $p^[m]$ is the probability of correctly observing the true state $m$, and $\beta^(l,m)$ is the the probability of observing the state $l$ when the true state is $m$ and $l < m$       
+      1. These binomials allow for covariates    
+$$
+    \begin{bmatrix}
+    1                                   & 0             & 0\\
+    1 - p^[1]_j                         & p^[1]_j         & 0\\
+    (1 - \beta^(1,1)_j) (1 - p^[2]_j)    & \beta^(1,2)_j (1-p^[2]_j)  & p^[2]_j\\
+    \end{bmatrix}
+$$
+  
+Multi-years  
+
+In a season $t$, the true state of individual, $i$ is a random variable $(z_{i,t})$ from one trial of a multinomial distriubtion (or could be from any reparameterization, correct?)    
+$z_i,1 ~ mult(\phi_0,1)$
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+following <https://www.montana.edu/rotella/documents/502/lab07RMark.html> 
+
+```{r}
+library(RMark)
+
+
+```
+
+
+
+Prepare data for for RMark 
+```{r}
+
+```
+
