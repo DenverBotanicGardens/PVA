@@ -1,0 +1,564 @@
+---
+title: "CJS seedling survival model"
+author: "Michelle DePrenger-Levin"
+date: "2023-09-12"
+output: html_document
+---
+```{r}
+rm(list=ls())
+library(rjags)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(R2jags) ## jags
+library(R2WinBUGS)
+
+```
+
+
+#Intraannual visits
+### Intraannual visits    
+Will want to ignore sites that were not visited - deal with differently than plants that were not seen but are also NA      
+### What is the most common stage class of individuals that were dormant for some portion of the growing season? 
+2013
+```{r}
+intra.2013June <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/AsMiJuly2013.csv")
+
+intra.2013July <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/AsMiJune2013.csv")
+
+intra.2013Sept <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/September2013.csv")
+
+intra.2013October <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/AsMiOctober2013.csv")
+
+
+
+# intra.2013 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/AliveMultiYear.xlsx")
+
+```
+
+Reformat multiseason visits to Schaub Kery 2022 pg 163-166
+
+```{r}
+head(intra.2013June)
+```
+
+Want date of first 
+
+  # rename_with(.cols = Lngth13:Comments13, .fn = ~ paste0(.x, "_2013-07-14")) %>%
+```{r}
+head(intra.2013July)
+intra.2013July[is.na(intra.2013July$Lngth13),]
+
+## In July visited all four sites, all plots
+intra.2013July <- intra.2013July %>%
+  mutate(Day = as.POSIXlt(as.Date("2013-07-14"))$yday)
+
+intra.2013July %>%
+  complete(Day, nesting(Site,Plot,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  group_by(Site, Plot) %>%
+  summarise(K.Plot = n_distinct(Day))
+
+## In June, did not visit Site 19, and not plot 598 or 614 (site 26) 
+intra.2013June <- intra.2013June %>%
+  mutate(Day = as.POSIXlt(as.Date("2013-06-03"))$yday)
+
+## Has past years data
+intra.2013Sept1 <- intra.2013Sept %>%
+  select(names(intra.2013July)[-c(1,length(intra.2013July))]) %>%
+  mutate(Day = as.POSIXlt(as.Date("2013-09-05"))$yday) %>%
+  mutate(Site = case_when(Plot %in% c(606,607,608,609,610) ~ 5,
+                          Plot %in% c(512,513,514,515,300) ~ 19,
+                          Plot %in% c(238, 480,611,614,598) ~ 26,
+                          Plot %in% c(8,568,581,799) ~ 15)) %>%
+  relocate(Site, .before = Tag)
+
+## No site 15
+intra.2013October <- intra.2013October %>%
+  mutate(Day = as.POSIXlt(as.Date("2013-10-15"))$yday) 
+
+intra.2013 <- do.call(rbind, list(intra.2013June, intra.2013July, intra.2013Sept1, intra.2013October))
+unique(intra.2013$Day)
+
+## Some form of complete to give a zero when a tag was alive sometime that year but not seen in a survey  
+## Need to fill in 581 even though no plants ever found except once
+intra.2013complete <- intra.2013 %>%
+  complete(Day, nesting(Site, Plot, Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  filter(!(Plot %in% c(598, 614) & Day == unique(intra.2013$Day)[1])) %>%
+  filter(!(Site == 19 & Day == unique(intra.2013$Day)[1])) %>%
+  filter(!(Site == 15 & Day == unique(intra.2013$Day)[4]))
+
+
+
+intra.2013.seedlings <- intra.2013 %>%
+  filter(grepl("coty",Comments13))
+```
+
+"NOPE" is probably a cotyledon that wasn't AsMi, could be wasn't included in annual? I don't know, Maybe nope is no cotyledons
+```{r}
+intra.2014_2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2015 datasheets/2014-15_intrayear_asmi_2.csv")
+
+intra.2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2015 datasheets/2015_intrayear_asmi.csv")
+
+### Need to distinguish between visited and didn't see, and didn't visit that site
+# Git rid of tags that never saw a plant above ground
+# aboveground <- intra.2014_2015 %>%
+#   filter_at(vars(LnAprl14,LnJun14,LnJul14,LnAug14,LnSep14,LnOct14,LnOct2814), any_vars(!is.na(.)))
+
+
+
+```
+
+
+Make correct format for CJS and export   
+Wants the number of encounter occasions which differ by individual (by plot)
+```{r}
+K_plotcomplete <- intra.2013complete %>%
+  group_by(Plot,Tag) %>%
+  filter(any(Lngth13 > 0)) %>%
+  ungroup() %>%
+  group_by(Site, Plot) %>%
+  summarise(K.plot = n_distinct(Day), 
+            nx.plot = n_distinct(Tag))
+K_plotcomplete ## The number of visits per plot K.plot, individuals per plot nx.plot
+sum(K_plotcomplete$nx.plot) ## 93 plants that have some growth at some point. 
+
+## Vector of first encounters, length n
+encounters <- intra.2013complete %>%
+  group_by(Plot, Tag) %>%
+  filter(any(Lngth13 > 0)) %>% 
+  ungroup() %>%
+  group_by(Site, Plot, Tag) %>%
+  summarise(e = min(Day))
+
+## Should only be ones alive at some point during the survey
+encounters$e  ## 93, any plant that had any growth in 2013. 
+
+dataCJS <- intra.2013complete %>% 
+  group_by(Plot, Tag) %>%
+  filter(any(Lngth13 > 0)) %>% 
+  ungroup() %>%
+  arrange(Site, Plot, Tag, Day) %>%
+  mutate(K = Day, Obs = ifelse(Lngth13 > 0, 1, 0))
+
+model_data <- list(Kplot = K_plotcomplete$K.plot,
+                   nplot = K_plotcomplete$nx.plot,
+                   e = encounters$e,
+                   data = dataCJS)
+  
+save(model_data, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data.Rdata")
+
+```
+
+
+
+```{r}
+library(IPMbook)
+library(jagsUI)
+
+data(wryneck)
+
+fail <- which(wryneck$x==0)
+y <- matrix(NA, nrow=length(wryneck$f), ncol=max(wryneck$k))
+for (i in 1:length(wryneck$f)){
+  y[i,wryneck$f[i]] <- 1
+  y[i,wryneck$j[i]] <- 1
+}
+for (i in 1:length(fail)){
+  y[fail[i],wryneck$k[fail[i]]] <- 0
+}
+
+jags.data <- with(wryneck, list(y=y, f=f, k=k, n.nest=nrow(y), T=21, age=age))
+
+cat(file="model13.txt", "
+model {
+  # Priors and linear models
+  for (i in 1:n.nest){
+    for (t in f[i]:(k[i]-1)){
+      phi[i,t] <- phia[age[i] + t - f[i]]
+    } #t
+  } #i
+  for (a in 1:T){
+    phia[a] <- ilogit(alpha + beta * a)
+  }
+  alpha ~ dnorm(0, 0.001)
+  beta ~ dnorm(0, 0.001)
+  # Likelihood
+  for (i in 1:n.nest){
+    for (t in (f[i]+1):k[i]){
+      y[i,t] ~ dbern(phi[i,t-1] * y[i,t-1])
+    } #t
+  } #i
+  # Derived parameter: nest success
+  nu <- prod(phia[1:T])
+}
+")
+# Initial values
+inits <- function(){list(alpha=runif(1, 4, 5), beta=runif(1, 0, 0.1))}
+# Parameters monitored
+parameters <- c("phia", "nu", "alpha", "beta")
+# MCMC settings
+ni <- 3000; nb <- 1000; nc <- 3; nt <- 1; na <- 1000
+# Call JAGS from R (ART 1 min) and check convergence
+out16 <- jags(jags.data, inits, parameters, "model13.txt", n.iter=ni, n.burnin=nb, n.chains=nc,
+              n.thin=nt, n.adapt=na, parallel=TRUE)
+```
+
+
+```{r}
+## Need to add zeros to times visited but not seen
+aboveground <- intra.2014_2015 %>%
+  mutate(Tag.ID = row_number()) %>%
+  filter_at(vars(starts_with("Ln")), any_vars(!is.na(.))) %>%
+  mutate(TagID = as.numeric(Tag.ID), Tag = as.numeric(Tag))
+
+
+
+## Did not visit Site 15
+April2014 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnAprl14:CommentsApr14)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-04-21"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  filter(Site != 15) %>%
+  'colnames<-'(c("TagID","Site","Tag","Plot","Length","FlYN","FrNum","BrYN","Comments","SurveyDay"))%>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+  
+
+table(April2014$Site, April2014$Plot)
+
+## Only visited site 5
+May2014 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnMay12:Comments)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-05-13"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  filter(Site == 5) %>%
+  'colnames<-'(names(April2014)) %>%
+  filter(!is.na(Length)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+  
+table(May2014$Site, May2014$Plot)
+
+aboveground[aboveground$Plot == "Plot",]
+
+## All four and Cebolla mid, only 22  2014-06-03
+June2014_1 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnJun14:Comments.1)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-06-03"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  filter(!(Plot.1 %in% c(1,32,42,52))) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(June2014_1$Site, June2014_1$Plot)
+
+## All four and Cebolla mid ## Cebolla mid == 1  2014-06-25
+June2014_2 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnJun214:Comments.2)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-06-25"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(June2014_2$Site, June2014_2$Plot)
+
+## All four and Cebolla mid == 1 and north == 2 2014-07-15
+July2014_1 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnJul14:Comments.3)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-07-15"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(July2014_1$Site, July2014_1$Plot)
+
+## Need to pull from annual 2014 data
+
+## All 6 2014-08-5
+August2014 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnAug14:Comments.4)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-08-5"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(August2014$Site, August2014$Plot)
+
+## all 6 2014-09-18
+September2014 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnSep14:Comments.5)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-09-18"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(September2014$Site, September2014$Plot)
+
+## all 6 2014-10-14
+October2014 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnOct14:Comments.6)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-10-14"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014))%>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(October2014$Site, October2014$Plot)
+
+## all 6 2014-10-29
+October2014_2 <- aboveground %>%
+  select(c(Tag.ID:Tag, Plot.1, LnOct2814:Comments.7)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-10-29"))$yday) %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  relocate(Site, .before = Tag) %>%
+  'colnames<-'(names(April2014)) %>%
+  mutate(Length = case_when(is.na(Length) ~ 0,
+                            !is.na(Length) ~ Length))
+
+table(October2014$Site, October2014$Plot)
+
+## 2015
+
+RepeatSurvey2014 <- do.call(rbind, list(April2014, May2014, June2014_1, June2014_2, July2014_1, 
+                                        August2014, September2014, October2014, October2014_2))
+
+
+## f = first detected; j = last day alive, k = last visit, x_i == 0 or 1 during last visit, size
+asmiSurvival <- RepeatSurvey2014 %>%
+  group_by(Site, Plot, TagID, Tag) %>%
+  filter(!all(Length == 0)) %>%
+  summarise(f = min(SurveyDay[Length > 0]) - (min(SurveyDay)-1), # if detected first visit then detected on day 1
+            j = max(SurveyDay[Length > 0])- (min(SurveyDay)-1), ## all conditioned on first day detection was possible
+            k = max(SurveyDay) - (min(SurveyDay)-1),
+            x = ifelse(Length[SurveyDay == max(SurveyDay)] > 0, 1, 0),
+            size = max(Length)) 
+
+
+asmiSurvival %>%
+  filter(Site == 5) %>%
+  print(n=100)
+
+RepeatSurvey2014 %>%
+  filter(Tag == "206" & Plot == 1) %>%
+  print()
+
+asmiSurvival %>%
+  filter(x == 0) %>%
+  print(n=100)
+```
+
+Try for seedlings
+```{r}
+## Call seedlings anything with max(Length) < 10
+asmiSeedlings <- asmiSurvival %>%
+  filter(size < 10)
+
+fail <- which(asmiSeedlings$x==0)
+y <- matrix(NA, nrow=length(asmiSeedlings$f), ncol=max(asmiSeedlings$k))
+for (i in 1:length(wryneck$f)){
+  y[i,asmiSeedlings$f[i]] <- 1
+  y[i,asmiSeedlings$j[i]] <- 1
+}
+for (i in 1:length(fail)){
+  y[fail[i],asmiSeedlings$k[fail[i]]] <- 0
+}
+
+jags.data <- with(asmiSeedlings, list(y=y, f=f, k=k, n.nest=nrow(y), T=max(asmiSeedlings$k), size=size))
+
+cat(file="model13.txt", "
+model {
+  # Priors and linear models
+  for (i in 1:n.nest){
+    for (t in f[i]:(k[i]-1)){
+      # phi[i,t] <- phia[size[i] + t - f[i]]  ## This is getting at the age, not analogous to size
+      phi[i,t] <- phia[size[i] + t]
+    } #t
+  } #i
+  for (a in 1:T){
+    phia[a] <- ilogit(alpha + beta * a)
+  }
+  alpha ~ dnorm(0, 0.001)
+  beta ~ dnorm(0, 0.001)
+  # Likelihood
+  for (i in 1:n.nest){
+    for (t in (f[i]+1):k[i]){
+      y[i,t] ~ dbern(phi[i,t-1] * y[i,t-1])
+    } #t
+  } #i
+  # Derived parameter: nest success
+  nu <- prod(phia[1:T])
+}
+")
+# Initial values
+inits <- function(){list(alpha=runif(1, 4, 5), beta=runif(1, 0, 0.1))}
+# Parameters monitored
+parameters <- c("phia", "nu", "alpha", "beta")
+# MCMC settings
+ni <- 3000; nb <- 1000; nc <- 3; nt <- 1; na <- 1000
+# Call JAGS from R (ART 1 min) and check convergence
+out16 <- jags(jags.data, inits, parameters, "model13.txt", n.iter=ni, n.burnin=nb, n.chains=nc,
+              n.thin=nt, n.adapt=na, parallel=TRUE)
+
+
+```
+
+
+
+dm$Date[dm$Survey== "LnApr20_15"] <- as.Date("2015-04-20") # "Apr2_2015"
+dm$Date[dm$Survey=="LnMay11_15"] <- as.Date("2015-05-11") # May11_2015
+dm$Date[dm$Survey=="LnMay26_15"] <- as.Date("2015-05-26") # May2_2015
+dm$Date[dm$Survey=="LnJune8_15"] <- as.Date("2015-06-08") # June_2015
+dm$Date[dm$Survey=="LnJune22.24"] <- as.Date("2015-06-22") # June2_2015
+dm$Date[dm$Survey=="LnJuly20.23_15"] <- as.Date("2015-07-22") # July_2015
+dm$Date[dm$Survey== "LnAug12.14_15"] <- as.Date("2015-08-11") # "Aug1_2015"
+dm$Date[dm$Survey=="LnSept1.3_15"] <- as.Date("2015-09-01") # Sept_2015
+dm$Date[dm$Survey=="LnOct6.8_15"] <- as.Date("2015-10-06") # Oct6_2015
+table(dm$Date)
+
+
+Simulate a State-space formulation of the Cormack-Jolly-Seber model
+```{r}
+# Choose values for data simulation
+nmarked <- 10 # Number of marked individuals at each occasion
+nyears <- 11 # Number of years
+phi <- 0.8 # Constant apparent survival probability
+p <- 0.4 # Constant recapture probability
+
+# An individual first caught on the last year of the study has no opportunity of being recaptured during the study. Hence,
+# such individuals do not carry any information about survival and can be discarded from the analysis. So in our simulation,
+# we choose first-capture occasions only up to the penultimate year.
+# Determine occasion when an individual first captured and marked
+f <- rep(1:(nyears-1), each=nmarked)
+nind <- length(f) # Total number of marked individuals
+# State or ecological process
+z <- array(NA, dim=c(nind, nyears)) # Empty alive/dead matrix
+# Initial conditions: all individuals alive at f(i)
+for (i in 1:nind){
+  z[i,f[i]] <- 1
+}
+set.seed(1) # Initialize the RNGs in R
+# Propagate alive/dead process forwards via transition rule:
+# Alive individuals survive with probability phi
+for (i in 1:nind){
+  for (t in (f[i]+1):nyears){
+    z[i,t] <- rbinom(1, 1, z[i,t-1] * phi)
+  } #t
+} #i
+head(z); tail(z)
+
+# Observation process: simulate observations
+y <- array(0, dim=c(nind, nyears))
+for (i in 1:nind){
+  y[i,f[i]] <- 1
+  for(t in (f[i]+1):nyears){
+    y[i,t] <- rbinom(1, 1, z[i,t] * p)
+  } #t
+} #i
+
+for (i in 1:10){ # Look at true and observed states of first 10 individuals
+  print(rbind("True state (z)" = z[i,], "Observed state (y)" = y[i,]))
+}
+
+
+# the capture-recapture data matrix, its dimensions and the vector f that indicates the marking occasion for each
+# individual.
+# Data bundle
+jags.data <- list(y=y, f=f, nind=nind, nyears=ncol(y))
+
+# Write JAGS model file
+cat(file="model14.txt", "
+model {
+# Priors and linear models
+phi.const ~ dunif(0, 1) # Vague prior for constant phi
+p.const ~ dunif(0, 1) # Vague prior for constant p
+for (i in 1:nind){ # Loop over individuals
+for (t in f[i]:(nyears-1)){ # Loop over time intervals/occasions
+phi[i,t] <- phi.const # Here we model pattern in phi ...
+p[i,t] <- p.const # ... and p
+} #t
+} #i
+# Likelihood
+for (i in 1:nind){
+# Define latent state at first capture
+z[i,f[i]] <- 1
+for (t in (f[i]+1):nyears){
+# State process
+z[i,t] ~ dbern(z[i,t-1] * phi[i,t-1])
+# Observation process
+y[i,t] ~ dbern(z[i,t] * p[i,t-1])
+} #t
+} #i
+}
+")
+
+# Initial values
+inits <- function(){list(z=zInit(y))}
+# Finally, we define the list with the parameters we like to estimate, choose the MCMC settings and launch the model.
+# Parameters monitored
+parameters <- c("phi.const", "p.const") # Could also add "z"
+# MCMC settings
+ni <- 3000; nb <- 1000; nc <- 3; nt <- 1; na <- 1000
+# Call JAGS from R (ART < 1 min) and check convergence
+out17 <- jags(jags.data, inits, parameters, "model14.txt", n.iter=ni, n.burnin=nb, n.chains=nc,
+              n.thin=nt, n.adapt=na, parallel=TRUE)
+print(out17,3)
+```
+
