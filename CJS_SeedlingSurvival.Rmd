@@ -32,7 +32,6 @@ intra.2013October <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conserva
 
 
 
-# intra.2013 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2013/AliveMultiYear.xlsx")
 
 ```
 
@@ -131,13 +130,13 @@ encounters <- intra.2013complete %>%
   summarise(e = min(Day))
 
 ## Should only be ones alive at some point during the survey
-encounters$e  ## 93, any plant that had any growth in 2013. 
+length(encounters$e)  ## 93, any plant that had any growth in 2013. 
 
 dataCJS <- intra.2013complete %>% 
   group_by(Plot, Tag) %>%
   filter(any(Lngth13 > 0)) %>% 
   ungroup() %>%
-  arrange(Site, Plot, Tag, Day) %>%
+  arrange(Plot, Site, Tag, Day) %>%
   mutate(K = Day, Obs = ifelse(Lngth13 > 0, 1, 0))
 
 model_data <- list(Kplot = K_plotcomplete$K.plot,
