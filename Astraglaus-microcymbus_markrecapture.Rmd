@@ -101,45 +101,94 @@ Gimenez et al 2007 State-space modelling of data on marked individuals
 conver BUGS to jags   
 ```{r}
 
+# SSM_CJS <- "
+# model
+# {
+#   # Likelihood
+#   ## System process
+#     for (i in 1:n) {                    
+#       PrX[i, e[i]] <- 1                 # if first time marked, e, Pr(alive | first capture) = 1
+#       X[i, e[i]+1] ~ dbern(PrX[i,e[i]]) # alive then 1 is generated with certainty, for series of Alive or dead across the time steps
+#       PrO[i, e[i]] <- X[i, e[i]+1]      # detection at initial marking is 100%, series of observation probabilities
+#       
+#         for(j in (e[i]+1):Kplot[i]) {   ## each individual gets the right number of surveys from the second e+1 to last
+#           PrX[i,j] <- phi[j] * X[i,j]   # Add covariates here??, groups by plot??
+#           X[i,j+1] ~ dbern(PrX[i,j])    # survival from one survey to next for each individual, i, 
+#           PrO[i,j] <- p[j] * X[i,j+1]   # probability of observing given it survived??
+#         }
+#         ## every other cell gets a zero
+#         for (j in 1:(e[i]-1)) {
+#           PrX[i,j] <- 0
+#           X[i,j] <- 1
+#           PrO[i,j] <- 0
+#         }
+#     
+#         ## Observation process
+#         for (h in 1:nx) {
+#           data[h,3] ~ dbern(PrO[data[h,1], data[h,2]])
+#         }
+#     }
+#     
+#   # Priors
+#   p[1] <- 1    # detectability
+#   phi[1] <- 1  # Survival
+#     for (j in 2:4) {  ## Annual survival and detectability change, four surveys, just not all plots at each one
+#       phi[j] ~ dbeta(1,1)
+#       p[j] ~ dbeta(1,1)
+#     }
+#     
+# }"
+  
+
+```
+
+## Try for only those with surveys all four times    
+The sequence operator ":" can only produce increasing sequences. for n:m, It skips if n < m
+```{r}
+
 SSM_CJS <- "
 model
 {
   # Likelihood
   ## System process
-  for (i in 1:n) {
-    PrX[i, e[i]] <- 1                 # if first time marked, e, Pr(alive | first capture) = 1
-    X[i, e[i]+1] ~ dbern(PrX[i,e[i]]) # alive then 1 is generated with certainty
-    PrO[i, e[i]] <- X[i, e[i]+1]      # detection at initial marking is 100%
+    for (i in 1:n) {                    
+      PrX[i, e[i]] <- 1                 # if first time marked, e, Pr(alive | first capture) = 1
+      X[i, e[i]+1] ~ dbern(PrX[i,e[i]]) # alive, 1 is generated with certainty, 
+      PrO[i, e[i]] <- X[i, e[i]+1]      # detection at initial marking is 100%
+      
+        for(j in (e[i]+1):K) {   ## each individual gets the right number of surveys from the second e+1 to last 
+          PrX[i,j] <- phi[j] * X[i,j]   # Add covariates here??, groups by plot??
+          X[i,j+1] ~ dbern(PrX[i,j])    # survival from one survey to next for each individual, i, 
+          PrO[i,j] <- p[j] * X[i,j+1]   # probability of observing given it survived??
+        }
+        
+        ## every other cell gets a zero, leading up to the first capture
+        for (j in 1:(e[i]-1)) {
+          PrX[i,j] <- 0
+          X[i,j] <- 1
+          PrO[i,j] <- 0
+        }
     
-      for(j in (e[i]+1):K) {
-        PrX[i,j] <- phi[j] * X[i,j]   # Add covariates here??
-        X[i,j+1] ~ dbern(PrX[i,j])    # survival from one year to next
-        PrO[i,j] <- p[j] * X[i,j+1]   # probability of observing given it survived??
-      }
-      ## every other cell gets a zero
-      for (j in 1:(e[i]-1)) {
-        PrX[i,j] <- 0
-        X[i,j] <- 1
-        PrO[i,j] <- 0
-      }
-  
-      ## Observation process
-      for (h in 1:nx) {
-        data[h,3] ~ dbern(PrO[data[h,1], data[h,2]])
-      }
-  }
+        ## Observation process, should have seed stage and could let NA, no survey, be imputed by the code, can't just be missing; put prior on missing values; i.e. X[i_missing, j_missing] ~ dpriordist()
+        for (h in 1:nx) {
+          # data[h,3] ~ dbern(PrO[data[h,1], data[h,2]])  ## data what you see is the value of the observation for that individual and survey
+          data3[h] ~ dbern(PrO[data1[h], data2[h]])
+        }
+    }
     
   # Priors
   p[1] <- 1    # detectability
   phi[1] <- 1  # Survival
-  phi[1] ~ dbeta(1,1)
-  for (j in 2:K) {  ## Annual survival and detectability change
-    phi[j] ~ dbeta(1,1)
-    p[j] ~ dbeta(1,1)
-  }
+    for (j in 2:K) {  ## survival and detectability change, four surveys
+      phi[j] ~ dbeta(1,1)
+      p[j] ~ dbeta(1,1)
+    }
+    
 }"
+  
 
 ```
+
 
 K = number of encounter occasions
 n = individuals
@@ -152,32 +201,25 @@ Make data from AsMi - Use CJS_SeedlingSurvival.Rmd
 ## Only 2013 data
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data.Rdata")
 
+
+
 ```
 
 
 
 
 ```{r}
-# # Set up the data
-# model_data <- list(
-#   N = N, y = y, X = X,
-#   zeros = rep(0, N),
-#   p = p,
-#   D_inv = D_inv,
-#   D = D,
-#   W = W,
-#   I = I
-# )
-# 
-# # Choose the parameters to watch
-# model_parameters <- c("alpha", "tau", "beta")
-# 
-# # Run the model
-# model_run <- jags(
-#   data = model_data,
-#   parameters.to.save = model_parameters,
-#   model.file = textConnection(model_code)
-# )
+ 
+# Choose the parameters to watch
+model_parameters <- c("phi", "p", "PrX", "PrO", "X")
+
+# Run the model
+model_run <- jags(
+  data = model_data,
+  parameters.to.save = model_parameters,
+  model.file = textConnection(SSM_CJS),
+  n.chains = 3, n.iter = 12000, n.burnin = 2000, n.thin = 10
+)
 
 ```
 

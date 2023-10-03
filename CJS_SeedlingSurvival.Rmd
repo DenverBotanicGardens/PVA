@@ -68,7 +68,7 @@ intra.2013Sept1 <- intra.2013Sept %>%
   mutate(Site = case_when(Plot %in% c(606,607,608,609,610) ~ 5,
                           Plot %in% c(512,513,514,515,300) ~ 19,
                           Plot %in% c(238, 480,611,614,598) ~ 26,
-                          Plot %in% c(8,568,581,799) ~ 15)) %>%
+                          Plot %in% c(8,578,581,799) ~ 15)) %>%  ## 578? there is no 568
   relocate(Site, .before = Tag)
 
 ## No site 15
@@ -104,47 +104,281 @@ intra.2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - 
 #   filter_at(vars(LnAprl14,LnJun14,LnJul14,LnAug14,LnSep14,LnOct14,LnOct2814), any_vars(!is.na(.)))
 
 
+head(intra.2014_2015)
+intra.2014_2015$Plot.1[intra.2014_2015$Plot == 578]
+  
 
+intra.2014_2015 <- intra.2014_2015 %>%
+  mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
+                          Plot.1 %in% c(512,513,514,515,300) ~ 19,
+                          Plot.1 %in% c(238, 480,611,614,598) ~ 26,
+                          Plot.1 %in% c(8,578,581,799) ~ 15,
+                          Plot.1 %in% c(1,22,32,42,52) ~ 1,
+                          Plot.1 %in% c(16,58,89,90,96,98) ~ 2)) %>%
+  filter(!is.na(Site))
+
+table(intra.2014_2015$Site, useNA = "always")
+intra.2014_2015[is.na(intra.2014_2015$Site),1:5]
+
+intraApril2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnAprl14:CommentsApr14)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-04-20"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraMay2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnMay12:Comments)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-05-12"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJune22014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJun14:Comments.1)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-06-02"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJune252014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJun214:Comments.2)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-06-25"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJul2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJul14:Comments.3)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-07-15"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraAug2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnAug14:Comments.4)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-08-05"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraSept2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnSep14:Comments.5)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-09-16"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraOct2014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnOct14:Comments.6)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-10-07"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+
+intraOct282014 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnOct2814:Comments.7)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-10-28"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraApril2015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnOct2814:Comments.7)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2014-10-28"))$yday) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
 ```
 
 
 Make correct format for CJS and export   
 Wants the number of encounter occasions which differ by individual (by plot)
 ```{r}
+intra.2013complete[intra.2013complete$Plot == 578,]
+
 K_plotcomplete <- intra.2013complete %>%
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
   group_by(Plot,Tag) %>%
   filter(any(Lngth13 > 0)) %>%
   ungroup() %>%
-  group_by(Site, Plot) %>%
+  group_by(Site, Plot, Tag) %>%
   summarise(K.plot = n_distinct(Day), 
-            nx.plot = n_distinct(Tag))
-K_plotcomplete ## The number of visits per plot K.plot, individuals per plot nx.plot
+            LastK = max(encounter),
+            nx.plot = n_distinct(Tag)) %>%
+  arrange(Plot, Site, Tag)
+K_plotcomplete ## The number of visits per plot K.plot, individuals per plot nx.plot, should be last visit
 sum(K_plotcomplete$nx.plot) ## 93 plants that have some growth at some point. 
 
-## Vector of first encounters, length n
+## Vector of first encounters, length n; make encounters {1,2,3,4}
 encounters <- intra.2013complete %>%
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
   group_by(Plot, Tag) %>%
   filter(any(Lngth13 > 0)) %>% 
   ungroup() %>%
   group_by(Site, Plot, Tag) %>%
-  summarise(e = min(Day))
+  summarise(e = min(encounter)) %>%
+  arrange(Plot, Site, Tag)
 
 ## Should only be ones alive at some point during the survey
 length(encounters$e)  ## 93, any plant that had any growth in 2013. 
 
 dataCJS <- intra.2013complete %>% 
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
   group_by(Plot, Tag) %>%
   filter(any(Lngth13 > 0)) %>% 
   ungroup() %>%
-  arrange(Plot, Site, Tag, Day) %>%
-  mutate(K = Day, Obs = ifelse(Lngth13 > 0, 1, 0))
+  mutate(PlotTag = paste0(Plot,Tag)) %>%
+  arrange(Plot, Site, Tag, encounter) %>%
+  mutate(K = encounter, Obs = ifelse(Lngth13 > 0, 1, 0)) %>%
+  select(PlotTag:Obs) %>%
+  mutate(PlotTag = as.numeric(as.factor(PlotTag)) ) %>%
+  as.matrix()
 
-model_data <- list(Kplot = K_plotcomplete$K.plot,
-                   nplot = K_plotcomplete$nx.plot,
+
+model_data <- list(numPlots = nrow(K_plotcomplete),
+                   Site = as.factor(encounters$Site),
+                   Plot = as.factor(encounters$Plot),
+                   Kplot = K_plotcomplete$LastK,   ## need row for each tag within
+                   # nplot = K_plotcomplete$nx.plot,
+                   n = length(encounters$e),
+                   nx = sum(K_plotcomplete$K.plot),  ## have one row for each tag "*K_plotcomplete$nx.plot"
                    e = encounters$e,
-                   data = dataCJS)
+                   data1 = dataCJS[,1],
+                   data2 = dataCJS[,2],
+                   data3 = dataCJS[,3])
+                   # data = dataCJS)
   
 save(model_data, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data.Rdata")
+
+```
+
+
+## Use only ones that have surveys all four times  
+```{r}
+intra.2013complete[intra.2013complete$Plot == 598,]
+intra.2013complete[intra.2013complete$Tag == 740 & intra.2013complete$Plot == 614,] ## Should have 2 as first encountered
+
+fourSurvey <- intra.2013complete %>%
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
+  group_by(Plot,Tag) %>%
+  filter(any(Lngth13 > 0)) %>%
+  filter(n() ==4) %>%
+  ungroup() %>%
+  group_by(Site, Plot, Tag) %>%
+  summarise(LastK = max(encounter),
+            e = min(encounter[Lngth13 > 0])) %>%
+  arrange(Plot, Site, Tag) 
+
+fourSurvey ## The number of visits per plot K.plot, individuals per plot nx.plot, should be last visit
+nrow(fourSurvey) ## 38 plants that have some growth at some point. 
+
+dataCJS <- intra.2013complete %>% 
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
+  group_by(Plot, Tag) %>%
+  filter(any(Lngth13 > 0))  %>%
+  filter(n() ==4) %>%
+  ungroup() %>%
+  mutate(PlotTag = paste(Plot,Tag,sep = ".")) %>%
+  arrange(Plot, Site, Tag, encounter) %>%
+  mutate(K = encounter, Obs = ifelse(Lngth13 > 0, 1, 0)) %>%
+  select(PlotTag:Obs) %>%
+  mutate(PlotTag = factor(PlotTag, levels = unique(PlotTag))) %>%
+  mutate(PlotTag = as.numeric(PlotTag) )%>%  ## As factor as numeric puts in a different order, try just Tag
+  as.matrix()
+
+
+model_data <- list(K = 4,
+                   n = length(fourSurvey$e),
+                   nx = 4*length(fourSurvey$e),  
+                   e = fourSurvey$e, # First encounters
+                   data1 = dataCJS[,1],
+                   data2 = dataCJS[,2],
+                   data3 = dataCJS[,3]) # [,1]: current individual, [,2]: current encounter occasion, [,3]: observation
+  
+save(model_data, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data.Rdata")
+
+```
+
+
+## Now give states as 0: undetected, 1: Vegetative, 2: cotyledons, 3: Reproductive  
+```{r}
+intra.2013complete[intra.2013complete$Plot == 598,]
+intra.2013complete[intra.2013complete$Tag == 740 & intra.2013complete$Plot == 614,] ## Should have 2 as first encountered
+intra.2013complete$Comments13[grep("coty", intra.2013complete$Comments13)] <- "no c"  ## Because no, not yes coty
+intra.2013$Comments13[grep("coty", intra.2013$Comments13)]
+
+
+fourSurvey <- intra.2013complete %>%
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
+  group_by(Plot,Tag) %>%
+  filter(any(Lngth13 > 0)) %>%
+  filter(n() ==4) %>%
+  ungroup() %>%
+  group_by(Site, Plot, Tag) %>%
+  summarise(LastK = max(encounter),
+            e = min(encounter[Lngth13 > 0])) %>%
+  arrange(Plot, Site, Tag) 
+
+fourSurvey ## The number of visits per plot K.plot, individuals per plot nx.plot, should be last visit
+nrow(fourSurvey) ## 38 plants that have some growth at some point. 
+
+dataCJS4stage <- intra.2013complete %>% 
+  mutate(encounter = as.numeric(as.factor(Day))) %>%
+  filter(!is.na(Site)) %>%
+  group_by(Plot, Tag) %>%
+  filter(any(Lngth13 > 0))  %>%
+  filter(n() ==4) %>%
+  ungroup() %>%
+  mutate(PlotTag = paste(Plot,Tag,sep = ".")) %>%
+  arrange(Plot, Site, Tag, encounter) %>%
+  mutate(K = encounter, 
+         Obs = case_when(Lngth13 > 0 & Fl13 == 0 & !grepl("coty", Comments13) ~ 1,
+                         Lngth13 > 0 & Fl13 == 0 & grepl("coty", Comments13) ~ 2,
+                         Lngth13 > 0 & Fl13 == 1 ~ 3,
+                         Lngth13 == 0 ~ 0)) %>%
+  select(PlotTag:Obs) %>%
+  mutate(PlotTag = factor(PlotTag, levels = unique(PlotTag))) %>%
+  mutate(PlotTag = as.numeric(PlotTag) )%>%  ## As factor as numeric puts in a different order, try just Tag
+  as.matrix()
+
+
+model_data4stage <- list(K = 4,
+                   n = length(fourSurvey$e),
+                   nx = 4*length(fourSurvey$e),  
+                   e = fourSurvey$e, # First encounters
+                   data1 = dataCJS4stage[,1],
+                   data2 = dataCJS4stage[,2],
+                   data3 = dataCJS4stage[,3]) # [,1]: current individual, [,2]: current encounter occasion, [,3]: observation
+  
+save(model_data4stage, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data-4stage.Rdata")
 
 ```
 

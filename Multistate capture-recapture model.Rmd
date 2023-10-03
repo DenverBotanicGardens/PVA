@@ -1,0 +1,75 @@
+---
+title: "Multistate capture recapture"
+author: "Michelle DePrenger-Levin"
+date: "2023-08-31"
+output: html_document
+---
+
+```{r}
+# define constants in simulation
+nmarked <- 100 
+nyears <- 28
+phiS <- 0.3          # Apparent survival probability
+phiV <- 0.5            
+phiR <- 0.7
+phiD <- 0.5          # Apparent survival of dormant, should it vary by the state prior to dormancy? 
+psiSV <- 0.4         # Transition probability  
+psiSR <- 0.1
+psiSD <- 0.4
+psiVR <- 0.3
+psiVD <- 0.3
+psiRV <- 0.1
+psiRD <- 0.1
+psiDS <- 0.4
+psiDV <- 0.5
+psiDR <- 0.1
+pS <- 0.3            # Recapture probability
+pV <- 0.3
+pR <- 0.7
+pD <- 0.3 ## a function of seeing it at a later time 
+
+# occasion when individual first captued and marked
+f <- rep(rep(1:(nyears-1), each = nmarked), 2)
+nind <- length(f)     # total number of marked individuals   
+
+
+# Transition probablity matrix
+TPM <- matrix(
+  c(phiS*(1-(psiSV+ psiSR + psiSD)), phiS*psiSV, phiS*psiSR, phiS*psiSD, 1-phiS,
+    0, phiV*(1-(psiVR+psiVD)), phiV*psiVR, phiV*psiVD, 1-phiV,
+    0, phiR*psiRV, phiR*(1-(psiRV+ psiRD)), phiR*psiRD, 1-phiR,
+    phiD*psiDS, phiD*psiDV, phiD*psiDR, phiD*(1-(psiDS + psiDV+psiDR)), 1-phiD,
+    0, 0, 0, 0, 1), nrow =5, byrow=TRUE)
+
+# Observation probability matrix
+OPM <- matrix(c(
+  pS, 0, 0, 0, 1-pS,
+  0, pV, 0, 0, 1-pV,
+  0, 0, pR, 0, 1-pR,
+  0, 0, 0, pD, 1-pD,
+  0, 0, 0, 0, 1
+))
+
+
+# simulate true system state
+z <- array(NA, dim= c(nind, nyears))
+
+# Initial conditions
+initial.state <- c(rep(1, nind/4), rep(2, nind/4), rep(3, nind/4), rep(4, nind/4))
+for (i in 1:nind){
+  z[i,f[i]] <- initial.state[i]
+  }
+
+set.seed(2) # Initialize the RNGs in R
+# Propagate alive/dead process forwards via transition rule (=TPM=OMEGA)
+for (i in 1:nind){
+  for (t in (f[i]+1):nyears){
+    departure.state <- z[i,t-1]
+    arrival.state <- which(rmultinom(1,1, TPM[departure.state,])==1)
+    z[i,t] <- arrival.state
+    } #t
+  } #i
+
+
+```
+
