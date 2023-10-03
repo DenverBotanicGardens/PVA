@@ -312,6 +312,18 @@ Wants the number of encounter occasions which differ by individual (by plot)
 ```{r}
 intra.2013complete[intra.2013complete$Plot == 578,]
 
+intra.2013complete <- intra.2013complete %>%
+  mutate(Year = 2013) %>%
+  relocate(Year, .after = Day) 
+
+intra20142015 <- intra20142015 %>%
+  relocate(Year, .before = Plot) %>%
+  relocate(Day, .before = Year)
+  
+names(intra.2013complete) <- names(intra20142015)
+intra <- do.call(rbind, list(intra.2013complete, intra20142015))
+
+## For all three years
 K_plotcomplete <- intra.2013complete %>%
   mutate(encounter = as.numeric(as.factor(Day))) %>%
   filter(!is.na(Site)) %>%
