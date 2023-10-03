@@ -86,27 +86,19 @@ intra.2013complete <- intra.2013 %>%
   filter(!(Site == 19 & Day == unique(intra.2013$Day)[1])) %>%
   filter(!(Site == 15 & Day == unique(intra.2013$Day)[4]))
 
-
-
-intra.2013.seedlings <- intra.2013 %>%
+intra.2013 %>%
   filter(grepl("coty",Comments13))
+
+rm(intra.2013July); rm(intra.2013June); rm(intra.2013Sept); rm(intra.2013Sept1); rm(intra.2013October)
+
 ```
 
 "NOPE" is probably a cotyledon that wasn't AsMi, could be wasn't included in annual? I don't know, Maybe nope is no cotyledons
 ```{r}
 intra.2014_2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2015 datasheets/2014-15_intrayear_asmi_2.csv")
 
-intra.2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2015 datasheets/2015_intrayear_asmi.csv")
+# intra.2015 <- read.csv("C:/Users/deprengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_RawData/2015 datasheets/2015_intrayear_asmi.csv")
 
-### Need to distinguish between visited and didn't see, and didn't visit that site
-# Git rid of tags that never saw a plant above ground
-# aboveground <- intra.2014_2015 %>%
-#   filter_at(vars(LnAprl14,LnJun14,LnJul14,LnAug14,LnSep14,LnOct14,LnOct2814), any_vars(!is.na(.)))
-
-
-head(intra.2014_2015)
-intra.2014_2015$Plot.1[intra.2014_2015$Plot == 578]
-  
 
 intra.2014_2015 <- intra.2014_2015 %>%
   mutate(Site = case_when(Plot.1 %in% c(606,607,608,609,610) ~ 5,
@@ -118,20 +110,21 @@ intra.2014_2015 <- intra.2014_2015 %>%
   filter(!is.na(Site))
 
 table(intra.2014_2015$Site, useNA = "always")
-intra.2014_2015[is.na(intra.2014_2015$Site),1:5]
 
 intraApril2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnAprl14:CommentsApr14)) %>%
+  mutate(Year = 2014) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-04-20"))$yday) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
   rename(Plot = Plot.1) %>%
-  relocate(Site, .before = Tag)
+  relocate(Site, .before = Tag) 
 
 intraMay2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnMay12:Comments)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-05-12"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -141,6 +134,7 @@ intraMay2014 <- intra.2014_2015 %>%
 intraJune22014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnJun14:Comments.1)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-06-02"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -150,6 +144,7 @@ intraJune22014 <- intra.2014_2015 %>%
 intraJune252014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnJun214:Comments.2)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-06-25"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -159,6 +154,7 @@ intraJune252014 <- intra.2014_2015 %>%
 intraJul2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnJul14:Comments.3)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-07-15"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -168,6 +164,7 @@ intraJul2014 <- intra.2014_2015 %>%
 intraAug2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnAug14:Comments.4)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-08-05"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -177,6 +174,7 @@ intraAug2014 <- intra.2014_2015 %>%
 intraSept2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnSep14:Comments.5)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-09-16"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -186,16 +184,17 @@ intraSept2014 <- intra.2014_2015 %>%
 intraOct2014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnOct14:Comments.6)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-10-07"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
   rename(Plot = Plot.1) %>%
   relocate(Site, .before = Tag)
 
-
 intraOct282014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,Tag,LnOct2814:Comments.7)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-10-28"))$yday) %>%
+  mutate(Year = 2014) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
@@ -203,13 +202,108 @@ intraOct282014 <- intra.2014_2015 %>%
   relocate(Site, .before = Tag)
 
 intraApril2015 <- intra.2014_2015 %>%
-  select(c(Site,Plot.1,Tag,LnOct2814:Comments.7)) %>%
-  mutate(Day = as.POSIXlt(as.Date("2014-10-28"))$yday) %>%
+  select(c(Site,Plot.1,Tag,LnApr20_15:Comments.8)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-04-20"))$yday) %>%
+  mutate(Year = 2015) %>%
   # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
   # group_by(Site, Plot.1) %>%
   # summarise(K.Plot = n_distinct(Day)) %>%
   rename(Plot = Plot.1) %>%
   relocate(Site, .before = Tag)
+
+intraMay112015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnMay11_15:Comments.9)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-05-11"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraMay262015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnMay26_15:comments)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-05-26"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJune8112015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJune8_15:comments.1)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-06-08"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJune222015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJune22.24:comments.2)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-06-22"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraJuly2015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnJuly20.23_15:comments.3)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-07-22"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraAugust2015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnAug12.14_15:comments.4)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-08-12"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraSept2015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnSept1.3_15:comments.5)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-09-01"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+intraOct2015 <- intra.2014_2015 %>%
+  select(c(Site,Plot.1,Tag,LnOct6.8_15:comments.6)) %>%
+  mutate(Day = as.POSIXlt(as.Date("2015-10-06"))$yday) %>%
+  mutate(Year = 2015) %>%
+  # complete(Day, nesting(Site,Plot.1,Tag), fill = list(Lngth13 = 0, Fl13 = 0, Fr13 = 0, Br13 = 0)) %>%
+  # group_by(Site, Plot.1) %>%
+  # summarise(K.Plot = n_distinct(Day)) %>%
+  rename(Plot = Plot.1) %>%
+  relocate(Site, .before = Tag)
+
+surveys <- list(intraApril2014,intraMay2014,intraJune22014, intraJune252014, intraJul2014, intraAug2014, intraSept2014, intraOct2014,
+                                     intraApril2015, intraMay112015, intraMay262015, intraJune8112015, intraJune222015, intraJuly2015, intraAugust2015, intraSept2015, intraOct2015)
+
+for(i in 1:length(surveys)){ 
+  names(surveys[[i]]) <- c("Plot","Site","Tag","Ln","Fl","Fr","Br","Comments","Day","Year")
+  }
+
+intra20142015 <- do.call(rbind, surveys)
+rm(intra.2014_2015);rm(intraApril2014);rm(intraApril2014);rm(intraApril2015);rm(intraMay112015);rm(intraMay2014);rm(intraMay262015);
+rm(intraJune22014);rm(intraJul2014);rm(intraJuly2015);rm(intraJune222015);rm(intraJune252014);rm(intraJune8112015)
+rm(intraAug2014);rm(intraAugust2015);rm(intraSept2014);rm(intraSept2015);rm(intraOct2014);rm(intraOct2015);rm(intraOct282014);
+
+
 ```
 
 
