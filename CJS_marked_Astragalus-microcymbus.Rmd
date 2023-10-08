@@ -1,0 +1,114 @@
+---
+title: "Marked CJS AsMi"
+author: "Michelle DePrenger-Levin"
+date: "2023-10-07"
+output: html_document
+---
+
+```{r}
+library(marked)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+data("dipper")
+```
+
+ Seedling == 2    
+ Reproductive == 3    
+ Vegetative == 1    
+ Not seen == 0     
+```{r}
+
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
+
+## Make it look like dipper data
+CJS_AsMi <- obsmodel %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  # mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive",
+                        ifelse(any(c_across('1':'9') == 2), "Seedling", "Vegetative"))) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'9', sep = "") %>%
+  mutate(state = as.factor(state)) %>%
+  filter(Year == 2014)
+
+## Covariates: timing of seeing cotyledons, timing of reproduction
+coty <- function(x) ifelse(x==2,1,0)
+cotyledons <- obsmodel %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate_at(vars('1':'9'), .funs = coty) %>%
+  rename_with(~ paste0('Coty',.), '1':'9') %>%
+  filter(Year == 2014)
+
+reprod <- function(x) ifelse(x==3,1,0)
+reproduction <- obsmodel %>%
+  filter(Year == 2014)%>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%
+  select('1':'9') %>%
+  mutate_all(reprod) %>%
+  setNames(paste0('Reprod',names(.))) %>%
+  as.matrix()
+
+
+
+AsMidf <- as.data.frame(CJS_AsMi[,c("ch","state")])
+
+model <- crm(AsMidf)
+model.hessian <- cjs.hessian(model)
+
+AsMi.proc <- process.data(AsMidf)
+AsMi.ddl <- make.design.data(AsMi.proc)
+Phi.state <- list(formula = ~ state)
+model <- crm(AsMi.proc, AsMi.ddl, model.parameters = list(Phi = Phi.state), accumulate = FALSE)
+
+## Compare several models
+fit.models=function()
+ {
+   Phi.state = list(formula= ~ state)
+   Phi.time = list(formula= ~ time)
+   p.state = list(formula= ~ state)
+   p.dot = list(formula= ~ 1)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+ }
+AsMi.models=fit.models()
+```
+
+
+```{r}
+AsMidf <- cbind(AsMidf, cotyledons, reproduction)
+```
+
+
+Format of covariates   
+```{r}
+data(dipper)
+# Add a dummy weight field which are random values from 1 to 10
+set.seed(123)
+dipper$weight=round(runif(nrow(dipper),0,9),0)+1  ## Static, could this be longest length in AsMi? 
+# Add Flood covariate
+Flood=matrix(rep(c(0,1,1,0,0,0),each=nrow(dipper)),ncol=6)  ## Matrix of individuals X (capture events - 1) 
+# If td was added to the time-varying argument for ϕ and Flood was added for p, then we would have also needed to add td1 and Flood7 due to the different time labels for ϕ and p. 
+colnames(Flood)=paste("Flood",1:6,sep="")
+dipper=cbind(dipper,Flood)
+# Add td covariate, but exclude first release as a capture
+# splitCH and process.ch are functions in the marked package
+td=splitCH(dipper$ch)  # To split character string vector of capture histories into a matrix, append to original dataset
+td=td[,1:6]
+releaseocc=process.ch(dipper$ch)$first
+releaseocc=cbind(1:length(releaseocc),releaseocc)
+releaseocc=releaseocc[releaseocc[,2]<nchar(dipper$ch[1]),]
+td[releaseocc]=0
+colnames(td)=paste("td",2:7,sep="")
+dipper=cbind(dipper,td)
+> # show names
+names(dipper)
+```
+
