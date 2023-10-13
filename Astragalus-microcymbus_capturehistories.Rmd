@@ -1,0 +1,127 @@
+---
+title: "Capture histories"
+author: "Michelle DePrenger-Levin"
+date: "2023-10-11"
+output: html_document
+---
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+```
+
+
+Format all years to capture histories  
+```{r}
+# currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+currentyr <- 2022
+
+##To change if someone other than Michelle is running code
+userpath <- "C:/Users/DePrengm/"
+
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+
+## plot 89 at site 1 was lost in 2020
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+# Site 26 had two plots added later; Plots 238 and 300 were added in 1996 with no seedlings! good!;  plot 598 was added in 2004, no seedlings, good!  
+table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_plot_id %in% c(238,300,598)], 
+      asmi.raw$status[asmi.raw$AsMi_plot_id %in% c(238,300,598)],
+      asmi.raw$year[asmi.raw$AsMi_plot_id %in% c(238,300,598)])
+
+# Need to change all the seedling in 2014 for sites 1 and 2 to appropriate vegetative or reproductive 
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 0] <- "vegetative"
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 1] <- "reproductive"
+
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal" ] <- "Mammal"
+asmi.raw[asmi.raw$Browsing...Status ==""& !is.na(asmi.raw$Browsing...Status),]
+asmi.raw[is.na(asmi.raw$AsMi_data_id),]
+asmi.raw <- asmi.raw[!is.na(asmi.raw$AsMi_data_id),] # remove any rows with NA for data_id
+
+# Which plot # go with which site
+plotsXsite <- as.data.frame(table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id))
+plotsXsite[plotsXsite$Freq > 0,]
+
+# one blank row at the end of the csv download, gone by 2021
+asmi.raw[asmi.raw$status == "",]
+# asmi.raw <- asmi.raw[asmi.raw$status != "",]
+asmi.raw$status <- factor(asmi.raw$status)
+table(asmi.raw$status)
+
+#reset factors of browsing to eliminate " "
+# asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
+
+#reset factors for fence
+asmi.raw$fence <- factor(asmi.raw$fence)
+table(asmi.raw$fence)
+
+asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] 
+asmi.raw$length[asmi.raw$length == 921] <- 21
+
+# If there are fruit, it flowered and needs to be reproductive, not vegetative
+asmi.raw[asmi.raw$status=="vegetative" & asmi.raw$fruit>0,] # 5 times in 2020
+wrongAsMidataid <- asmi.raw$AsMi_data_id[asmi.raw$status=="vegetative" & asmi.raw$fruit>0]
+asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
+asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
+asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
+
+# Years of study in the abstract
+length(1995:currentyr)
+```
+
+
+Capture histories   
+additional matrix of which plants were fenced which years, 0/1 for open/fence and columns are years
+```{r}
+
+str(asmi.raw) ## n = 1, y = 2
+
+CJS_asmi <- asmi.raw %>%
+  mutate(fence = as.numeric(fence)-1) %>%
+  mutate(fence = if_else(year < 2006, 0, fence)) %>%
+  mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), 0, fence)) %>%
+  mutate(fence = if_else(year > 2015, 0, fence)) %>%
+  complete(AsMi_tag_id, year, fill = list(length = 0, fence = 0)) %>%
+  group_by(AsMi_site_id, AsMi_plot_id, AsMi_tag_id) %>%
+  summarise(first = min(year),
+            dh = if_else(length > 0, 1, 0),
+            year = year,
+            status = status,
+            fence = fence
+            ) %>%
+  ungroup() %>%
+  complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
+           fill = list(dh = 0, status = "dead", fence = 0),
+           explicit = FALSE) %>%
+  filter(!is.na(AsMi_site_id))  ## Work around but shouldn't be adding a new first for each
+
+
+ch_asmi <- CJS_asmi %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  arrange(year, .by_group = TRUE) %>%
+  dplyr::summarise(ch = paste0(dh, collapse = ""))
+
+fence_matrix <- CJS_asmi %>%
+  select(c(AsMi_tag_id:year, fence)) %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  arrange(year, .by_group = TRUE) %>%
+  pivot_wider(names_from = year, values_from = fence)
+  
+identical(ch_asmi$AsMi_tag_id, fence_matrix$AsMi_tag_id)
+
+save(ch_asmi, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/capturehistoryannual.Rdata")
+save(fence_matrix, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/fencematrix.Rdata")
+
+```
+
+
+

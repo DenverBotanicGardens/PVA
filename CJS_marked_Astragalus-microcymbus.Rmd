@@ -13,20 +13,34 @@ library(tidyr)
 data("dipper")
 ```
 
+https://cran.r-project.org/web/packages/marked/vignettes/markedVignette.html  
+
+
  Seedling == 2    
  Reproductive == 3    
  Vegetative == 1    
  Not seen == 0     
+ 
+ Within season    
+ Assume dormancy is just another way that detection is less than zero, cannot assess separately from other less than perfect detection    
+ Assume dormancy represents temporary emigration and can be distinguished from other forms if pick a period within which temporary emigration won't happen (among late season surveys?) maybe collapse 
 ```{r}
 
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
 
+## Length of dormancy 
+obsmodel %>%
+  select(Plot:'4') %>%
+  filter(Year == 2013) %>%
+  
+
+
 ## Make it look like dipper data
 CJS_AsMi <- obsmodel %>%
   group_by(Year, Tag, Site, Plot) %>%
-  # mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
-  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive",
-                        ifelse(any(c_across('1':'9') == 2), "Seedling", "Vegetative"))) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  # mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive",
+  #                       ifelse(any(c_across('1':'9') == 2), "Seedling", "Vegetative"))) %>%
   mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
   filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
   mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
@@ -46,13 +60,12 @@ cotyledons <- obsmodel %>%
 
 reprod <- function(x) ifelse(x==3,1,0)
 reproduction <- obsmodel %>%
-  filter(Year == 2014)%>%
+  group_by(Year, Tag, Site, Plot) %>%
   mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
-  filter(!is.infinite(begin.time)) %>%
-  select('1':'9') %>%
-  mutate_all(reprod) %>%
-  setNames(paste0('Reprod',names(.))) %>%
-  as.matrix()
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate_at(vars('1':'9'), .funs = reprod) %>%
+  rename_with(~ paste0('Repro',.), '1':'9') %>%
+  filter(Year == 2014)
 
 
 
@@ -70,8 +83,12 @@ model <- crm(AsMi.proc, AsMi.ddl, model.parameters = list(Phi = Phi.state), accu
 fit.models=function()
  {
    Phi.state = list(formula= ~ state)
-   Phi.time = list(formula= ~ time)
+   # Phi.time = list(formula= ~ time)
+   # Phi.statetime = list(formula= ~ time + state)
+   Phi.dot = list(formula = ~ 1)
    p.state = list(formula= ~ state)
+   p.time = list(formula = ~ time)
+   p.statetime = list(formula = ~ time + state)
    p.dot = list(formula= ~ 1)
    cml = create.model.list(c("Phi","p"))
    results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
@@ -83,8 +100,101 @@ AsMi.models=fit.models()
 
 
 ```{r}
-AsMidf <- cbind(AsMidf, cotyledons, reproduction)
+AsMidf <- cbind(AsMidf, as.matrix(cotyledons[,c(5:13)]), as.matrix(reproduction[,c(5:13)]))
+## Added cotyledon and reproduction covariates
+
+## Add td covariate as "trap dependence" like if tagged, will be more likely to be seen again. Detection depends on if the individual was recaptured (trapped) at previous time. Will differ if previously marked or not
+td <- splitCH(AsMidf$ch)
+td <- td[,1:8] ## A 0/1 value of capture from previous occasion
+## Could get td for the second to last. 
+releaseocc=process.ch(AsMidf$ch)$first
+releaseocc=cbind(1:length(releaseocc),releaseocc)
+releaseocc=releaseocc[releaseocc[,2]<nchar(AsMidf$ch[1]),]  ## for all the first, select only ones that weren't the last occasion
+td[releaseocc]=0  ## For each row and column, make the first time marked be zero
+colnames(td)=paste("td",2:9,sep="")
+
+
+fit.models=function()
+ {
+   Phi.state = list(formula= ~ state)
+   # Phi.time = list(formula= ~ time)
+   # Phi.statetime = list(formula= ~ time + state)
+   Phi.dot = list(formula = ~ 1)
+   p.state = list(formula= ~ state)
+   p.time = list(formula = ~ time)
+   p.statetime = list(formula = ~ time + state)
+   p.dot = list(formula= ~ 1)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+ }
+AsMi.models=fit.models()
+
+
+asmi.proc2 <- process.data(AsMidf)
+design.Phi <- list(time.varying = c("Repro"))
+design.p <- list(time.varying = c("Repro","td"))
+design.parameters = list(Phi = design.Phi, p = design.p)
+ddl <- make.design.data(asmi.proc2, parameters = design.parameters)
+## Where did age, cohort, fix, and order come from? 
+names(ddl$Phi)
+names(ddl$p)
+
+## Define models for survival and detection to fit  
+Phi.sfw=list(formula = ~ Repro)
+p.ast=list(formula = ~ Repro)
+model=crm(asmi.proc2,ddl,hessian=TRUE,
+          model.parameters=list(Phi=Phi.sfw,p=p.ast))
+
 ```
+
+Below we create a range of data values to compute predicted ϕ
+ values and then plot the results for Flood and non-Flood years for a range of weights. Not surprising that the slope for weight is nearly 0 because the weight values were generated randomly.  
+ ??? Really want to plot along survey times
+```{r}
+newAsMi <- expand.grid( state = c("Vegetative","Seedling","Reproductive"), 
+  Repro1=c(0,1), Repro2=c(0,1),Repro3=c(0,1),Repro4=c(0,1),Repro5=c(0,1),
+  Repro6=c(0,1),Repro7=c(0,1),Repro8=c(0,1),Repro9=c(0,1), td2=0,td3=c(0,1),
+  td4=c(0,1),td5=c(0,1),td6=c(0,1),td7=c(0,1),td8=c(0,1),td9=c(0,1)) 
+reals=predict(model,newdata=newAsMi,se=TRUE)
+reals$Phi$Repro=factor(reals$Phi$Repro,labels=c("Vegetative","Reproductive"))
+ggplot(reals$Phi,aes(Repro, estimate,ymin=lcl,ymax=ucl))+
+  geom_errorbar(width=0.2)+
+  geom_point()+
+  xlab("\nState")+ylab("Detection\n")
+
+reals$p$Repro=factor(reals$p$Repro,labels=c("Vegetative","Reproductive"))
+ggplot(reals$p,aes(Repro, estimate,ymin=lcl,ymax=ucl))+
+  geom_errorbar(width=0.2)+
+  geom_point()+
+  xlab("\nState")+ylab("Detection\n")
+
+
+```
+ 
+Using MCMC CJS model (probitCJS) similar to MLE.   
+```{r}
+# Add reproduction covariate
+head(AsMidf)
+design.parameters <- list(Phi = list(time.varying = "Repro"))
+model.parameters = list(Phi=list(formula = ~ Repro),
+                        p = list(formula = ~ time))
+MCMCfit <- crm(AsMidf, model = "probitCJS",
+               model.parameters = model.parameters,
+               design.parameters = design.parameters,
+               burnin=1000, iter=5000)
+
+MCMCfit$results$reals
+
+MCMCfit$results$reals$p %>%
+  ggplot(  aes(time, mean,ymin=CI.lower,ymax=CI.upper))+
+  geom_errorbar()+
+  geom_point()+
+  ylab("Detection")
+
+```
+
 
 
 Format of covariates   
@@ -110,5 +220,39 @@ colnames(td)=paste("td",2:7,sep="")
 dipper=cbind(dipper,td)
 > # show names
 names(dipper)
+```
+
+
+Among years    
+
+ Compare variable and constant detection, variable and constant survival, differences among fenced and unfenced
+```{r}
+
+## ch_asmi
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/capturehistoryannual.Rdata")
+
+## fence_matrix 
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/fencematrix.Rdata")
+
+
+```
+
+
+
+Recruitment with Jolly-Seber  <https://sites.warnercnr.colostate.edu/gwhite/recruitment-parameters-jolly-seber-models/>     
+phi = survival rate; p = probability of capture     
+Pradel: 
+        gamma = probablity that individual at time i had not entered population between i and i-1. gamma(i+1) = 1- B(i)/N(i+1)   
+        Lambda = rate of change; lambda(i) = N(i+1)/N(i) (with log link function)   
+        f = fecundity, f(i) = number of new in population at time i per number in the population at time i-1; N(i+1) = N(i)f(i) + N(i)phi(i)       
+        
+Schwarz and Arnason (1996):     
+        Super population (N) and probability of entry (pent in MARK, beta in their paper)    
+        
+Link-Barker (2003):     
+        
+
+```{r}
+
 ```
 
