@@ -6,6 +6,7 @@ output: html_document
 ---
 
 ```{r}
+rm(list=ls())
 library(marked)
 library(ggplot2)
 library(dplyr)
@@ -30,8 +31,8 @@ load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitP
 
 ## Length of dormancy 
 obsmodel %>%
-  select(Plot:'4') %>%
-  filter(Year == 2013) %>%
+  dplyr::select(Site:'4') %>%
+  filter(Year == 2013)
   
 
 
@@ -46,7 +47,7 @@ CJS_AsMi <- obsmodel %>%
   mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
   unite(ch, '1':'9', sep = "") %>%
   mutate(state = as.factor(state)) %>%
-  filter(Year == 2014)
+  filter(Year != 2013)
 
 ## Covariates: timing of seeing cotyledons, timing of reproduction
 coty <- function(x) ifelse(x==2,1,0)
@@ -56,7 +57,13 @@ cotyledons <- obsmodel %>%
   filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
   mutate_at(vars('1':'9'), .funs = coty) %>%
   rename_with(~ paste0('Coty',.), '1':'9') %>%
-  filter(Year == 2014)
+  filter(Year != 2013)
+
+cotyledons %>%
+  pivot_longer(Coty1:Coty9, names_to = "Day", names_prefix = "Coty", values_to = "Cotyledons") %>%
+  ggplot( aes(Day, Cotyledons)) +
+    geom_point() +
+    facet_wrap(~Year)
 
 reprod <- function(x) ifelse(x==3,1,0)
 reproduction <- obsmodel %>%
@@ -65,14 +72,27 @@ reproduction <- obsmodel %>%
   filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
   mutate_at(vars('1':'9'), .funs = reprod) %>%
   rename_with(~ paste0('Repro',.), '1':'9') %>%
-  filter(Year == 2014)
+  filter(Year != 2013)
+
+reproduction %>%
+  pivot_longer(Repro1:Repro9, names_to = "Day", names_prefix = "Repro", values_to = "Reproduction") %>%
+  ggplot( aes(Day, Reproduction)) +
+    geom_point() +
+    facet_wrap(~Year)
 
 
 
+## currently has 2014 and 2015
 AsMidf <- as.data.frame(CJS_AsMi[,c("ch","state")])
 
 model <- crm(AsMidf)
+## capture histories
+model$data$data %>%
+  arrange(state,freq)
+sum(model$data$freq)
+
 model.hessian <- cjs.hessian(model)
+
 
 AsMi.proc <- process.data(AsMidf)
 AsMi.ddl <- make.design.data(AsMi.proc)
@@ -96,7 +116,186 @@ fit.models=function()
    return(results)
  }
 AsMi.models=fit.models()
+
+
+
 ```
+
+
+2013 only
+```{r}
+CJS_AsMi_2013 <- obsmodel %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'4', sep = "") %>%
+  mutate(state = as.factor(state)) %>%
+  filter(Year == 2013)
+
+AsMi2013 <- as.data.frame(CJS_AsMi_2013[,c("ch","state")])
+
+model <- crm(AsMi2013)
+## capture histories
+model$data$data %>%
+  arrange(state,freq)
+sum(model$data$freq)
+
+model.hessian <- cjs.hessian(model)
+
+
+AsMi.proc <- process.data(AsMi2013)
+AsMi.ddl <- make.design.data(AsMi.proc)
+Phi.state <- list(formula = ~ state)
+model <- crm(AsMi.proc, AsMi.ddl, model.parameters = list(Phi = Phi.state), accumulate = FALSE)
+
+## Compare several models
+fit.models=function()
+ {
+   Phi.state = list(formula= ~ state)
+   # Phi.time = list(formula= ~ time)
+   # Phi.statetime = list(formula= ~ time + state)
+   Phi.dot = list(formula = ~ 1)
+   p.state = list(formula= ~ state)
+   p.time = list(formula = ~ time)
+   p.statetime = list(formula = ~ time + state)
+   p.dot = list(formula= ~ 1)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+ }
+AsMi.models=fit.models()
+
+
+model13 <- crm(AsMi2013,
+             model.parameters = list(Phi = list(formula = ~ state), 
+                                     p = list(formula = ~ state)))
+model.hessian <- cjs.hessian(model13)
+
+## Dot
+model13.dot <- crm(AsMi2013,
+             model.parameters = list(Phi = list(formula = ~ 1), 
+                                     p = list(formula = ~ 1)))
+model.hessian.dot <- cjs.hessian(model13.dot)
+
+```
+
+
+2014  
+```{r}
+CJS_AsMi_2014 <- obsmodel %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  # mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive",
+  #                       ifelse(any(c_across('1':'9') == 2), "Seedling", "Vegetative"))) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'9', sep = "") %>%
+  mutate(state = as.factor(state)) %>%
+  filter(Year == 2014)
+
+
+AsMi2014 <- as.data.frame(CJS_AsMi_2014[,c("ch","state")])
+AsMi.proc <- process.data(AsMi2014)
+AsMi.ddl <- make.design.data(AsMi.proc)
+Phi.state <- list(formula = ~ state)
+model <- crm(AsMi.proc, AsMi.ddl, model.parameters = list(Phi = Phi.state), accumulate = FALSE)
+
+## Compare several models
+fit.models=function()
+ {
+   Phi.state = list(formula= ~ state)
+   # Phi.time = list(formula= ~ time)
+   # Phi.statetime = list(formula= ~ time + state)
+   Phi.dot = list(formula = ~ 1)
+   p.state = list(formula= ~ state)
+   p.time = list(formula = ~ time)
+   p.statetime = list(formula = ~ time + state)
+   p.dot = list(formula= ~ 1)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+ }
+AsMi.models=fit.models()
+
+
+model14 <- crm(AsMi2014,
+             model.parameters = list(Phi = list(formula = ~ state), 
+                                     p = list(formula = ~ state)))
+model.hessian <- cjs.hessian(model14)
+
+## Dot
+model14.dot <- crm(AsMi2014,
+             model.parameters = list(Phi = list(formula = ~ 1), 
+                                     p = list(formula = ~ 1)))
+model.hessian14.dot <- cjs.hessian(model14.dot)
+
+```
+
+
+```{r}
+CJS_AsMi_2015 <- obsmodel %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  # mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive",
+  #                       ifelse(any(c_across('1':'9') == 2), "Seedling", "Vegetative"))) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'9', sep = "") %>%
+  mutate(state = as.factor(state)) %>%
+  filter(Year == 2015)
+
+
+AsMi2015 <- as.data.frame(CJS_AsMi_2015[,c("ch","state")])
+AsMi.proc <- process.data(AsMi2015)
+AsMi.ddl <- make.design.data(AsMi.proc)
+Phi.state <- list(formula = ~ state)
+model <- crm(AsMi.proc, AsMi.ddl, model.parameters = list(Phi = Phi.state), accumulate = FALSE)
+
+## Compare several models
+fit.models=function()
+ {
+   Phi.state = list(formula= ~ state)
+   # Phi.time = list(formula= ~ time)
+   # Phi.statetime = list(formula= ~ time + state)
+   Phi.dot = list(formula = ~ 1)
+   p.state = list(formula= ~ state)
+   p.time = list(formula = ~ time)
+   p.statetime = list(formula = ~ time + state)
+   p.dot = list(formula= ~ 1)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = AsMi.proc, ddl = AsMi.ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+ }
+AsMi.models=fit.models()
+
+
+model15 <- crm(AsMi2015,
+             model.parameters = list(Phi = list(formula = ~ state), 
+                                     p = list(formula = ~ time + state)))
+model.hessian15 <- cjs.hessian(model15)
+
+
+model15 <- crm(AsMi2015,
+             model.parameters = list(Phi = list(formula = ~ state), 
+                                     p = list(formula = ~ state)))
+model.hessian15 <- cjs.hessian(model15)
+
+## Dot
+model15.dot <- crm(AsMi2015,
+             model.parameters = list(Phi = list(formula = ~ 1), 
+                                     p = list(formula = ~ 1)))
+model.hessian15.dot <- cjs.hessian(model15.dot)
+
+```
+
+
 
 
 ```{r}
@@ -146,6 +345,9 @@ Phi.sfw=list(formula = ~ Repro)
 p.ast=list(formula = ~ Repro)
 model=crm(asmi.proc2,ddl,hessian=TRUE,
           model.parameters=list(Phi=Phi.sfw,p=p.ast))
+
+
+
 
 ```
 
@@ -236,6 +438,12 @@ load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitP
 
 
 ```
+
+
+
+# RMark   
+   1. Mark individuals that had a tag prior to 2013, those that are newly tagged. 
+
 
 
 
