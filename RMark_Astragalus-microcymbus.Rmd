@@ -1,0 +1,146 @@
+---
+title: "RMark_Astragalus-microcymbus"
+author: "Michelle DePrenger-Levin"
+date: "2023-10-24"
+output: html_document
+---
+RMark
+```{r}
+library(dplyr)
+library(tidyr)
+library(RMark)
+
+## capture histories 2013-2015, secondary capture occasions within in closed periods
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
+
+userpath <- "C:/Users/DePrengm/"
+currentyr <- 2022
+
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+
+# need to remove all plot 89, site 1 in 2020 and beyond
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+```
+
+
+```{r}
+obsmodel
+
+
+CJS_AsMi2013 <- obsmodel %>%
+  filter(Year == 2013) %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(col = ch, '1':'4', sep = "") %>%
+  mutate(state = as.factor(state)) %>%
+  dplyr::select(!('5':'9'))
+
+CJS_AsMi2014_15 <- obsmodel %>%
+  filter(Year != 2013) %>%
+  group_by(Year, Tag, Site, Plot) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(col = ch, '1':'9', sep = "") %>%
+  mutate(state = as.factor(state)) 
+
+
+```
+
+1. process data to identify model and data attributes   
+Use state to define groups
+```{r}
+
+# CJS_ASMI <- CJS_AsMi2013 %>%
+#   bind_rows(CJS_AsMi2014_15)
+# 
+# asmi.proc <- process.data(as.data.frame(CJS_ASMI), model="CJS", groups = "state", begin.time = 2013)
+
+asmi.proc <- process.data(as.data.frame(CJS_AsMi2013), model="CJS", groups = "state")
+asmi.proc$nocc 
+
+asmi.proc1415 <- process.data(as.data.frame(CJS_AsMi2014_15), model = "CJS", groups = "state", begin.time = 2014)
+asmi.proc1415$nocc
+asmi.proc1415$nocc.secondary ## null?
+asmi.proc1415$time.intervals
+
+asmi.proc14 <- process.data(as.data.frame(CJS_AsMi2014_15[CJS_AsMi2014_15$Year == 2014,]),
+                            model = "CJS")
+asmi.proc14$nocc
+asmi.proc14$time.intervals
+
+
+```
+
+
+2. make and modify design data    
+Should add fence variable for individuals that were fenced
+```{r}
+
+asmi.ddl <- make.design.data(asmi.proc)
+asmi.ddl$Phi
+
+dm <- model.matrix(~state, asmi.ddl$Phi)
+```
+
+
+3. Write function for set of models to be fitted
+```{r}
+asmi.analysis <- function()
+{
+  # Create specifications for Phi and p
+  Phi.1 = list(formula = ~1)
+  Phi.2 = list(formula = ~ state)
+  p.1 = list(formula = ~1)
+  p.2 = list(formula = ~ state)
+  
+  # Create a list of combintations o fparameters
+  cml <- create.model.list("CJS")
+  
+  mark.wrapper(cml, data = asmi.proc, ddl = asmi.ddl, output = FALSE)
+}
+
+
+```
+
+
+4. Run functions to fit models
+```{r}
+asmi.results <- asmi.analysis()
+```
+
+
+
+
+
+## marked Laake et al 2013   
+```{r}
+library(marked)
+
+# CJS_AsMi_fence13
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_2013.Rdata")
+
+# CJS_AsMi_fence1415
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_201415.Rdata")
+
+CJS_AsMi_fence13 <- CJS_AsMi_fence13 %>%
+  mutate(fence = as.factor(fence)) %>%
+  as.data.frame()
+
+## Select among CJS, JS, or probit CJS  
+asmi13.proc <- process.data(CJS_AsMi_fence13, groups = c("state","fence"), model = "probitCJS") ## "Huggins ??, probit MCMC
+# Make data desgin matrix for each parameter of the model
+asmi13.ddm <- make.design.data(asmi13.proc)  ## ageing based on time interval, starts at 0 
+# model.parameters list of formulats for the parameters 
+p.state <- list(formula = ~state, formula = ~ fence, formula = ~ state + fence)
+model13 <- crm(asmi13.proc, asmi13.ddm, model.parameters = list(p = p.state), accumulate = FALSE)
+
+```
+

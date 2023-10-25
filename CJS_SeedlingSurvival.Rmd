@@ -586,7 +586,6 @@ fenced <- asmi.raw %>%
 dataCJS <- intra.2013complete %>%
   mutate(encounter = as.numeric(as.factor(Day))) %>% ## Turns the day within a year into numeric
   filter(!is.na(Site)) %>%
-  # ungroup() %>%
   group_by(Plot, Tag) %>%
   filter(any(Ln > 0)) %>% 
   ungroup() %>%
@@ -605,7 +604,7 @@ dataCJSfence <- merge(dataCJS, fenced, by.x = c("Site","Plot","Year"),
  
 obsmodel <- dataCJSfence %>%
   distinct(Year,Plot,Site,Tag,encounter, .keep_all = TRUE) %>%
-  select(c(Site:Year, Tag, PlotTag, encounter, Obs, Year, fence)) %>%
+  select(c(Site:Year, Tag, PlotTag, encounter, Obs, fence)) %>%
   pivot_wider(names_from = encounter, values_from = Obs, values_fill = 0) 
 
 CJS_AsMi_fence13 <- obsmodel %>%
@@ -619,6 +618,53 @@ CJS_AsMi_fence13 <- obsmodel %>%
 
 CJS_AsMi_fence13 %>%
   filter(state == "Reproductive")
+
+
+#### Now 2014 and 2015
+dataCJS1415 <- intra20142015 %>%
+  group_by(Year) %>%
+  mutate(encounter = as.numeric(as.factor(Day))) %>% ## Turns the day within a year into numeric
+  filter(!is.na(Site)) %>%
+  group_by(Plot, Tag) %>%
+  filter(any(Ln > 0)) %>% 
+  ungroup() %>%
+  mutate(PlotTag = paste0(Plot,Tag)) %>%
+  arrange(Year, Plot, Site, Tag, encounter) %>%  
+  mutate(K = paste0(Year, encounter), 
+         Obs = case_when(Ln > 0 & Fl == 0 ~ 1,
+                         Ln > 0 & Fl == 1 ~ 3,
+                         Ln == 0 ~ 0)) %>%
+  mutate(PlotTag = as.numeric(as.factor(PlotTag)) ) %>%  ## Unique numbered across all years? No. 
+  mutate(Obs = ifelse(is.na(Obs), 0, Obs))
+
+dataCJSfence1415 <- merge(dataCJS1415, fenced, by.x = c("Site","Plot","Year"), 
+                      by.y = c("AsMi_site_id","AsMi_plot_id","year"))
+  
+ 
+obsmodel1415 <- dataCJSfence1415 %>%
+  group_by(Year) %>%
+  distinct(Year,Plot,Site,Tag,PlotTag,encounter, .keep_all = TRUE) %>%
+  select(c(Site:Year, Tag, PlotTag, encounter, Obs, fence)) %>%
+  arrange(Year, encounter) %>% 
+  pivot_wider(names_from = encounter, values_from = Obs, values_fill = 0) 
+
+CJS_AsMi_fence1415 <- obsmodel1415 %>%
+  group_by(Year, Tag, Site, Plot, PlotTag, fence) %>%
+  mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'9', sep = "") %>%
+  mutate(state = as.factor(state))
+
+CJS_AsMi_fence1415 %>%
+  filter(Year == 2015)
+
+save(CJS_AsMi_fence13, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_2013.Rdata")
+
+save(CJS_AsMi_fence1415, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_201415.Rdata")
+
+
 ```
 
 
