@@ -139,8 +139,245 @@ asmi13.proc <- process.data(CJS_AsMi_fence13, groups = c("state","fence"), model
 # Make data desgin matrix for each parameter of the model
 asmi13.ddm <- make.design.data(asmi13.proc)  ## ageing based on time interval, starts at 0 
 # model.parameters list of formulats for the parameters 
-p.state <- list(formula = ~state, formula = ~ fence, formula = ~ state + fence)
+p.state <- list(formula = ~state) 
+p.fence <- list(formula = ~ fence)
+p.statefence <- list(formula = ~ state + fence)
+p.statefence2 <- list(formula = ~ state * fence)
 model13 <- crm(asmi13.proc, asmi13.ddm, model.parameters = list(p = p.state), accumulate = FALSE)
+model13fence <- crm(asmi13.proc, asmi13.ddm, model.parameters = list(p = p.fence), accumulate = FALSE)
+model13statefence <- crm(asmi13.proc, asmi13.ddm, model.parameters = list(p = p.statefence), accumulate = FALSE)
+model13statefence2 <- crm(asmi13.proc, asmi13.ddm, model.parameters = list(p = p.statefence2), accumulate = FALSE)
+
+
+inv.logit(model13$results$beta$p$mode) ## state, veg, reproductive
+inv.logit(model13fence$results$beta$p$mode) ## open, fenced
+inv.logit(model13statefence$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg
+inv.logit(model13statefence2$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg, fenced and repro
+
+
+paste(round(inv.logit(model13$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model13$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model13$results$beta$Phi$CI.upper),2), ")", sep="")
+
+paste(round(inv.logit(model13$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model13$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model13$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model13$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model13$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model13$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+# inv.logit(model13fence$results$beta$p$mode) ## open, fenced
+# inv.logit(sum(model13fence$results$beta$p$mode)) # fenced
+paste(round(inv.logit(model13fence$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model13fence$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model13fence$results$beta$Phi$CI.upper),2), ")", sep="")
+
+paste(round(inv.logit(model13fence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model13fence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model13fence$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model13fence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model13fence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model13fence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+inv.logit(model13statefence$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg
+paste(round(inv.logit(model13statefence$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model13statefence$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model13statefence$results$beta$Phi$CI.upper),2), ")", sep="")
+# Open and Veg
+paste(round(inv.logit(model13statefence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model13statefence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model13statefence$results$beta$p$CI.upper[1]),2), ")", sep="")
+# open and reproductive
+paste(round(inv.logit(sum(model13statefence$results$beta$p$mode[1:2])),2), " (",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.lower[1:2])),2), ", ",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.upper[1:2])),2), ")", sep="")
+# fenced and vegetative
+paste(round(inv.logit(sum(model13statefence$results$beta$p$mode[c(1,3)])),2), " (",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.lower[c(1,3)])),2), ", ",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.upper[c(1,3)])),2), ")", sep="")
+
+paste(round(inv.logit(sum(model13statefence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model13statefence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+## Compare several models 
+fit.models = function(proc, ddl)
+{
+  Phi.dot = list(formula = ~ 1)
+  p.state = list(formula = ~ state)
+  p.time = list(formula = ~ time)
+  p.statetime = list(formula = ~ time + state)
+  p.fence = list(formula = ~ fence)
+  p.fencestate = list(formula = ~ fence + state)
+   cml = create.model.list(c("Phi","p"))
+   results=crm.wrapper(cml,data = proc, ddl = ddl,
+                       external=FALSE,accumulate=FALSE)
+   return(results)
+}
+
+models.2013 <- fit.models(asmi13.proc,asmi13.ddm)
+
+
+
+```
+
+2014 and 2015 
+```{r}
+CJS_AsMi_fence14 <- CJS_AsMi_fence1415 %>%
+  mutate(fence = as.factor(fence)) %>%
+  filter(Year == 2014) %>%
+  as.data.frame()
+
+## Select among CJS, JS, or probit CJS  
+asmi14.proc <- process.data(CJS_AsMi_fence14, groups = c("state","fence"), model = "probitCJS") ## "Huggins ??, probit MCMC
+# Make data desgin matrix for each parameter of the model
+asmi14.ddm <- make.design.data(asmi14.proc)  ## ageing based on time interval, starts at 0 
+# model.parameters list of formulats for the parameters 
+model14 <- crm(asmi14.proc, asmi14.ddm, model.parameters = list(p = p.state), accumulate = FALSE)
+model14fence <- crm(asmi14.proc, asmi14.ddm, model.parameters = list(p = p.fence), accumulate = FALSE)
+model14statefence <- crm(asmi14.proc, asmi14.ddm, model.parameters = list(p = p.statefence), accumulate = FALSE)
+model14statefence2 <- crm(asmi14.proc, asmi14.ddm, model.parameters = list(p = p.statefence2), accumulate = FALSE)
+
+
+inv.logit(model14$results$beta$p$mode) ## state, veg, reproductive
+inv.logit(model14fence$results$beta$p$mode) ## open, fenced
+inv.logit(model14statefence$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg
+inv.logit(model14statefence2$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg, fenced and repro
+
+paste(round(inv.logit(model14$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model14$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model14$results$beta$Phi$CI.upper),2), ")", sep="")
+
+paste(round(inv.logit(model14$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model14$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model14$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model14$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model14$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model14$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+# inv.logit(model14fence$results$beta$p$mode) ## open, fenced
+# inv.logit(sum(model14fence$results$beta$p$mode)) # fenced
+# Open vs. fenced
+paste(round(inv.logit(model14fence$results$beta$Phi$mode[1]),2), " (",
+      round(inv.logit(model14fence$results$beta$Phi$CI.lower[1]),2), ", ",
+      round(inv.logit(model14fence$results$beta$Phi$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(model14fence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model14fence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model14fence$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model14fence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model14fence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model14fence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+inv.logit(model14statefence$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg
+paste(round(inv.logit(model14statefence$results$beta$Phi$mode[1]),2), " (",
+      round(inv.logit(model14statefence$results$beta$Phi$CI.lower[1]),2), ", ",
+      round(inv.logit(model14statefence$results$beta$Phi$CI.upper[1]),2), ")", sep="")
+# Open and Veg
+paste(round(inv.logit(model14statefence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model14statefence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model14statefence$results$beta$p$CI.upper[1]),2), ")", sep="")
+# open and reproductive
+paste(round(inv.logit(sum(model14statefence$results$beta$p$mode[1:2])),2), " (",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.lower[1:2])),2), ", ",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.upper[1:2])),2), ")", sep="")
+# fenced and vegetative
+paste(round(inv.logit(sum(model14statefence$results$beta$p$mode[c(1,3)])),2), " (",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.lower[c(1,3)])),2), ", ",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.upper[c(1,3)])),2), ")", sep="")
+
+paste(round(inv.logit(sum(model14statefence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model14statefence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+
+##########################################################################################################
+CJS_AsMi_fence15 <- CJS_AsMi_fence1415 %>%
+  mutate(fence = as.factor(fence)) %>%
+  filter(Year == 2015) %>%
+  as.data.frame()
+
+## Select among CJS, JS, or probit CJS  
+asmi15.proc <- process.data(CJS_AsMi_fence15, groups = c("state","fence"), model = "probitCJS") ## "Huggins ??, probit MCMC
+# Make data desgin matrix for each parameter of the model
+asmi15.ddm <- make.design.data(asmi15.proc)  ## ageing based on time interval, starts at 0 
+# model.parameters list of formulats for the parameters 
+model15 <- crm(asmi15.proc, asmi15.ddm, model.parameters = list(p = p.state), accumulate = FALSE)
+model15fence <- crm(asmi15.proc, asmi15.ddm, model.parameters = list(p = p.fence), accumulate = FALSE)
+model15statefence <- crm(asmi15.proc, asmi15.ddm, model.parameters = list(p = p.statefence), accumulate = FALSE)
+model15statefence2 <- crm(asmi15.proc, asmi15.ddm, model.parameters = list(p = p.statefence2), accumulate = FALSE)
+
+
+# inv.logit(model15$results$beta$p$mode) ## state, veg, repro offset
+# inv.logit(sum(model15$results$beta$p$mode)) # reproductive
+# inv.logit(model15$results$beta$p$CI.upper) ## state, veg, repro offset
+# inv.logit(sum(model15$results$beta$p$CI.upper)) # reproductive
+# inv.logit(model15$results$beta$p$CI.lower) ## state, veg, repro offset
+# inv.logit(sum(model15$results$beta$p$CI.lower)) # reproductive
+
+paste(round(inv.logit(model15$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model15$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model15$results$beta$Phi$CI.upper),2), ")", sep="")
+
+paste(round(inv.logit(model15$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model15$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model15$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model15$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model15$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model15$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+# inv.logit(model15fence$results$beta$p$mode) ## open, fenced
+# inv.logit(sum(model15fence$results$beta$p$mode)) # fenced
+paste(round(inv.logit(model15fence$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model15fence$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model15fence$results$beta$Phi$CI.upper),2), ")", sep="")
+
+paste(round(inv.logit(model15fence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model15fence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model15fence$results$beta$p$CI.upper[1]),2), ")", sep="")
+
+paste(round(inv.logit(sum(model15fence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model15fence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model15fence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+inv.logit(model15statefence$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg
+paste(round(inv.logit(model15statefence$results$beta$Phi$mode),2), " (",
+      round(inv.logit(model15statefence$results$beta$Phi$CI.lower),2), ", ",
+      round(inv.logit(model15statefence$results$beta$Phi$CI.upper),2), ")", sep="")
+# Open and Veg
+paste(round(inv.logit(model15statefence$results$beta$p$mode[1]),2), " (",
+      round(inv.logit(model15statefence$results$beta$p$CI.lower[1]),2), ", ",
+      round(inv.logit(model15statefence$results$beta$p$CI.upper[1]),2), ")", sep="")
+# open and reproductive
+paste(round(inv.logit(sum(model15statefence$results$beta$p$mode[1:2])),2), " (",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.lower[1:2])),2), ", ",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.upper[1:2])),2), ")", sep="")
+# fenced and vegetative
+paste(round(inv.logit(sum(model15statefence$results$beta$p$mode[c(1,3)])),2), " (",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.lower[c(1,3)])),2), ", ",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.upper[c(1,3)])),2), ")", sep="")
+
+paste(round(inv.logit(sum(model15statefence$results$beta$p$mode)),2), " (",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.lower)),2), ", ",
+      round(inv.logit(sum(model15statefence$results$beta$p$CI.upper)),2), ")", sep="")
+
+
+inv.logit(model15statefence2$results$beta$p$mode) ## open and veg, open and reproductive, fenced and veg, fenced and repro
+
+
 
 ```
 
