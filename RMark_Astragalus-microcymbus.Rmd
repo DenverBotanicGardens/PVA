@@ -9,12 +9,15 @@ RMark
 library(dplyr)
 library(tidyr)
 library(RMark)
+library(boot)
 
 ## capture histories 2013-2015, secondary capture occasions within in closed periods
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
 
-userpath <- "C:/Users/DePrengm/"
 currentyr <- 2022
+
+userpath <- "C:/Users/DePrengm/"
+# currentyr <- 2022
 
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 
@@ -24,6 +27,261 @@ asmi.raw <- read.csv(rawdatapath, na.strings = "na")
 asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 
 ```
+
+Format data of all years
+```{r}
+
+# assign group at first encounter, age 0 if 'seedling' or vegetative, older if reproductive. 
+CJS_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = 0, names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+CJS_asmi %>%
+  select(first.cap.stage:Plot) %>%
+  # process.data() %>%
+  # export.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark",
+  #               covariates = c("first.cap.stage","Site","Plot"), replace = TRUE)
+  save(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp")
+
+
+
+CJS_asmi %>%
+  filter(first.cap.stage == "dormant")
+
+table(CJS_asmi$first.cap.stage)
+
+fenced <- asmi.raw %>%
+  dplyr::select(c(year,AsMi_site_id, AsMi_plot_id,fence)) %>%
+  group_by(year,AsMi_site_id, AsMi_plot_id,fence) %>%
+  distinct(.keep_all = TRUE) %>%
+  arrange(year, AsMi_site_id, AsMi_plot_id) %>%
+  mutate(fence = if_else(year < 2006, "n", fence)) %>%
+  mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), "n", fence)) %>%
+  mutate(fence = if_else(year > 2015, "n", fence)) %>%
+  mutate(fence = (as.factor(fence))) %>%
+  mutate(fence = as.numeric(fence)-1) %>%
+  pivot_wider(names_from = year, values_from = fence, values_fill = 0, 
+              names_prefix = "Year", id_cols = c(AsMi_site_id,AsMi_plot_id))
+
+fenced %>%
+  select(Year2005:Year2017) %>%
+  filter(AsMi_site_id == 19) 
+
+asmi.data <- CJS_asmi %>%
+  mutate(Seedlings = if_else(first.cap.stage == "seedling", 1, 0),
+         Veg = if_else(first.cap.stage == "vegetative", 1, 0),
+         Rep = if_else(first.cap.stage == "reproductive", 1, 0)) %>%
+  mutate(fence = as.factor(fence),
+         Site = as.factor(AsMi_site_id)) %>%
+  dplyr::select(c(first.cap.stage:Rep)) %>%
+  as.data.frame() 
+
+write.table(asmi.data[,c(2,4:8)], file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
+            sep = " ", col.names = FALSE, row.names = FALSE)
+
+
+## simple CJS model, intercept only for survival and detection
+asmi.model <- mark(asmi.data)
+asmi.model$results$real
+#                  estimate        se        lcl        ucl
+# Phi:(Intercept)  1.687897 0.0228923  1.6430282  1.7327660
+# p:(Intercept)   -0.475967 0.0191575 -0.5135157 -0.4384184
+
+inv.logit(asmi.model$results$beta$estimate)
+asmi.model$results$real
+
+
+asmi.mark <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
+                         group.df = data.frame(age = c("Seedlings","Veg","Rep")),
+                         covariates = c("Site","Plot"))
+
+asmi.proc <- process.data(asmi.mark, model = "CJS",
+                          age.var = 1,
+                          initial.ages = c(0,1,2),
+                          groups = c("Site","Plot"))
+
+# Create default design data  
+# For Phi, values are 0 or older; for p the values are 1 or older
+# This provides an individual covariate for each parameter type
+# that changes as the animal ages
+asmi.ddl = make.design.data(asmi.proc,
+                          parameters = list(Phi = list(age.bins = c(0, 1, 28)),
+                                            p = list(age.bins = c(1, 2, 28))),
+                          right = FALSE)
+
+## Could add a precipitation or temperature variable https://www.montana.edu/rotella/documents/502/lab05Rmark.html
+
+
+```
+
+
+Run competing models
+```{r}
+run.asmi = function() {
+  #  Define range of models for Phi
+  #
+  Phi.dot = list(formula =  ~ 1)
+  Phi.age = list(formula =  ~ age)
+  Phi.age.site = list(formula =  ~ age + Site)
+  Phi.age.plot = list(formula =  ~ age + Plot)
+  Phi.age.Plot.Site = list(formula =  ~ age + Plot + Site)
+  
+  #  Define range of models for p
+  p.dot = list(formula =  ~ 1)
+  p.time = list(formula =  ~ -1 + time)
+  p.time.age = list(formula = ~ age + time)
+  # p.precip = list(formula = ~ precip)
+  
+  # Create models for all combinations of phi & p
+  asmi.model.list = create.model.list("CJS")
+  
+  # NOTE: to avoid having all the output for each model appear when you
+  # call the function, add ', output=FALSE' after 'ddl=sq.ddl' below.
+  # Here, I don't do that so you can see the output for each model,
+  # but this might not be desired if you have many models.
+  asmi.results = mark.wrapper(asmi.model.list,
+                            data = asmi.proc, ddl = asmi.ddl)
+  #
+  # Return model table and list of models
+  #
+  return(asmi.results)
+}
+
+asmi.res <- run.asmi()
+## survival differs by age, detection over time and by age,
+names(asmi.res)
+
+asmi.res[[3]]$results$real
+asmi.res$Phi.age.p.time.age$results$beta ## This has intercept and values on logit scale
+
+
+```
+
+Make predictions for survival from top model
+```{r}
+min.tail <- min(sq$tail)
+max.tail <- max(sq$tail)
+tail.values <- seq(from = min.tail, to = max.tail, by = 0.25)
+birth.values <- c(quantile(sq$birth, 0.05), 
+                  mean(sq$birth),
+                  quantile(sq$birth, 0.95))
+pred.dat <- expand.grid(birth = birth.values,
+                       tail = tail.values)
+pred.dat$tail.sq <- pred.dat$tail^2
+
+# make predictions for rows of 'sq.ddl' associated with juveniles, 
+# i.e., (par.index=1, 2) = a juvenile and an adult 
+pred.top <- covariate.predictions(top, data = pred.dat, indices = c(1, 2))
+
+# view head of the prediction data.frame
+head(pred.top$estimates)
+
+
+```
+
+Clean up files created
+```{r}
+rm(list=ls(all=TRUE))
+
+cleanup(ask = FALSE)
+```
+
+
+
+## Just the three years with multiple
+```{r}
+
+
+```
+
+
+
+
+Check the impact of fencing
+```{r}
+
+asmi.proc <- process.data(asmi.data, age.var = 1, initial.ages = c(0,1,2), groups = c("age","Site"))
+asmi.ddl <- make.design.data(asmi.proc)
+
+## need to make those that are reproductive 2 or more years old and those that are small start at age 1 or something
+# asmi.ddl$Phi
+```
+
+Define several competing models for survival 
+```{r}
+Phidot=list(formula=~1)
+Phitime=list(formula=~time)
+Phisite=list(formula=~AsMi_site_id)
+Phisitetime=list(formula=~AsMi_site_id+time)
+Phisite.time=list(formula=~AsMi_site_id*time)
+
+pdot=list(formula=~1)
+ptime=list(formula=~time)
+psite=list(formula=~AsMi_site_id)
+psitetime=list(formula=~AsMi_site_id+time)
+psite.time=list(formula=~AsMi_site_id*time)
+
+asmi.phitime.ptime <- mark(asmi.proc, asmi.ddl,
+                           model.parameters = list(Phi=Phitime, p=ptime))
+asmi.phidot.pdot <- mark(asmi.proc, asmi.ddl,
+                           model.parameters = list(Phi=Phidot, p=pdot))
+asmi.phidot.psite <- mark(asmi.proc, asmi.ddl,
+                           model.parameters = list(Phi=Phidot, p=psite))
+```
+
+Make an AIC table
+```{r}
+asmi.table <- collect.models(type = "CJS")
+
+```
+
+
+
+```{r}
+output.asmiphitime.ptime <- asmi.phitime.ptime$results$real %>%
+  mutate(value = row.names(.)) %>%
+  mutate(Year = c(1995:2021,1996:2022)) %>%
+  separate(value, c("parameter", "group", "cohort", "age", "time"))
+  
+ggplot(output.asmiphitime.ptime, aes(Year, estimate, color = parameter)) +
+  geom_line() +
+  geom_point()+
+  theme_bw()
+
+plot(1995:2022, asmi.phitime.ptime$results$real$estimate[1:28], type = "l", ylim = c(0,1),
+     xlab = "Year", ylab = "Phi")
+points(1995:2022, asmi.phitime.ptime$results$real$estimate[1:28], pch = 16)
+lines(1995:2022, asmi.phitime.ptime$results$real$lcl[1:28],  col = "red")
+points(1995:2022, asmi.phitime.ptime$results$real$lcl[1:28], col = "red")
+lines(1995:2022, asmi.phitime.ptime$results$real$ucl[1:28], col = "purple")
+points(1995:2022, asmi.phitime.ptime$results$real$ucl[1:28],  col = "purple")
+
+plot(1995:2022, asmi.phitime.ptime$results$real$estimate[29:54], type = "l", ylim = c(0,1),
+     xlab = "Year", ylab = "p")
+points(1995:2022, asmi.phitime.ptime$results$real$estimate[29:58], pch=16)
+lines(1995:2022, asmi.phitime.ptime$results$real$lcl[29:56], col = "red")
+lines(1995:2022, asmi.phitime.ptime$results$real$ucl[29:56], type = "l", col = "purple")
+
+
+
+
+```
+
 
 
 ```{r}
@@ -101,7 +359,7 @@ asmi.analysis <- function()
   p.1 = list(formula = ~1)
   p.2 = list(formula = ~ state)
   
-  # Create a list of combintations o fparameters
+  # Create a list of combinations of parameters
   cml <- create.model.list("CJS")
   
   mark.wrapper(cml, data = asmi.proc, ddl = asmi.ddl, output = FALSE)
@@ -123,6 +381,7 @@ asmi.results <- asmi.analysis()
 ## marked Laake et al 2013   
 ```{r}
 library(marked)
+library(boot)
 
 # CJS_AsMi_fence13
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_2013.Rdata")
@@ -135,9 +394,14 @@ CJS_AsMi_fence13 <- CJS_AsMi_fence13 %>%
   as.data.frame()
 
 ## Select among CJS, JS, or probit CJS  
-asmi13.proc <- process.data(CJS_AsMi_fence13, groups = c("state","fence"), model = "probitCJS") ## "Huggins ??, probit MCMC
+asmi13.proc <- marked::process.data(CJS_AsMi_fence13, groups = c("state","fence"), model = "CJS")
+                            # model = "probitCJS") ## "Huggins ??, probit MCMC
+
 # Make data desgin matrix for each parameter of the model
-asmi13.ddm <- make.design.data(asmi13.proc)  ## ageing based on time interval, starts at 0 
+design.Phi <- list(static = c("state","fence"))
+design.p <- list(static = c("state","fence"))
+design.params <- list(Phi=design.Phi, p=design.p)
+asmi13.ddm <- marked::make.design.data(asmi13.proc, parameters = design.params)  ## ageing based on time interval, starts at 0 
 # model.parameters list of formulats for the parameters 
 p.state <- list(formula = ~state) 
 p.fence <- list(formula = ~ fence)
@@ -205,7 +469,10 @@ paste(round(inv.logit(sum(model13statefence$results$beta$p$mode)),2), " (",
       round(inv.logit(sum(model13statefence$results$beta$p$CI.upper)),2), ")", sep="")
 
 
+
 ## Compare several models 
+
+
 fit.models = function(proc, ddl)
 {
   Phi.dot = list(formula = ~ 1)
@@ -214,8 +481,8 @@ fit.models = function(proc, ddl)
   p.statetime = list(formula = ~ time + state)
   p.fence = list(formula = ~ fence)
   p.fencestate = list(formula = ~ fence + state)
-   cml = create.model.list(c("Phi","p"))
-   results=crm.wrapper(cml,data = proc, ddl = ddl,
+   cml = marked::create.model.list(c("Phi","p"))
+   results= marked::crm.wrapper(cml,data = proc, ddl = ddl,
                        external=FALSE,accumulate=FALSE)
    return(results)
 }
@@ -380,4 +647,12 @@ inv.logit(model15statefence2$results$beta$p$mode) ## open and veg, open and repr
 
 
 ```
+
+
+mra   
+```{r}
+library(mra)
+
+```
+
 
