@@ -26,15 +26,30 @@ asmi.raw <- read.csv(rawdatapath, na.strings = "na")
 # need to remove all plot 89, site 1 in 2020 and beyond
 asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 
+
+## Raw data but kept dormancy to 3 or fewer years, then given a new tag number
+asmi.raw3 <- read.csv("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Dormant3yrmax_rawdata2022.csv")
+
+## Load climate data up to 2022
+load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+
+
 ```
 
 Format data of all years
 ```{r}
+asmi.raw <- asmi.raw3
 
 # assign group at first encounter, age 0 if 'seedling' or vegetative, older if reproductive. 
 CJS_asmi <- asmi.raw %>%
   filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
   filter(!is.na(year)) %>%  
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>% ## exclude Cebolla Creek that was added 2014
+  filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
+  filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
   dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
   group_by(AsMi_tag_id) %>%
   filter(any(length > 0)) %>%
@@ -89,39 +104,72 @@ asmi.data <- CJS_asmi %>%
   mutate(fence = as.factor(fence),
          Site = as.factor(AsMi_site_id)) %>%
   dplyr::select(c(first.cap.stage:Rep)) %>%
+  mutate(first.cap.stage = factor(first.cap.stage, levels = c("seedling","vegetative","reproductive"))) %>%
   as.data.frame() 
 
 write.table(asmi.data[,c(2,4:8)], file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
             sep = " ", col.names = FALSE, row.names = FALSE)
 
 
+write.table(asmi.data[,c(2,4:8)], file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt",
+            sep = " ", col.names = TRUE, row.names = FALSE)
+
+
+
+
 ## simple CJS model, intercept only for survival and detection
 asmi.model <- mark(asmi.data)
 asmi.model$results$real
-#                  estimate        se        lcl        ucl
-# Phi:(Intercept)  1.687897 0.0228923  1.6430282  1.7327660
-# p:(Intercept)   -0.475967 0.0191575 -0.5135157 -0.4384184
 
 inv.logit(asmi.model$results$beta$estimate)
 asmi.model$results$real
+```
 
 
-asmi.mark <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
-                         group.df = data.frame(age = c("Seedlings","Veg","Rep")),
-                         covariates = c("Site","Plot"))
+Create data frame of time varying covariates    
+Merge time varying covariates into the deign matrix    
+```{r}
 
-asmi.proc <- process.data(asmi.mark, model = "CJS",
+asmi.proc.covar <- process.data(asmi.data, model = ) 
+
+```
+
+
+```{r}
+## Not really a MARK dbf, doesn't have ";" at the end of each row
+# asmi.mark <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
+#                          group.df = data.frame(age = c("Seedlings","Veg","Rep")),
+#                          covariates = c("Site","Plot"))
+# asmi.mark <- import.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt",
+#                            field.types = c("f","f","f","f","f"))
+
+## make.design.data should do the group data.frame
+
+
+asmi.procmark <- process.data(asmi.data, model = "CJS",
                           age.var = 1,
                           initial.ages = c(0,1,2),
-                          groups = c("Site","Plot"))
+                          groups = c("first.cap.stage","Site","Plot"))
 
+asmi.ddl <- make.design.data(asmi.procmark, 
+                             parameters = list(Phi = list(age.bins = c(0,1,2,38)),
+                             p = list(age.bins = c(1,2,3,39))),
+                             right = FALSE)
+
+asmi.proc <- process.data(asmi.data, model = "CJS",
+                          groups = c("Site","Plot"))
+asmi.ddl <- make.design.data(asmi.proc)
+
+```
+
+```{r}
 # Create default design data  
 # For Phi, values are 0 or older; for p the values are 1 or older
 # This provides an individual covariate for each parameter type
 # that changes as the animal ages
 asmi.ddl = make.design.data(asmi.proc,
                           parameters = list(Phi = list(age.bins = c(0, 1, 28)),
-                                            p = list(age.bins = c(1, 2, 28))),
+                                            p = list(age.bins = c(1, 2, 29))),
                           right = FALSE)
 
 ## Could add a precipitation or temperature variable https://www.montana.edu/rotella/documents/502/lab05Rmark.html
@@ -136,15 +184,17 @@ run.asmi = function() {
   #  Define range of models for Phi
   #
   Phi.dot = list(formula =  ~ 1)
-  Phi.age = list(formula =  ~ age)
-  Phi.age.site = list(formula =  ~ age + Site)
-  Phi.age.plot = list(formula =  ~ age + Plot)
-  Phi.age.Plot.Site = list(formula =  ~ age + Plot + Site)
+  # Phi.age = list(formula =  ~ age)
+  # Phi.age.site = list(formula =  ~ age + Site)
+  # Phi.age.plot = list(formula =  ~ age + Plot)
+  # Phi.age.Plot.Site = list(formula =  ~ age + Plot + Site)
+  Phi.time = list(formula = ~ time)
   
   #  Define range of models for p
   p.dot = list(formula =  ~ 1)
-  p.time = list(formula =  ~ -1 + time)
-  p.time.age = list(formula = ~ age + time)
+  p.time = list(formula = ~ time)
+  # p.time = list(formula =  ~ -1 + time)
+  # p.time.age = list(formula = ~ age + time)
   # p.precip = list(formula = ~ precip)
   
   # Create models for all combinations of phi & p
@@ -162,15 +212,91 @@ run.asmi = function() {
   return(asmi.results)
 }
 
+# asmi.proc <- process.data(asmi.data, model = "CJS", groups = c("Site","Plot"))
+# asmi.ddl <- make.design.data(asmi.proc)
+
+
 asmi.res <- run.asmi()
 ## survival differs by age, detection over time and by age,
+asmi.res
 names(asmi.res)
 
-asmi.res[[3]]$results$real
-asmi.res$Phi.age.p.time.age$results$beta ## This has intercept and values on logit scale
+asmi.res[[18]]$results$real
+asmi.res$Phi.time.p.time.age$results$beta ## This has intercept and values on logit scale
 
+phitable <- get.real(asmi.res$Phi.dot.p.dot, "Phi", se = TRUE)
+ptable <- get.real(asmi.res$Phi.dot.p.dot, "p", se = TRUE)
 
+phitable <- get.real(asmi.res$Phi.time.p.time, "Phi", se = TRUE)
+ptable <- get.real(asmi.res$Phi.time.p.time, "p", se = TRUE)
+
+asmi.res$Phi.time.p.time$results$beta
+asmi.res$Phi.time.p.time$results$real
 ```
+
+https://rdrr.io/cran/RMark/man/make.design.data.html  
+
+https://rstudio-pubs-static.s3.amazonaws.com/201392_14ed145562b34fc785f5ff2ca00ba011.html 
+# Abundance   
+Bootstrap for uncertainty
+```{r}
+## Calc the number of recaptures/occasion
+obs <- gregexec("1", asmi.data$ch)
+n_obs <- summary(as.factor(unlist(obs)))
+estim_abundance <- n_obs[-1]/ptable$estimate[1:27]
+
+estim_abundance <- lapply(1:27)
+
+## Cohort 1
+plot(1996:2022, estim_abundance, type = "l")
+points(1996:2022, estim_abundance)
+
+
+nb_bootstrap <- 10
+nb_years <- 28
+target <- data.frame(asmi.data, stringsAsFactors = FALSE)
+popsize <- matrix(NA, nb_bootstrap, nb_years-1)
+set.seed(5)
+pseudo <- target ## To initialize
+
+
+asmi.procboot <- process.data(pseudo, model = "CJS")
+asmi.ddlboot <- make.design.data(asmi.procboot)
+phi.cat <- list(formula = ~ 1)
+p.time <- list(formula = ~ 1)
+
+# Run the bootstrap
+for (k in 1:nb_bootstrap){
+  # resample in the original dataset with replacement
+  pseudo$ch = sample(target$ch, replace=T)
+  # fit model with Mark
+  res = mark(asmi.procboot,asmi.ddlboot,model.parameters=list(Phi=phi.cat,p=p.time),delete=TRUE,output=FALSE)
+  # get recapture prob estimates
+  ptable = get.real(res,"p", se= TRUE)
+  # calculate the nb of recaptured individiduals / occasion
+  allobs = gregexpr("1", pseudo$ch)
+  n = summary(as.factor(unlist(allobs)))
+  popsize[k,] <- n[-1]/ptable$estimate[1:(nb_years-1)]
+}
+
+## Get confidence intervals
+ci_asmi <- apply(popsize,2,quantile,probs=c(2.5/100,97.5/100),na.rm=T)
+ci_asmi
+
+## 
+plot(1996:2022, estim_abundance, type = "l", ylim = c(0,1700))
+points(1996:2022, estim_abundance)
+lines(1996:2022, ci_asmi[1,], col="red")
+lines(1996:2022, ci_asmi[2,], col="red")
+points(rawasmi$year, rawasmi$n, col = "blue")
+
+rawasmi <- asmi.raw %>%
+  group_by(year) %>%
+  filter(!(AsMi_site_id %in% c(1,2))) %>%
+  dplyr::summarise(n = n()) %>%
+  print(n=28)
+```
+
 
 Make predictions for survival from top model
 ```{r}
@@ -205,10 +331,91 @@ cleanup(ask = FALSE)
 
 ## Just the three years with multiple
 ```{r}
+CJS_asmi_3 <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  filter(year %in% c(2013,2014,2015)) %>%
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = 0, names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  unite(ch, Year2013:Year2015, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+
+CJS_asmi_3 %>%
+  dplyr::select(fence:Plot) %>%
+  save(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark3.inp")
+
+
+asmi.data3 <- CJS_asmi_3 %>%
+  mutate(Seedlings = if_else(first.cap.stage == "seedling", 1, 0),
+         Veg = if_else(first.cap.stage == "vegetative", 1, 0),
+         Rep = if_else(first.cap.stage == "reproductive", 1, 0)) %>%
+  mutate(fence = as.factor(fence),
+         Site = as.factor(AsMi_site_id)) %>%
+  dplyr::select(c(first.cap.stage:Rep)) %>%
+  as.data.frame() 
+
+asmi.model <- mark(asmi.data3)
+asmi.model$results$real
+
+```
+
+
+
+https://www.montana.edu/rotella/documents/502/lab07RMark.html
+closed population abundance   
+Huggins model closed capture - overall abundance of sampled area 
+```{r}
+
+library(mra)
+
+## obsmodel
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
+
+asmiclosed13 <- obsmodel %>%  
+  group_by(Year, Tag, Site, Plot) %>%
+  dplyr::mutate(state = ifelse(any(c_across('1':'9') == 3), "Reproductive", "Vegetative")) %>%
+  dplyr::mutate(begin.time = min(which(c_across('1':'9')>0))) %>%
+  filter(!is.infinite(begin.time)) %>%  ## There were a few cases with no observations in 2014
+  dplyr::mutate(across('1':'9', ~ ifelse(.x > 0, 1, 0))) %>%
+  unite(ch, '1':'4', sep = "") %>%
+  dplyr::mutate(state = as.factor(state)) %>%
+  filter(Year == 2013)
+  
+asmi.proc13 <- process.data(asmiclosed13, begin.time = 1, model = "Closed")
+asmi.dll13 <- make.design.data(asmi.proc13)
+
+asmi.dll13$p$time
+
+```
+
+
+
+
+https://rstudio-pubs-static.s3.amazonaws.com/201392_14ed145562b34fc785f5ff2ca00ba011.html    
+Abundance using open capture-recapture    
+```{r}
 
 
 ```
 
+
+
+openCR     
+```{r}
+
+```
 
 
 
