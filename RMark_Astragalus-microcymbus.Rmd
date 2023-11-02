@@ -130,7 +130,7 @@ Create data frame of time varying covariates
 Merge time varying covariates into the deign matrix    
 ```{r}
 
-asmi.proc.covar <- process.data(asmi.data, model = ) 
+# asmi.proc.covar <- process.data(asmi.data, model = ) 
 
 ```
 
@@ -146,18 +146,18 @@ asmi.proc.covar <- process.data(asmi.data, model = )
 ## make.design.data should do the group data.frame
 
 
-asmi.procmark <- process.data(asmi.data, model = "CJS",
-                          age.var = 1,
-                          initial.ages = c(0,1,2),
-                          groups = c("first.cap.stage","Site","Plot"))
+# asmi.procmark <- process.data(asmi.data, model = "CJS",
+#                           age.var = 1,
+#                           initial.ages = c(0,1,2),
+#                           groups = c("first.cap.stage","Site","Plot"))
+# 
+# asmi.ddl <- make.design.data(asmi.procmark, 
+#                              parameters = list(Phi = list(age.bins = c(0,1,2,38)),
+#                              p = list(age.bins = c(1,2,3,39))),
+#                              right = FALSE)
 
-asmi.ddl <- make.design.data(asmi.procmark, 
-                             parameters = list(Phi = list(age.bins = c(0,1,2,38)),
-                             p = list(age.bins = c(1,2,3,39))),
-                             right = FALSE)
-
-asmi.proc <- process.data(asmi.data, model = "CJS",
-                          groups = c("Site","Plot"))
+asmi.proc <- process.data(asmi.data, model = "CJS") #,
+                          # groups = c("Site","Plot"))
 asmi.ddl <- make.design.data(asmi.proc)
 
 ```
@@ -167,10 +167,10 @@ asmi.ddl <- make.design.data(asmi.proc)
 # For Phi, values are 0 or older; for p the values are 1 or older
 # This provides an individual covariate for each parameter type
 # that changes as the animal ages
-asmi.ddl = make.design.data(asmi.proc,
-                          parameters = list(Phi = list(age.bins = c(0, 1, 28)),
-                                            p = list(age.bins = c(1, 2, 29))),
-                          right = FALSE)
+# asmi.ddl = make.design.data(asmi.proc,
+#                           parameters = list(Phi = list(age.bins = c(0, 1, 28)),
+#                                             p = list(age.bins = c(1, 2, 29))),
+#                           right = FALSE)
 
 ## Could add a precipitation or temperature variable https://www.montana.edu/rotella/documents/502/lab05Rmark.html
 
@@ -221,11 +221,10 @@ asmi.res <- run.asmi()
 asmi.res
 names(asmi.res)
 
-asmi.res[[18]]$results$real
-asmi.res$Phi.time.p.time.age$results$beta ## This has intercept and values on logit scale
+asmi.res$Phi.time.p.time$results$beta ## This has intercept and values on logit scale
 
-phitable <- get.real(asmi.res$Phi.dot.p.dot, "Phi", se = TRUE)
-ptable <- get.real(asmi.res$Phi.dot.p.dot, "p", se = TRUE)
+# phitable <- get.real(asmi.res$Phi.dot.p.dot, "Phi", se = TRUE)
+# ptable <- get.real(asmi.res$Phi.dot.p.dot, "p", se = TRUE)
 
 phitable <- get.real(asmi.res$Phi.time.p.time, "Phi", se = TRUE)
 ptable <- get.real(asmi.res$Phi.time.p.time, "p", se = TRUE)
@@ -245,14 +244,12 @@ obs <- gregexec("1", asmi.data$ch)
 n_obs <- summary(as.factor(unlist(obs)))
 estim_abundance <- n_obs[-1]/ptable$estimate[1:27]
 
-estim_abundance <- lapply(1:27)
-
 ## Cohort 1
 plot(1996:2022, estim_abundance, type = "l")
 points(1996:2022, estim_abundance)
 
 
-nb_bootstrap <- 10
+nb_bootstrap <- 100
 nb_years <- 28
 target <- data.frame(asmi.data, stringsAsFactors = FALSE)
 popsize <- matrix(NA, nb_bootstrap, nb_years-1)
@@ -262,15 +259,15 @@ pseudo <- target ## To initialize
 
 asmi.procboot <- process.data(pseudo, model = "CJS")
 asmi.ddlboot <- make.design.data(asmi.procboot)
-phi.cat <- list(formula = ~ 1)
-p.time <- list(formula = ~ 1)
+phi.time <- list(formula = ~ time)
+p.time <- list(formula = ~ time)
 
 # Run the bootstrap
 for (k in 1:nb_bootstrap){
   # resample in the original dataset with replacement
   pseudo$ch = sample(target$ch, replace=T)
   # fit model with Mark
-  res = mark(asmi.procboot,asmi.ddlboot,model.parameters=list(Phi=phi.cat,p=p.time),delete=TRUE,output=FALSE)
+  res = mark(asmi.procboot,asmi.ddlboot,model.parameters=list(Phi=phi.time,p=p.time),delete=TRUE,output=FALSE)
   # get recapture prob estimates
   ptable = get.real(res,"p", se= TRUE)
   # calculate the nb of recaptured individiduals / occasion
@@ -283,19 +280,53 @@ for (k in 1:nb_bootstrap){
 ci_asmi <- apply(popsize,2,quantile,probs=c(2.5/100,97.5/100),na.rm=T)
 ci_asmi
 
+rawasmi <- asmi.raw %>%
+  group_by(year) %>%
+  filter(!(AsMi_site_id %in% c(1,2))) %>%
+  filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
+  filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
+  dplyr::summarise(n = n()) %>%
+  print(n=28)
 ## 
 plot(1996:2022, estim_abundance, type = "l", ylim = c(0,1700))
 points(1996:2022, estim_abundance)
 lines(1996:2022, ci_asmi[1,], col="red")
 lines(1996:2022, ci_asmi[2,], col="red")
-points(rawasmi$year, rawasmi$n, col = "blue")
+points(rawasmi$year, rawasmi$n, col = "blue", pch = 16)
 
-rawasmi <- asmi.raw %>%
-  group_by(year) %>%
-  filter(!(AsMi_site_id %in% c(1,2))) %>%
-  dplyr::summarise(n = n()) %>%
-  print(n=28)
+
 ```
+
+
+```{r}
+## By groups being site and plot
+asmi.data2 <- asmi.data %>%
+  unite(group, Site, Plot, sep="")
+obs <- do.call(rbind,lapply(unique(asmi.data2$group), function(x) {
+  obs <- gregexec("1", asmi.data2$ch[asmi.data2$group == x])
+  n_obs <- summary(as.factor(unlist(obs)))
+  n_obs <- data.frame(Year = as.numeric(names(n_obs)), n_obs)
+  n_obs <- as.data.frame(complete(n_obs, Year = 1:28, fill = list(n_obs = 0)))
+  data.frame(YearN = n_obs[,1], Obs = n_obs[,2],Group = x)
+}))
+ggplot(obs, aes(YearN, Obs, group = Group))+
+  geom_line()+
+  geom_point()
+
+table(ptable$group)
+
+estim_abundance <- do.call(rbind,lapply(unique(ptable$group), function(x){
+  estim_abudance_cohort <- obs$Obs[obs$Group == x][-1]/ptable$estimate[ptable$group == x][1:27]
+  data.frame(est_abund = estim_abudance_cohort, Year = 2:28, Group = x)
+}))
+
+ggplot(estim_abundance, aes(Year, est_abund, color = Group ))+
+  geom_line()+
+  geom_point()+
+  theme_bw()
+
+```
+
 
 
 Make predictions for survival from top model
