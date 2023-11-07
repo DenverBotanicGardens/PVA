@@ -96,7 +96,8 @@ CJS_asmi <- asmi.raw %>%
             dh = if_else(length > 0, 1, 0),
             year = year,
             status = status,
-            fence = fence
+            fence = fence,
+            length = length
             ) %>%
   ungroup() %>%
   complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
@@ -104,11 +105,15 @@ CJS_asmi <- asmi.raw %>%
            explicit = FALSE) %>%
   filter(!is.na(AsMi_site_id))  ## Work around but shouldn't be adding a new first for each
 
+CJS_asmi %>%
+  filter(!is.na(length))
 
 ch_asmi <- CJS_asmi %>%
   group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  mutate(first.ln = length[year == first]) %>%
   arrange(year, .by_group = TRUE) %>%
-  dplyr::summarise(ch = paste0(dh, collapse = ""))
+  dplyr::summarise(ch = paste0(dh, collapse = "")) %>%
+  mutate(freq = "1;")
 
 fence_matrix <- CJS_asmi %>%
   select(c(AsMi_tag_id:year, fence)) %>%
@@ -118,10 +123,31 @@ fence_matrix <- CJS_asmi %>%
   
 identical(ch_asmi$AsMi_tag_id, fence_matrix$AsMi_tag_id)
 
+## Cooch and White Chapter 2 MARK
+## write.table(ch_asmi, file = "", sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+## Multistate just use S,V,R for the states (or just V, R, 0 for non-detection)
+
+## Robust design
+# 3 primary occasions (2013-2015) and 9 primary occasions within, just skipped "." a bunch for 2013, skipped some for others
+### time.intervals
+
 save(ch_asmi, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/capturehistoryannual.Rdata")
 save(fence_matrix, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/fencematrix.Rdata")
 
 ```
 
+
+
+## Open population capture-recapture, population growth rate   
+```{r}
+
+library(openCR)
+## Fits non-spatial open-population models of CJS and JSSA (JSSA or POPAN) types. Recruitment, Pollock's robust design. Conditional called a Pradel-Link-Barker model  
+## Uses secr for spatial  
+# From robust design - secondary sampling within primary sessions. 
+
+
+```
 
 

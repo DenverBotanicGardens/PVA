@@ -83,6 +83,9 @@ intra.2013 %>%
 
 rm(intra.2013July); rm(intra.2013June); rm(intra.2013Sept); rm(intra.2013Sept1); rm(intra.2013October)
 
+ggplot(intra.2013, aes(Day, Tag)) +
+  geom_point()
+
 ```
 
 "NOPE" is probably a cotyledon that wasn't AsMi, could be wasn't included in annual? I don't know, Maybe nope is no cotyledons
@@ -300,7 +303,7 @@ intra20142015 <- intra20142015 %>%
 
 table(intra20142015$Tag, useNA = "ifany") ## 18 have tag number 0, not now
 intra20142015[is.na(intra20142015$Tag),] ## none have no tag number. 
-  
+
 names(intra.2013complete) <- names(intra20142015)
 intra <- do.call(rbind, list(intra.2013complete, intra20142015))
 
@@ -308,8 +311,22 @@ intra <- do.call(rbind, list(intra.2013complete, intra20142015))
 intra$Comments[grep("no coty", intra$Comments)] <- ""
 intra$Comments[grep("coty", intra$Comments)]
 
+## Which occasions match year to year??
+## split by 10 periods, 
+# 2013:     3,    6,  8,  10
+# 2014: 1,2,3,  5,6,7,8,9,10
+# 2015: 1,2,3,4,5,6,7,8,9
+
+ggplot(intra, aes(Day, Plot, color = as.factor(Year), shape = as.factor(Year))) +
+  geom_jitter(width = 0)+
+  geom_vline(xintercept = c(115,135,155,169,187,210,235,260,285))+
+  theme_bw()
+
+mean(diff(c(115,135,155,169,187,210,235,260,285))) ## Call them 21 days apart, so time interval is 0 until switch over to year
 
 ## Want the time varying covariates to have base = parameter name, suffix = julien day
+
+## Add length at first capture
 
 ## Seedling == 2
 ## Reproductive == 3
