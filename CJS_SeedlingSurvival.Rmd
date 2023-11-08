@@ -132,6 +132,9 @@ intraMay2014 <- intra.2014_2015 %>%
   rename(Plot = Plot.1) %>%
   relocate(Site, .before = tag)
 
+intraMay2014 %>%
+  filter(LnMay12 > 0)
+
 intraJune22014 <- intra.2014_2015 %>%
   select(c(Site,Plot.1,tag,LnJun14:Comments.1)) %>%
   mutate(Day = as.POSIXlt(as.Date("2014-06-02"))$yday) %>%
@@ -268,7 +271,9 @@ intraOct2015 <- intra.2014_2015 %>%
   rename(Plot = Plot.1) %>%
   relocate(Site, .before = tag)
 
-surveys <- list(intraApril2014,intraMay2014,intraJune22014, intraJune252014, intraJul2014, 
+surveys <- list(intraApril2014,
+                # intraMay2014,
+                intraJune22014, intraJune252014, intraJul2014, 
                 intraAug2014, intraSept2014, intraOct2014, intraOct282014,
                 intraApril2015, intraMay112015, intraMay262015, intraJune8112015, intraJune222015, intraJuly2015, 
                 intraAugust2015, intraSept2015, intraOct2015)
@@ -317,6 +322,11 @@ intra$Comments[grep("coty", intra$Comments)]
 # 2014: 1,2,3,  5,6,7,8,9,10
 # 2015: 1,2,3,4,5,6,7,8,9
 
+## When removed May 2014
+# 2013:     3,    6,  8,  10
+# 2014: 1,  3,  5,6,7,8,9,10
+# 2015: 1,2,3,4,5,6,7,8,9
+
 ggplot(intra, aes(Day, Plot, color = as.factor(Year), shape = as.factor(Year))) +
   geom_jitter(width = 0)+
   geom_vline(xintercept = c(115,135,155,169,187,210,235,260,285))+
@@ -325,7 +335,6 @@ ggplot(intra, aes(Day, Plot, color = as.factor(Year), shape = as.factor(Year))) 
 mean(diff(c(115,135,155,169,187,210,235,260,285))) ## Call them 21 days apart, so time interval is 0 until switch over to year
 
 ## Want the time varying covariates to have base = parameter name, suffix = julien day
-
 ## Add length at first capture
 
 ## Seedling == 2
@@ -335,6 +344,22 @@ mean(diff(c(115,135,155,169,187,210,235,260,285))) ## Call them 21 days apart, s
 dataCJS <- intra %>%
   group_by(Year) %>%
   mutate(encounter = as.numeric(as.factor(Day))) %>%
+  ungroup()%>%
+  ## Without May 2014
+  mutate(encounter = case_when(Year == 2013 & encounter == 1 ~ 3,
+                               Year == 2013 & encounter == 2 ~ 6,
+                               Year == 2013 & encounter == 3 ~ 8,
+                               Year == 2013 & encounter == 4 ~ 10,
+                               Year == 2014 & encounter == 2 ~ 3,
+                               Year == 2014 & encounter > 2 ~ encounter+2,
+                               TRUE ~ encounter)) %>%
+  ## With May 2014
+  # mutate(encounter = case_when(Year == 2013 & encounter == 1 ~ 3,
+  #                              Year == 2013 & encounter == 2 ~ 6,
+  #                              Year == 2013 & encounter == 3 ~ 8,
+  #                              Year == 2013 & encounter == 4 ~ 10,
+  #                              Year == 2014 & encounter > 3 ~ encounter+1,
+  #                              TRUE ~ encounter)) %>%
   filter(!is.na(Site)) %>%
   group_by(Plot, Tag) %>%
   filter(any(Ln > 0)) %>% 
@@ -350,50 +375,82 @@ dataCJS <- intra %>%
   mutate(PlotTag = as.numeric(as.factor(PlotTag)) ) %>%  ## Unique numbered across all years? No. 
   mutate(Obs = ifelse(is.na(Obs), 0, Obs))
 
+
+table(dataCJS$Day)
+table(dataCJS$encounter,dataCJS$Year)
+
+
 ## There are some vertical lines that shouldn't be there. Not same PlotTag in two different states on same day 
 # No cotyloedons observed in 2013, we didn't know what they looked like yet
-dataCJS %>%
-  # filter(grepl("coty", Comments)) %>%
-ggplot(  aes(Day, Obs, color = as.factor(PlotTag), linetype = as.factor(Year)))+
-  geom_line()+
-  # geom_jitter()+
-  geom_point() +
-  # facet_wrap(~Year)+
-  scale_color_discrete(guide="none") +
-  theme_bw()
-
 dataCJS[dataCJS$Obs == 2,]
 
-## Start with 2014; some are missing a tag number. 33 don't have a Tag number
 
+## Can fill with "." if first assign a true zero to times visited and not seen
 obsmodel <- dataCJS %>%
   # filter(!(Year == 2014 & Tag == 248 & Day == 279 & Ln == 7)) %>%
   distinct(Day,Year,Plot,Site,Tag,encounter, .keep_all = TRUE) %>%
   select(c(Site:Tag, encounter, Obs, Year)) %>%
-  pivot_wider(names_from = encounter, values_from = Obs, values_fill = 0)
+  mutate(Obs = as.character(Obs)) %>%
+  arrange(encounter) %>%
+  pivot_wider(names_from = encounter, values_from = Obs, values_fill = "0", names_prefix = "Occ")
 
-## Keys are shared for 34 rows, before using distinct
-# dataCJS[3393:3394,]
+plotssurveyed <- table(dataCJS$Plot, dataCJS$encounter, dataCJS$Year)
 
-save(obsmodel, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
+## Make Plots not visited "."
+obsmodel <- obsmodel %>%
+  mutate(Occ1 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,1,2])[which(plotssurveyed[,1,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,1,3])[which(plotssurveyed[,1,3] > 0)])) ~ ".",
+                          TRUE ~ Occ1),
+         Occ2 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,2,3])[which(plotssurveyed[,2,3] > 0)])) ~ ".",
+                          TRUE ~ Occ2),
+         Occ3 = case_when(Year == 2013 & !(Plot %in% c(8,238,480,606,607,608,609,610,611,799)) ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,3,2])[which(plotssurveyed[,3,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,3,3])[which(plotssurveyed[,3,3] > 0)])) ~ ".",
+                          TRUE ~ Occ3),
+         Occ4 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,4,2])[which(plotssurveyed[,4,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,4,3])[which(plotssurveyed[,4,3] > 0)])) ~ ".",
+                          TRUE ~ Occ4),
+         Occ5 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,5,2])[which(plotssurveyed[,5,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,5,3])[which(plotssurveyed[,5,3] > 0)])) ~ ".",
+                          TRUE ~ Occ5),
+         Occ6 = case_when(Year == 2013 & !(Plot %in% as.numeric(names(plotssurveyed[,6,1])[which(plotssurveyed[,6,1] > 0)])) ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,6,2])[which(plotssurveyed[,6,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,6,3])[which(plotssurveyed[,6,3] > 0)])) ~ ".",
+                          TRUE ~ Occ6),
+         Occ7 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,7,2])[which(plotssurveyed[,7,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,7,3])[which(plotssurveyed[,7,3] > 0)])) ~ ".",
+                          TRUE ~ Occ7),
+         Occ8 = case_when(Year == 2013 & !(Plot %in% as.numeric(names(plotssurveyed[,8,1])[which(plotssurveyed[,8,1] > 0)])) ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,8,2])[which(plotssurveyed[,8,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,8,3])[which(plotssurveyed[,8,3] > 0)])) ~ ".",
+                          TRUE ~ Occ8),
+         Occ9 = case_when(Year == 2013 ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,9,2])[which(plotssurveyed[,9,2] > 0)])) ~ ".",
+                          Year == 2015 & !(Plot %in% as.numeric(names(plotssurveyed[,9,3])[which(plotssurveyed[,9,3] > 0)])) ~ ".",
+                          TRUE ~ Occ9),
+         Occ10 = case_when(Year == 2013 & !(Plot %in% as.numeric(names(plotssurveyed[,10,1])[which(plotssurveyed[,10,1] > 0)])) ~ ".",
+                          Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,10,2])[which(plotssurveyed[,10,2] > 0)])) ~ ".",
+                           Year == 2015 ~ ".",
+                          TRUE ~ Occ10))
+
+obsmodelRobust <- obsmodel %>%
+  unite(ch, Occ1:Occ10, sep = "") %>%
+  arrange(Year) %>%
+  group_by(Site, Plot, Tag) %>%
+  summarise(ch = paste0(ch, collapse = ""))
+  
+  
+
+save(obsmodel, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Robust3years.Rdata")
 
 obsmodel %>%
   filter(Year == 2014)
-
-# model_data <- list(numPlots = nrow(K_plotcomplete),
-#                    Site = as.factor(encounters$Site),
-#                    Plot = as.factor(encounters$Plot),
-#                    Kplot = K_plotcomplete$LastK,   ## need row for each tag within
-#                    nplot = K_plotcomplete$nx.plot,
-#                    n = length(encounters$e),
-#                    nx = sum(K_plotcomplete$K.plot),  ## have one row for each tag "*K_plotcomplete$nx.plot"
-#                    e = encounters$e,
-#                    data1 = dataCJS[,1],
-#                    data2 = dataCJS[,2],
-#                    data3 = dataCJS[,3])
-#                    # data = dataCJS)
-#   
-# save(model_data, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/model_data.Rdata")
 
 ```
 
