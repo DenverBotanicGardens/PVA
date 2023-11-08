@@ -378,14 +378,13 @@ dataCJS <- intra %>%
 
 table(dataCJS$Day)
 table(dataCJS$encounter,dataCJS$Year)
+```
 
 
-## There are some vertical lines that shouldn't be there. Not same PlotTag in two different states on same day 
-# No cotyloedons observed in 2013, we didn't know what they looked like yet
-dataCJS[dataCJS$Obs == 2,]
+
+```{r}
 
 
-## Can fill with "." if first assign a true zero to times visited and not seen
 obsmodel <- dataCJS %>%
   # filter(!(Year == 2014 & Tag == 248 & Day == 279 & Ln == 7)) %>%
   distinct(Day,Year,Plot,Site,Tag,encounter, .keep_all = TRUE) %>%
@@ -438,6 +437,17 @@ obsmodel <- obsmodel %>%
                           Year == 2014 & !(Plot %in% as.numeric(names(plotssurveyed[,10,2])[which(plotssurveyed[,10,2] > 0)])) ~ ".",
                            Year == 2015 ~ ".",
                           TRUE ~ Occ10))
+
+
+## So close, need zeros and "."s for the years when not recorded, 
+# when missing in a year, can be the pattern of characters and . for that plot but all zeros
+asmiRD <- obsmodel %>%
+  mutate(across(Occ1:Occ10, ~ ifelse(.x > 0, 1, .x))) %>%
+  unite(ch, Occ1:Occ10, sep="") %>%
+  group_by(Site,Plot,Tag) %>%
+  mutate(ch = paste0(ch, collapse = ""))
+
+asmiRD[nchar(asmiRD$ch) == 30,] ## 288 individuals across all three years 
 
 obsmodelRobust <- obsmodel %>%
   unite(ch, Occ1:Occ10, sep = "") %>%
