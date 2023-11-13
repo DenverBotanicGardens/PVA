@@ -128,6 +128,29 @@ names(do.call(c,all.pva))
 all.pvamat <- matrix(unlist(all.pva), ncol = length(do.call(c,all.pva)))
 all.pvamat[,1:4]
 
+  s <- sqrt(dim(all.pvamat)[1]) ## number of stage classes
+  n <- dim(all.pvamat)[2] ## number of matrixes
+  Abar <- numeric(s^2) ## an s X s matrix and/or array of all zeros ??
+  Exy <- numeric(s^4)
+  
+  C <- kronecker(all.pvamat[,1], all.pvamat[,1]) * n / (n-1)
+  # C <- (Exy - kronecker(Abar, Abar)) * n / (n - 1)
+  C <- matrix(C, nrow = s^2)
+  Abar <- matrix(all.pvamat[,1], nrow = s)
+  
+  V <- Conj(solve(W, tol = 1e-100))
+  
+  v <- abs(Re(V[lmax, ]))
+  S <- v %o% w 
+  
+  ## code from eigen.analysis for lambda and Sensitivity matrix
+  ev <- eigen(Abar)
+  lmax <- which(Re(ev$values) == max(Re(ev$values)))
+  lambda <- Re(ev$values[lmax])
+  W <- ev$vectors
+  w <- abs(Re(W[, lmax]))
+  
+
 ```
 
 Devenish Nelson et al 2010 Conf Int     
@@ -174,6 +197,399 @@ boot.lambdas <- lapply(all.pva, function(x){
 
 ```
 
+
+error is variance^2 = e_i * T(sum e_i)
+
+
+
+Wisdom Mills and Doak 2000 Life stage simulation analysis: estimating vital-rate effects on population growth for conservation   
+vital-rate uncertainty, variation, and covariation cannot be ignored   
+vital rates drawn randomly from prob distribution - reflects spatial and covariation. 
+randomly selected vital rates used for time-invariant matrix population model   
+Sample many matrices, distribution of all vital rates   
+Not time varying like Taljapurkar   
+does not examine time varying effects, must be calculated at stable stage distriubtion (like LTREs)
+1. selected reproductive rates from log-normal, selected all other rates from beta-prob distribution adhering to prespecificed variance-covariance structure among vital rates
+
+```{r}
+
+## Population size per year and site
+popsz.yearsite <- asmi.raw %>%
+  group_by(year, AsMi_site_id) %>%
+  filter(length > 0) %>%
+  dplyr::summarise(N = n()) %>%
+  arrange(year, AsMi_site_id) %>%
+  unite(Site.Year, c(AsMi_site_id,year), sep = ".")
+
+
+mpmdim <- dim(all.pva[[1]][[1]])[1]
+
+## Gather all mpms into one large matrix, columns are a matrix
+all.mpm <- do.call(c, all.pva)
+names.mpm <- do.call(c,lapply(all.pva, function(x){
+  lapply(x, function(y) names(y))
+}))
+matrices <- matrix(unlist(all.mpm), ncol = length(all.mpm))
+named.mpms <- data.frame(matrices)
+names(named.mpms) <- names(names.mpm)
+
+A <- matrix(named.mpms[,1],nrow = mpmdim)
+
+# named.mpms[1]  ## 1.2015
+popsz <- popsz.yearsite$N[which(grepl(names(named.mpms)[1],popsz.yearsite$Site.Year))]
+
+# popsz <- 100
+ssd <- stable.stage(A)
+n0 <- round(ssd*popsz,0)
+
+maxt <- 100
+n <- c(NA)
+## Projection matrix
+nt <- round(A * n0,0)
+
+Px <- seq(0.01,0.99, by = 0.01)
+likdis <- lapply(1:4, function(i){
+    dbinom(x = nt[i],size = n0[i], Px)
+    })  ## Dormant always survive
+
+s <- 4 ## number of classes
+n <- dim(matrices)[2]
+prob <- rep(1 / n, n)
+## sample survival rates from distribution Here's where I need a vcov matrix to select among the vital rates that result in distribution
+## code from eigen.analysis for lambda and Sensitivity matrix
+  Abar <- numeric(s^2) ## an s X 1 array of all zeros 
+  Exy <- numeric(s^4)
+
+  ## for each matrix, add values to Abar and Exy weighted by probabilities in prob
+  for (i in 1:n) {
+    A <- matrices[, i]
+    Exy <- Exy + prob[i] * kronecker(A, A)
+    Abar <- Abar + prob[i] * A
+  }
+  ## Covariance matrix
+  C <- (Exy - kronecker(Abar, Abar)) * n / (n - 1)
+  C <- matrix(C, nrow = s^2)
+  Abar <- matrix(Abar, nrow = s)  
+  ev <- eigen(Abar)
+  lmax <- which(Re(ev$values) == max(Re(ev$values)))  ## which are the real numbers??
+  lambda <- Re(ev$values[lmax])
+  # lambda <- lambda(Abar)  ## same
+  W <- ev$vectors
+  w <- abs(Re(W[, lmax]))
+  
+  ## Causes problems when... tol too high
+  V <- Conj(solve(W, tol = 1e-30))
+  
+  
+  v <- abs(Re(V[lmax, ]))  ## reproduction, multiple left and right eigen
+  S <- v %o% w  # is scalar quantity, the sum of the product of the values, transposes the second 
+ Svec <- as.vector(S)
+ tau2 <-  t(Svec) %*% C %*% Svec  
+ loglam <- log(lambda) - tau2/(2*lambda^2)
+ lams <- exp(loglam)
+ 
+ 
+## tau2/lambdahat2 is structured equivalent of sigma2 for unstructured
+ varmpm <- tau2/(lambda^2)
+
+ 
+plot(Px, likdis[[1]], type = "l", ylim = c(0,1))
+lines(Px, likdis[[2]], col = "red")
+lines(Px, likdis[[3]], col="blue")
+lines(Px, likdis[[4]], col="green")
+
+# CI95 <- lapply( which(n0 >0), function(i){ 
+#     prop.test(x = nt[i],n = n0[i], conf.level = 0.95)
+#     }) 
+
+library(Hmisc)
+CI95 <- do.call(rbind,lapply( which(n0 >0), function(i){ 
+    binconf(x = nt[i],n = n0[i], alpha = 0.05)
+    }) )
+
+abline(v = CI95[,1], col = c("red","blue","green"))
+abline(v = CI95[,2], col = c("red","blue","green"), lty = "dotted")
+abline(v = CI95[,3], col = c("red","blue","green"), lty = "dotted")
+
+
+
+```
+
+Morris and Doak 2002, pg 237. The quantity tau^2/lambda^2 (of the mean matrix) approximates teh temporal (or spatial) variance of the log population growth rate caused by environmental stochasticity    
+```{r}
+
+lambdatau <- function(mats){
+  
+  # matrices <- matrix(unlist(mats), ncol = length(all.mpm))
+  matrices <- mats
+  s <- 4 ## number of classes
+  n <- dim(matrices)[2]
+  prob <- rep(1 / n, n)
+## sample survival rates from distribution Here's where I need a vcov matrix to select among the vital rates that result in distribution
+## code from eigen.analysis for lambda and Sensitivity matrix
+  Abar <- numeric(s^2) ## an s X 1 array of all zeros 
+  Exy <- numeric(s^4)
+
+  ## for each matrix, add values to Abar and Exy weighted by probabilities in prob
+  for (i in 1:n) {
+    A <- matrices[, i]
+    Exy <- Exy + prob[i] * kronecker(A, A)
+    Abar <- Abar + prob[i] * A
+  }
+  ## Covariance matrix
+  C <- (Exy - kronecker(Abar, Abar)) * n / (n - 1)
+  C <- matrix(C, nrow = s^2)
+  Abar <- matrix(Abar, nrow = s)  
+  ev <- eigen(Abar)
+  lmax <- which(Re(ev$values) == max(Re(ev$values)))  ## which are the real numbers??
+  lambda <- Re(ev$values[lmax])
+  # lambda <- lambda(Abar)  ## same
+  W <- ev$vectors
+  w <- abs(Re(W[, lmax]))
+  
+  ## Causes problems when... tol too low
+  V <- Conj(solve(W, tol = 1e-300))
+  v <- abs(Re(V[lmax, ]))  ## reproduction, multiple left and right eigen
+  S <- v %o% w  # is scalar quantity, the sum of the product of the values, transposes the second 
+  Svec <- as.vector(S)
+  tau2 <-  t(Svec) %*% C %*% Svec  
+  loglam <- log(lambda) - tau2/(2*lambda^2)
+  lams <- exp(loglam)
+  
+  ## tau2/lambdahat2 is structured equivalent of sigma2 for unstructured
+  varmpm <- tau2/(lambda^2)
+  out <- data.frame(lambdabar = lambda, tau2 = tau2, varmpm = varmpm)
+  return(out)
+}
+
+## remove the first and last years, year indicates the start of the interval 
+year.var <- do.call(rbind,lapply(1996:2021, function(yr){
+  data.frame(Year = yr, lambdatau(named.mpms[,which(grepl(yr,names(named.mpms)))]))
+}))
+
+
+```
+
+From Astragalus-microcymbus_capturehistories   
+```{r}
+# currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+currentyr <- 2023
+
+##To change if someone other than Michelle is running code
+userpath <- "C:/Users/DePrengm/"
+
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+
+## plot 89 at site 1 was lost in 2020
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+# Site 26 had two plots added later; Plots 238 and 300 were added in 1996 with no seedlings! good!;  plot 598 was added in 2004, no seedlings, good!  
+table(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_plot_id %in% c(238,300,598)], 
+      asmi.raw$status[asmi.raw$AsMi_plot_id %in% c(238,300,598)],
+      asmi.raw$year[asmi.raw$AsMi_plot_id %in% c(238,300,598)])
+
+# Need to change all the seedling in 2014 for sites 1 and 2 to appropriate vegetative or reproductive 
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 0] <- "vegetative"
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 1] <- "reproductive"
+
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal" ] <- "Mammal"
+asmi.raw[asmi.raw$Browsing...Status ==""& !is.na(asmi.raw$Browsing...Status),]
+asmi.raw[is.na(asmi.raw$AsMi_data_id),]
+asmi.raw <- asmi.raw[!is.na(asmi.raw$AsMi_data_id),] # remove any rows with NA for data_id
+
+# Which plot # go with which site
+plotsXsite <- as.data.frame(table(asmi.raw$AsMi_plot_id,asmi.raw$AsMi_site_id))
+plotsXsite[plotsXsite$Freq > 0,]
+
+# one blank row at the end of the csv download, gone by 2021
+asmi.raw[asmi.raw$status == "",]
+# asmi.raw <- asmi.raw[asmi.raw$status != "",]
+asmi.raw$status <- factor(asmi.raw$status)
+table(asmi.raw$status)
+
+#reset factors of browsing to eliminate " "
+# asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal"] <- "Mammal"
+asmi.raw$Browsing...Status <- factor(asmi.raw$Browsing...Status)
+
+#reset factors for fence
+asmi.raw$fence <- factor(asmi.raw$fence)
+table(asmi.raw$fence)
+
+asmi.raw[asmi.raw$length>90 & !is.na(asmi.raw$length),] 
+asmi.raw$length[asmi.raw$length == 921] <- 21
+
+# If there are fruit, it flowered and needs to be reproductive, not vegetative
+asmi.raw[asmi.raw$status=="vegetative" & asmi.raw$fruit>0,] # 5 times in 2020
+wrongAsMidataid <- asmi.raw$AsMi_data_id[asmi.raw$status=="vegetative" & asmi.raw$fruit>0]
+asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
+asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
+asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
+
+
+str(asmi.raw) ## n = 1, y = 2
+
+CJS_asmi <- asmi.raw %>%
+  mutate(fence = as.numeric(fence)-1) %>%
+  mutate(fence = if_else(year < 2006, 0, fence)) %>%
+  mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), 0, fence)) %>%
+  mutate(fence = if_else(year > 2015, 0, fence)) %>%
+  tidyr::complete(AsMi_tag_id, year, fill = list(length = 0, fence = 0)) %>%
+  group_by(AsMi_site_id, AsMi_plot_id, AsMi_tag_id) %>%
+  summarise(first = min(year),
+            dh = if_else(length > 0, 1, 0),
+            year = year,
+            status = status,
+            fence = fence,
+            length = length
+            ) %>%
+  ungroup() %>%
+  complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
+           fill = list(dh = 0, status = "dead", fence = 0),
+           explicit = FALSE) %>%
+  filter(!is.na(AsMi_site_id))  ## Work around but shouldn't be adding a new first for each
+
+CJS_asmi %>%
+  filter(!is.na(length))
+
+ch_asmi <- CJS_asmi %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  mutate(first.ln = length[year == first]) %>%
+  arrange(year, .by_group = TRUE) %>%
+  dplyr::summarise(ch = paste0(dh, collapse = "")) %>%
+  mutate(freq = "1;")
+
+fence_matrix <- CJS_asmi %>%
+  select(c(AsMi_tag_id:year, fence)) %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  arrange(year, .by_group = TRUE) %>%
+  pivot_wider(names_from = year, values_from = fence)
+  
+identical(ch_asmi$AsMi_tag_id, fence_matrix$AsMi_tag_id)
+
+## Cooch and White Chapter 2 MARK
+## write.table(ch_asmi, file = "", sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
+## Filter out capture histories that are all 0s
+ch_asmi %>%
+  ungroup() %>%
+  dplyr::select(ch:freq) %>%
+  filter(grepl("1", ch)) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/channual.inp", 
+              sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+
+## Multistate just use S,V,R for the states (or just V, R, 0 for non-detection)
+
+## Robust design
+# 3 primary occasions (2013-2015) and 9 primary occasions within, just skipped "." a bunch for 2013, skipped some for others
+### time.intervals
+
+save(ch_asmi, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/capturehistoryannual.Rdata")
+save(fence_matrix, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/fencematrix.Rdata")
+
+```
+
+Pradel model for lambda (population growth rate) and recruitment (phi) and detection (p)
+```{r}
+
+# Years of study in the abstract
+length(1995:currentyr)
+asmi29 <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/channual.inp")
+
+asmi29.proc <- process.data(asmi29, model = "Pradel")
+
+## Gamma p 
+mod.dot <- mark(asmi29.proc, model.parameters = list(Gamma = list(formula = ~1),
+                                                     p = list(formula = ~1)))
+
+## Phi p f
+asmi29.proc2 <- process.data(asmi29, model = "Pradrec")
+mod.dot2 <- mark(asmi29.proc2, model.parameters = list(Phi = list(formula = ~1),
+                                                       p = list(formula = ~1)))
+asmi29.ddl <- make.design.data(asmi29.proc2)
+
+mod.time <- mark(asmi29.proc2, model.parameters = list(Phi = list(formula = ~ time),
+                                                       p = list(formula = ~ 1)))
+
+mod.time$pims
+mod.time$results$real
+### LAMBDA!!!
+mod.time$results$derived
+
+asmi.lambda <- mod.time$results$derived$`Lambda Population Change`
+
+ggplot(asmi.lambda, aes(1995:2022, estimate)) +
+  geom_point()+
+  # geom_line() +
+  theme_bw() +
+  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
+                color = "red")+
+  xlab("Year") +
+  ylab(expression(lambda))+
+  geom_hline(yintercept = 1, linetype = "dotted")
+  # geom_ribbon(aes(ymin = lcl, ymax = ucl), fill = "red", alpha=0.25)
+
+asmi.loglambda <- mod.time$results$derived$`log(Lambda) Population Change`
+
+ggplot(asmi.loglambda, aes(1995:2022, estimate)) +
+  geom_point()+
+  # geom_line() +
+  theme_bw() +
+  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
+                color = "red")+
+  xlab("Year") +
+  ylab(expression("log"~lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted")
+
+
+## More likely recruitment changes over time (f) as well as survival 
+mod.timetime <- mark(asmi29.proc2, model.parameters = list(Phi = list(formula = ~ time),
+                                                           p = list(formula = ~ 1),
+                                                           f = list(formula = ~ time)))
+
+asmi.lambdatimetime <- mod.timetime$results$derived$`Lambda Population Change`
+asmi.lambdatimetime2 <- asmi.lambdatimetime %>%
+  mutate(Year = 1995:2022) %>%
+  relocate(Year, .before = estimate)
+
+year.var %>%
+  dplyr::rename(estimate = lambdabar) %>%
+  dplyr::rename(se = tau2) %>%
+  dplyr::mutate(lcl = estimate - varmpm,
+                ucl = estimate + varmpm) %>%
+  dplyr::select(c(Year:se,lcl:ucl)) %>%
+  bind_rows(asmi.lambdatimetime2) %>%
+ggplot(   aes(Year, estimate)) +
+  geom_point()+
+  # geom_line() +
+  theme_bw() +
+  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
+                color = "red")+
+  xlab("Year") +
+  ylab(expression(lambda))+
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  geom_point(data = year.var, 
+             mapping = aes(Year, lambdabar), pch = 16, color = "purple")+
+  geom_errorbar(data = year.var, 
+                mapping = aes(1995:2022, ymin = year.var$lambdavar+year.var$varmpm, 
+                              ymax = year.var$lambdavar-year.var$varmpm),
+                color = "orange")
+
+asmi.loglambdatimetime <- mod.timetime$results$derived$`log(Lambda) Population Change`
+ggplot(asmi.loglambdatimetime, aes(1995:2022, estimate)) +
+  geom_point()+
+  theme_bw() +
+  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
+                color = "red")+
+  xlab("Year") +
+  ylab(expression(lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted") 
+
+```
 
 
 ```{r}
