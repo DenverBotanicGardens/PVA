@@ -1,0 +1,250 @@
+---
+title: "AsMi confidence intervals from point estimates"
+author: "Michelle DePrenger-Levin"
+date: "2023-08-15"
+output: html_document
+---
+
+```{r}
+library(popbio)
+library(popdemo)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(popbio)
+library(devtools)
+library(sciplot)
+library(plotrix)
+library(scales)
+library(digest)
+library(RCurl)
+library(prism)
+# prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+# library(rgdal) Will go away in 2023 https://r-spatial.org/r/2022/04/12/evolution.html and https://github.com/r-spatial/evolution rgdal: version: 1.6-2, (SVN revision 1183)
+
+library(raster)
+library(Rmisc)
+
+library(car) 
+
+# AIC
+require(AICcmodavg)
+library(lme4)
+library(lattice)
+
+#Plots and figures
+library(DiagrammeR)
+library(patchwork)
+
+library(MASS)
+library(HDInterval)
+
+```
+
+
+Load MPM from Annual report tables and figures.Rmd  
+
+```{r}
+## all.pva
+load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/2023_Astragalus-microcymbus_AnnualReport/allpva2023-11-12.Rdata")
+
+load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate2023.Rdata")
+
+```
+
+Jensen's inequality via Fiske et al 2008 (via Fox and Kendall)   
+Small sample sizes will lead to biased estimates of lambda as a result of increased sampling variance. 
+```{r}
+#binomial distribution means
+p <- seq(0.01,0.99, 0.01)
+sampleSize <- seq(1,100,10)
+varBinom <- (p*(1-p))/sampleSize[4]
+
+plot(p, varBinom, type = "l")
+
+binomDF <- do.call(rbind,lapply(sampleSize[-1], function(x){
+  # pHetero <- lapply(p, function(i) { rbeta(1,round(i*x,0), round((1-i)*x,0))}) ## This would still be homogenous
+  varHetero <- unlist(lapply(p, function(i) var(unlist(lapply(1:x, function(rep) rbeta(1,round(i*x,0), round((1-i)*x,0)) ) ))))
+  
+  data.frame(sampleSize = x, p, varBinom = (p*(1-p))/x,
+             varHetero)
+}))
+
+binomDF %>%
+  filter(sampleSize < 200) %>%
+ggplot(  aes(p, varBinom, color = as.factor(sampleSize)))+
+  geom_point() +
+  stat_smooth(aes(p, varHetero))+
+  theme_bw()
+
+
+lams <- c(0.3,rep(1.1, 9))
+#arithmetic mean
+mean(lams) # grows 2%/year
+#geometric mean
+prod(lams)^(1/10)
+exp(mean(log(lams)))
+
+mean(log(lams)) # geometric mean less than 
+log(mean(lams)) # arithmetic mean
+```
+
+
+
+```{r}
+
+
+A_site1 <- mean(do.call(c,list(all.pva$"1", all.pva$"22", all.pva$"32", all.pva$"42", all.pva$"52")))
+A_site2 <- mean(do.call(c,list(all.pva$"16", all.pva$"58", all.pva$"89", all.pva$"90", all.pva$"96", all.pva$"98")))
+A_site5 <- mean(do.call(c,list(all.pva$"606", all.pva$"607", all.pva$"608", all.pva$"609", all.pva$"610")))
+A_site15 <- mean(do.call(c,list(all.pva$"8", all.pva$"578", all.pva$"581", all.pva$"799")))
+A_site19 <- mean(do.call(c,list(all.pva$"300", all.pva$"512", all.pva$"513", all.pva$"514", all.pva$"515")))
+A_site26 <- mean(do.call(c,list(all.pva$"238", all.pva$"480", all.pva$"598", all.pva$"611", all.pva$"614")))
+
+do.call(rbind,lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) lambda(x)))
+
+site1.mpm <- do.call(list,list(all.pva$"1", all.pva$"22", all.pva$"32", all.pva$"42", all.pva$"52"))
+site1year <- lapply(2015:2021, function(yr){
+  mpmyr <- lapply(site1.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  mean(lapply(mpmyr, '[[', 1))
+})
+
+site2.mpm <- list(all.pva$"16", all.pva$"58", all.pva$"89", all.pva$"90", all.pva$"96", all.pva$"98")  ## 89 removed
+site2year <- lapply(2015:2020, function(yr){
+  mpmyr <- lapply(site2.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  mean(lapply(mpmyr, '[[', 1))
+})
+
+26*26
+## by year
+lapply(all.pva, function(ap) names(ap))
+names(do.call(c,all.pva))
+
+
+all.pvamat <- matrix(unlist(all.pva), ncol = length(do.call(c,all.pva)))
+all.pvamat[,1:4]
+
+```
+
+Devenish Nelson et al 2010 Conf Int     
+```{r}
+
+##Correlation structure of growth, survival, reproduction, retrogression following Doak et al 1994 
+# survival 
+head(asmi.all2)
+asmi.all2 %>%
+  mutate(surv = ifelse(fate == "dead",0,1)) %>%
+  group_by(stage, surv) %>%
+  dplyr::summarise(n = n()) %>%
+  group_by(stage) %>%
+  dplyr::summarise(n[surv == 1]/sum(n))
+
+
+## Point estimate of lambda as dominant eigenvalue
+lapply(all.pva, function(x){ 
+  lapply(x, function(y){ 
+    lambda(y)
+    })
+  })
+
+## Resample, parametric bootstrap, from 10,000 replicate projection matrices each element drawn from corresponding likelihood distribution
+## Did not use right shifted Poisson because a reproductive adult could have all individuals fail??
+# split into birth and death matrices
+U <- all.pva$'1'[[1]]
+## Set population size and numbers 
+N <- 100
+start <- stable.stage(U)
+n <- matrix(rep(0,nrow(U)), nrow = 1, byrow = TRUE)
+n <- round(N*start,0) 
+Ubinom <- mapply(as.vector(U[-1,]), n, function(x,y) dbinom())
+dbinom()
+
+boot.lambdas <- lapply(all.pva, function(x){
+  lapply(x, function(y){
+    
+  })
+})
+
+
+
+
+```
+
+
+
+```{r}
+### Just use popbio::stoch.growth.rate
+## Defaults to equal probability of selecting each matrix; max number of time intervals
+## By site
+stoch.lambda <- stoch.growth.rate(all.pva[[1]], maxt = 50000)
+
+## By year
+lapply(all.pva, function(x) names(x))
+
+byyear <- lapply(1996:2020, function(yr){
+  lapply(all.pva, function(m) {
+    # print(paste(names(m),yr))
+    m[grepl(as.character(yr), names(m))]
+    })
+})
+
+is_invertible <- function(X) !inherits(try(solve(X), silent = TRUE), "try-error")
+
+mpms96 <- do.call(list, unlist(byyear[[1]], recursive = FALSE))
+lapply(mpms96, function(x) lambda(x))
+lapply(mpms96, function(x) is.singular.matrix(matrix(x, nrow = 4, byrow = TRUE)))
+lapply(mpms96, function(x) is_invertible(x)) ## The opposite of is.singular
+
+mpms00 <- do.call(list, unlist(byyear[[5]], recursive = FALSE))
+lapply(mpms00, function(x) matrix(x, nrow = 4, byrow = TRUE))
+lapply(mpms00, function(x) det(str(matrix(x, nrow = 4, byrow = TRUE))))
+str(matrix(mpms00[[1]], nrow = 4, byrow = TRUE))
+library(matrixcalc)
+lapply(mpms00, function(x) is.singular.matrix(matrix(x, nrow = 4, byrow = TRUE)))
+unlist(lapply(mpms00, function(x) is_invertible(x)))
+
+
+
+mpms01 <- do.call(list, unlist(byyear[[6]], recursive = FALSE))
+lapply(mpms01, function(x) lambda(x))
+
+x <- byyear[[1]]
+
+## Average over plots in a site per year
+mean.year.matrix <- lapply
+
+## Use Testing_stoch.growth.rate.Rmd to lower solve tollerance
+stoch.year <- lapply(byyear, function(x){
+  mpms <- do.call(list, unlist(x, recursive = FALSE))
+  stoch.growth.rate(mpms)
+})
+
+stoch.year
+
+stoch1 <- stoch.growth.rate(site1year)
+exp(stoch1$sim)
+exp(stoch1$sim.CI)
+
+```
+
+
+
+
+
+
+Notes:
+
+## covariance 
+x1 <- rnorm(1000)
+# cov 
+cov1 <- 0.8
+x2 <- cov1*x1 + rnorm(1000)
+
+cov(x1,x2) # is approximately cov1
+
+## G-Wishart distribution 
+?rgwish
