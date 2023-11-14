@@ -554,7 +554,8 @@ mod.timetime <- mark(asmi29.proc2, model.parameters = list(Phi = list(formula = 
 asmi.lambdatimetime <- mod.timetime$results$derived$`Lambda Population Change`
 asmi.lambdatimetime2 <- asmi.lambdatimetime %>%
   mutate(Year = 1995:2022) %>%
-  relocate(Year, .before = estimate)
+  relocate(Year, .before = estimate) %>%
+  mutate(met = "CJS")
 
 year.var %>%
   dplyr::rename(estimate = lambdabar) %>%
@@ -562,32 +563,47 @@ year.var %>%
   dplyr::mutate(lcl = estimate - varmpm,
                 ucl = estimate + varmpm) %>%
   dplyr::select(c(Year:se,lcl:ucl)) %>%
+  mutate(met = "MPM") %>%
   bind_rows(asmi.lambdatimetime2) %>%
-ggplot(   aes(Year, estimate)) +
-  geom_point()+
+ggplot(   aes(Year, estimate, color = met)) +
+  geom_point(position = position_dodge(width = 0.5))+
   # geom_line() +
   theme_bw() +
-  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
-                color = "red")+
+  geom_errorbar(position = position_dodge(width = 0.5), aes(ymin = lcl, ymax = ucl))+
   xlab("Year") +
   ylab(expression(lambda))+
-  geom_hline(yintercept = 1, linetype = "dotted") +
-  geom_point(data = year.var, 
-             mapping = aes(Year, lambdabar), pch = 16, color = "purple")+
-  geom_errorbar(data = year.var, 
-                mapping = aes(1995:2022, ymin = year.var$lambdavar+year.var$varmpm, 
-                              ymax = year.var$lambdavar-year.var$varmpm),
-                color = "orange")
+  geom_hline(yintercept = 1, linetype = "dotted") 
+ 
+
 
 asmi.loglambdatimetime <- mod.timetime$results$derived$`log(Lambda) Population Change`
-ggplot(asmi.loglambdatimetime, aes(1995:2022, estimate)) +
-  geom_point()+
+asmi.loglambdatimetime2 <- asmi.loglambdatimetime %>%
+  mutate(Year = 1995:2022) %>%
+  relocate(Year, .before = estimate) %>%
+  mutate(met = "CJS")
+plotdata <- year.var %>%
+  dplyr::mutate(lambdabar = log(lambdabar)) %>%
+  dplyr::rename(estimate = lambdabar) %>%
+  dplyr::rename(se = tau2) %>%
+  dplyr::mutate(lcl = estimate - varmpm,
+                ucl = estimate + varmpm) %>%
+  dplyr::select(c(Year:se,lcl:ucl)) %>%
+  mutate(met = "MPM") %>%
+  bind_rows(asmi.loglambdatimetime2) 
+
+p1 <- ggplot(plotdata, aes(Year, estimate, color = met)) +
+  geom_point(position = position_dodge(width = 0.5))+
+  # geom_line() +
   theme_bw() +
-  geom_errorbar(aes(1995:2022, ymin = lcl, ymax = ucl),
-                color = "red")+
+  geom_errorbar(position = position_dodge(width = 0.5), aes(ymin = lcl, ymax = ucl))+
   xlab("Year") +
-  ylab(expression(lambda))+
-  geom_hline(yintercept = 0, linetype = "dotted") 
+  ylab(expression(log~lambda))+
+  scale_color_manual("Method", values = c("black","grey70"))+
+  geom_hline(yintercept = 0, linetype = "dotted")
+
+
+ggsave(p1, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasCJSMPM.jpg",
+         width=250, height=125,units='mm', dpi=300 )
 
 ```
 
