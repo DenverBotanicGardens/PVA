@@ -14,7 +14,7 @@ library(boot)
 ## capture histories 2013-2015, secondary capture occasions within in closed periods
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
 
-currentyr <- 2022
+currentyr <- 2023
 
 userpath <- "C:/Users/DePrengm/"
 # currentyr <- 2022
@@ -30,7 +30,7 @@ asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 ## Raw data but kept dormancy to 3 or fewer years, then given a new tag number
 asmi.raw3 <- read.csv("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Dormant3yrmax_rawdata2022.csv")
 
-## Load climate data up to 2022
+## Load climate data up to 2023
 load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
@@ -43,13 +43,14 @@ Format data of all years
 ```{r}
 asmi.raw <- asmi.raw3
 
+## Just add "." for all the ones that we're measured
 # assign group at first encounter, age 0 if 'seedling' or vegetative, older if reproductive. 
 CJS_asmi <- asmi.raw %>%
   filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
   filter(!is.na(year)) %>%  
-  filter(AsMi_site_id %in% c(5,15,19,26)) %>% ## exclude Cebolla Creek that was added 2014
-  filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
-  filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
+  # filter(AsMi_site_id %in% c(5,15,19,26)) %>% ## exclude Cebolla Creek that was added 2014
+  # filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
+  # filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
   dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
   group_by(AsMi_tag_id) %>%
   filter(any(length > 0)) %>%
@@ -59,19 +60,58 @@ CJS_asmi <- asmi.raw %>%
                          length == 0 ~ 0,
                          is.na(length) ~ 0)) %>%
   arrange(year) %>%
-  pivot_wider(names_from = year, values_from = Obs, values_fill = 0, names_prefix = "Year", 
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
               id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  mutate(Year1995 = case_when((AsMi_plot_id %in% c(300,238,598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1995),
+         Year1996 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1996),
+         Year1997 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1997),
+         Year1998 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1998),
+         Year1999 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1999),
+         Year2000 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2000),
+         Year2001 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2001),
+         Year2002 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2002),
+         Year2003 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2003),
+         Year2004 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2004),
+         Year2005 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2005),
+         Year2006 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2006),
+         Year2007 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2007),
+         Year2008 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2008),
+         Year2009 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2009),
+         Year2010 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2010),
+         Year2011 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2011),
+         Year2012 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2012),
+         Year2013 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2013)) %>%
   unite(ch, Year1995:Year2022, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id))
 
+dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
+
 CJS_asmi %>%
-  select(first.cap.stage:Plot) %>%
-  # process.data() %>%
-  # export.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark",
-  #               covariates = c("first.cap.stage","Site","Plot"), replace = TRUE)
-  save(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp")
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", sep = " ", col.names = FALSE, row.names = FALSE)
 
 
 
@@ -94,7 +134,7 @@ fenced <- asmi.raw %>%
               names_prefix = "Year", id_cols = c(AsMi_site_id,AsMi_plot_id))
 
 fenced %>%
-  select(Year2005:Year2017) %>%
+  dplyr::select(Year2005:Year2017) %>%
   filter(AsMi_site_id == 19) 
 
 asmi.data <- CJS_asmi %>%
@@ -107,22 +147,7 @@ asmi.data <- CJS_asmi %>%
   mutate(first.cap.stage = factor(first.cap.stage, levels = c("seedling","vegetative","reproductive"))) %>%
   as.data.frame() 
 
-write.table(asmi.data[,c(2,4:8)], file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp",
-            sep = " ", col.names = FALSE, row.names = FALSE)
 
-
-write.table(asmi.data[,c(2,4:8)], file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt",
-            sep = " ", col.names = TRUE, row.names = FALSE)
-
-
-
-
-## simple CJS model, intercept only for survival and detection
-asmi.model <- mark(asmi.data)
-asmi.model$results$real
-
-inv.logit(asmi.model$results$beta$estimate)
-asmi.model$results$real
 ```
 
 
