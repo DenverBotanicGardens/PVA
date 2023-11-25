@@ -259,10 +259,11 @@ run.asmi <- function(){
 }
 
 asmi.models <- run.asmi()
-### LAMBDA!!!
+
+### LAMBDA
 nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
-params <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
-params <- params[!grepl("f ", params)]
+paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
+params <- paramsAll[!grepl("f ", paramsAll)]
 length(params[-length(params)])
 
 lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
@@ -277,6 +278,40 @@ ggplot(lmdas, aes(time, estimate, color = plot)) +
   geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
   theme_bw()+
   ylab(expression(lambda))
+
+## Geometric mean growth rate on real scale 
+## Variance from random effects, variance components approach
+lmdas %>%
+  group_by(time) %>%
+  summarise(lamhats = exp(mean(log(estimate))))
+
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params[-length(params)]) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
+  group_by(time) %>%
+
+
+## Recruitment
+recruit <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  bind_cols(Params = paramsAll)%>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+
+## Recruitment is the number of added individuals C times the survival of adults is the change between time t+1 and t+2
+recruit %>%
+  filter(parameter == "f") %>%
+  ggplot(    aes(time, estimate, color = plot)) +
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  ylab(expression(f[0]))+
+  scale_color_discrete(guide = "none")
 
 ```
 
