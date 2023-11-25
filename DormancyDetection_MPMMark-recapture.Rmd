@@ -105,23 +105,179 @@ CJS_asmi <- asmi.raw %>%
                               TRUE ~ Year2012),
          Year2013 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
                               TRUE ~ Year2013)) %>%
-  unite(ch, Year1995:Year2023, sep ="") %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id))
 
 dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
+finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
 
 CJS_asmi %>%
   dplyr::select(ch) %>%
   bind_cols(dmPlot) %>%
-  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", sep = " ", col.names = FALSE, row.names = FALSE)
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+
+CJS_asmi %>%
+  dplyr::select(ch,Plot) %>%
+  # bind_cols(dmPlot) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+fields <- CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  colnames()
+
+plotdf <- CJS_asmi %>%
+  distinct(Plot)
+
+asmitxt <- import.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt", header = FALSE,
+                         field.names = c("ch","Plot"), 
+                         field.types = c("f"))
+                         # field.types = rep("f", length(fields)-1))
 
 
 
 ```
 
 
+Mark-recapture by plot    
+```{r}
 
+## Convert for MARK  
+asmi.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", 
+                        group.df = plotdf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+
+```
+
+CJS
+```{r}
+asmi.proc <- process.data(asmi.inp, model = "CJS", groups = "Plot")
+asmi.ddl <- make.design.data(asmi.proc)
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(formula =  ~ 1)
+  p.time = list(formula = ~ time)
+  p.Plot = list(formula = ~ Plot)
+  p.timePlot = list(formula = ~ time + Plot)
+
+  asmi.model.list <- create.model.list("CJS")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmi.proc, ddl = asmi.ddl)
+  
+  return(asmi.results)
+}
+
+asmi.models <- run.asmi()
+asmi.models$Phi.timePlot.p.timePlot$results$real
+
+```
+
+
+
+Pradel model for lambda (population growth rate) and recruitment (phi) and detection (p)    
+```{r}
+Pradel_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>% ## exclude Cebolla Creek that was added 2014
+  filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
+  filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+dmPlot <- model.matrix(~ -1 + Plot, Pradel_asmi)
+finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+plotPradeldf <- Pradel_asmi %>%
+  distinct(Plot)
+
+
+Pradel_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+
+asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark.inp", 
+                        group.df = plotPradeldf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot")
+asmiddl <- make.design.data(asmiproc)
+
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ -1 + Plot)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(formula =  ~ 1)
+  # p.time = list(formula = ~ time)
+  # p.Plot = list(formula = ~ -1 + Plot)
+  # p.timePlot = list(formula = ~ time + Plot)
+  
+  f.dot = list(formula =  ~ 1)
+  f.time = list(formula = ~ time)
+  f.Plot = list(formula = ~ -1 + Plot)
+  f.timePlot = list(formula = ~ time + Plot)
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.models <- run.asmi()
+### LAMBDA!!!
+nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
+params <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
+params <- params[!grepl("f ", params)]
+length(params[-length(params)])
+
+lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
+  bind_cols(Params = params[-length(params)]) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+ggplot(lmdas, aes(time, estimate, color = plot)) +
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  ylab(expression(lambda))
+
+```
 
 
