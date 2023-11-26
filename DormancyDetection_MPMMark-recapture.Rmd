@@ -145,6 +145,7 @@ asmitxt <- import.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P 
 ```
 
 
+
 Mark-recapture by plot    
 ```{r}
 
@@ -185,6 +186,92 @@ asmi.models$Phi.timePlot.p.timePlot$results$real
 
 ```
 
+Multi-state model   
+```{r}
+CJS_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(status %in% c("seedling","vegetative") ~ "V",
+                         status == "reproductive" ~ "R",
+                         status %in% c("dormant","dead") ~ "0")) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  mutate(Year1995 = case_when((AsMi_plot_id %in% c(300,238,598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1995),
+         Year1996 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1996),
+         Year1997 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1997),
+         Year1998 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1998),
+         Year1999 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year1999),
+         Year2000 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2000),
+         Year2001 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2001),
+         Year2002 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2002),
+         Year2003 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
+                              TRUE ~ Year2003),
+         Year2004 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2004),
+         Year2005 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2005),
+         Year2006 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2006),
+         Year2007 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2007),
+         Year2008 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2008),
+         Year2009 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2009),
+         Year2010 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2010),
+         Year2011 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2011),
+         Year2012 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2012),
+         Year2013 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
+                              TRUE ~ Year2013)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+plotdf <- CJS_asmi %>%
+  distinct(Plot)
+dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
+finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+
+CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Multi_asmi_mark.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+asmiMulti <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Multi_asmi_mark.inp", 
+                        group.df = plotdf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+multi.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata")
+multi.ddl <- make.design.data(multi.proc)
+multi.mark <- mark(multi.proc, multi.ddl, begin.time = 1995, model = "Multistrata")
+
+multi.mark$results$real
+toMPM <- multi.mark$results$real %>%
+  
+
+```
 
 
 Pradel model for lambda (population growth rate) and recruitment (phi) and detection (p)    
@@ -234,11 +321,12 @@ asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Garde
 asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot")
 asmiddl <- make.design.data(asmiproc)
 
+asmiproc$group.covariates
 
 run.asmi <- function(){
   Phi.dot = list(formula =  ~ 1)
   Phi.time = list(formula =  ~ time)
-  Phi.Plot = list(formula =  ~ -1 + Plot)  ## so each plot is offset
+  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
   Phi.timePlot = list(formula =  ~ time + Plot)
   
   p.dot = list(formula =  ~ 1)
@@ -248,7 +336,7 @@ run.asmi <- function(){
   
   f.dot = list(formula =  ~ 1)
   f.time = list(formula = ~ time)
-  f.Plot = list(formula = ~ -1 + Plot)
+  f.Plot = list(formula = ~ Plot)
   f.timePlot = list(formula = ~ time + Plot)
   
   asmi.model.list <- create.model.list("Pradrec")
@@ -283,7 +371,8 @@ ggplot(lmdas, aes(time, estimate, color = plot)) +
 ## Variance from random effects, variance components approach
 lmdas %>%
   group_by(time) %>%
-  summarise(lamhats = exp(mean(log(estimate))))
+  summarise(lamhats = exp(mean(log(estimate)))) %>%
+  print(n=30)
 
 asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
   bind_cols(Params = params[-length(params)]) %>%
@@ -292,7 +381,20 @@ asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Populatio
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time)) %>%
   group_by(time) %>%
+  summarise(lamhats = exp(mean(estimate)))
 
+realasmi <- get.real(asmi.models$Phi.timePlot.p.dot.f.timePlot, "Phi", vcv=TRUE)
+rasmi <- realasmi$estimates$estimate  ## One less than time length? or time length?
+vcv <- realasmi$vcv.real
+varc <- var.components(rasmi, design = matrix(rep(1,length(rasmi)), ncol=1), vcv)
+df <- asmi.models$Phi.timePlot.p.dot.f.timePlot$design.data$Phi
+shrinkest <- data.frame(time = 1:27, value = varc$betarand$estimate)
+df <- merge(df, shrinkest, by="time")
+md <- mark(asmiPradel.inp, model="Pradrec", 
+           model.parameters = list(Phi = list(formula = ~ time + Plot,
+                                              fixed=list(index=df$par.index,value=df$value)),
+                                   f = list(formula = ~ time + Plot)),
+           adjust=FALSE,delete=TRUE)
 
 ## Recruitment
 recruit <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
@@ -315,4 +417,64 @@ recruit %>%
 
 ```
 
+
+Pradel model "Pradlambda" with Phi, p, and Lambda   
+```{r}
+
+asmiprocL <- process.data(asmiPradel.inp, model = "Pradlambda", groups = "Plot")
+asmiddlL <- make.design.data(asmiprocL)
+
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(Lambdaormula =  ~ 1)
+  
+  Lambda.dot = list(formula =  ~ 1)
+  Lambda.time = list(formula = ~ time)
+  Lambda.Plot = list(formula = ~ Plot)
+  Lambda.timePlot = list(formula = ~ time + Plot)
+  
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocL, ddl = asmiddlL)
+  
+  return(asmi.results)
+}
+
+asmi.models.lambda <- run.asmi()
+
+asmi.models.lambda
+resultsplot <- asmi.models.lambda$Phi.timePlot.Lambda.timePlot$results$real
+paramsAll <- row.names(asmi.models.lambda$Phi.timePlot.Lambda.timePlot$design.matrix)
+
+SurvLambda <- asmi.models.lambda$Phi.timePlot.Lambda.timePlot$results$real %>%
+  bind_cols(Params = paramsAll) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+## Lambda is less than survival in several years
+ggplot(SurvLambda, aes(time, estimate, color = parameter, group = plot))+
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()
+
+SurvLambda %>%
+  group_by(plot,time) %>%
+  dplyr::summarise(PhiLamDiff = estimate[parameter == "Lambda"]-estimate[parameter == "Phi"]) %>%
+ggplot(  aes(time, PhiLamDiff, color = plot))+
+  geom_point(position = position_dodge(width = 0.9))+
+  # geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  geom_hline(yintercept = 0)+
+  scale_color_discrete(guide = "none")
+  
+
+
+```
 
