@@ -14,6 +14,7 @@ library(dplyr)
 library(tidyr)
 library(RMark)
 library(boot)
+library(ggplot2)
 
 ## capture histories 2013-2015, secondary capture occasions within in closed periods
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
@@ -121,11 +122,11 @@ CJS_asmi %>%
               col.names = FALSE, row.names = FALSE)
 
 
-CJS_asmi %>%
-  dplyr::select(ch,Plot) %>%
-  # bind_cols(dmPlot) %>%
-  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt", sep = " ", 
-              col.names = FALSE, row.names = FALSE)
+# CJS_asmi %>%
+#   dplyr::select(ch,Plot) %>%
+#   # bind_cols(dmPlot) %>%
+#   write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt", sep = " ", 
+#               col.names = FALSE, row.names = FALSE)
 
 fields <- CJS_asmi %>%
   dplyr::select(ch) %>%
@@ -138,7 +139,6 @@ plotdf <- CJS_asmi %>%
 asmitxt <- import.chdata("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.txt", header = FALSE,
                          field.names = c("ch","Plot"), 
                          field.types = c("f"))
-                         # field.types = rep("f", length(fields)-1))
 
 
 
@@ -263,13 +263,21 @@ asmiMulti <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P 
                         covariates = NULL,
                         use.comments = FALSE)
 
-multi.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata")
+multi.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot")
 multi.ddl <- make.design.data(multi.proc)
-multi.mark <- mark(multi.proc, multi.ddl, begin.time = 1995, model = "Multistrata")
+multi.mark <- mark(multi.proc, multi.ddl, begin.time = 1995, model = "Multistrata",
+                              model.parameters = list(S = list(formula = ~ 1),
+                                                p = list(formula = ~ 1),
+                                                Psi = list(formula = ~ 1)))
 
 multi.mark$results$real
 toMPM <- multi.mark$results$real %>%
+  mutate(Parms = row.names(.)) %>%
+  mutate(Parms = sub(" to", "to", Parms)) %>%
+  separate(Parms, into = c("parameter","strata","group","year", "age", "occa","time"))%>%
+  mutate(year = as.numeric(sub("c","",year)))
   
+ggplot(toMPM, aes(year, ))  
 
 ```
 
@@ -318,7 +326,7 @@ asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Garde
                         covariates = NULL,
                         use.comments = FALSE)
 
-asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot")
+asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot", begin.time = 1995)
 asmiddl <- make.design.data(asmiproc)
 
 asmiproc$group.covariates
@@ -347,6 +355,7 @@ run.asmi <- function(){
 }
 
 asmi.models <- run.asmi()
+save(asmi.models, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel.Rdata")
 
 ### LAMBDA
 nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
@@ -361,11 +370,41 @@ lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Popul
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time))
 
-ggplot(lmdas, aes(time, estimate, color = plot)) +
+
+
+## From ConfInt_MPM_Astragalus-microcymbus
+MPMlam <- year.var %>%
+  dplyr::rename(estimate = lambdabar) %>%
+  dplyr::rename(se = tau2) %>%
+  dplyr::mutate(lcl = estimate - varmpm,
+                ucl = estimate + varmpm) %>%
+  dplyr::select(c(Year:se,lcl:ucl))%>%
+  mutate(plot = "All")%>%
+  relocate(plot, .after = Year)
+
+lmdas2bind <- lmdas %>%
+  relocate(time, .before = estimate) %>%
+  dplyr::rename("Year" = time)%>%
+  relocate(plot, .after = Year) %>%
+  dplyr::select(Year:ucl)
+
+MPMlam %>%
+  bind_rows(lmdas2bind) %>%
+ggplot(  aes(Year, estimate, color = plot)) +
   geom_point(position = position_dodge(width = 0.9))+
   geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
   theme_bw()+
-  ylab(expression(lambda))
+  ylab(expression(lambda))+
+  xlab("Year")+
+  # scale_color_grey()+
+  scale_color_manual(values = c("black", rainbow(16)))+
+  geom_hline(yintercept = 1)
+
+
+
+
+
+#############################################################################################################
 
 ## Geometric mean growth rate on real scale 
 ## Variance from random effects, variance components approach
@@ -419,6 +458,7 @@ recruit %>%
 
 
 Pradel model "Pradlambda" with Phi, p, and Lambda   
+When Lambda is part of the likelihood, then need to use a CLogit to make sure survival is less than or equal to Lambda
 ```{r}
 
 asmiprocL <- process.data(asmiPradel.inp, model = "Pradlambda", groups = "Plot")

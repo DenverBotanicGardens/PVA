@@ -93,7 +93,7 @@ log(mean(lams)) # arithmetic mean
 
 ```{r}
 
-
+## Which plots go with which sites
 A_site1 <- mean(do.call(c,list(all.pva$"1", all.pva$"22", all.pva$"32", all.pva$"42", all.pva$"52")))
 A_site2 <- mean(do.call(c,list(all.pva$"16", all.pva$"58", all.pva$"89", all.pva$"90", all.pva$"96", all.pva$"98")))
 A_site5 <- mean(do.call(c,list(all.pva$"606", all.pva$"607", all.pva$"608", all.pva$"609", all.pva$"610")))
@@ -102,6 +102,11 @@ A_site19 <- mean(do.call(c,list(all.pva$"300", all.pva$"512", all.pva$"513", all
 A_site26 <- mean(do.call(c,list(all.pva$"238", all.pva$"480", all.pva$"598", all.pva$"611", all.pva$"614")))
 
 do.call(rbind,lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) lambda(x)))
+## Expected lambdas per site
+
+
+## Per year
+
 
 site1.mpm <- do.call(list,list(all.pva$"1", all.pva$"22", all.pva$"32", all.pva$"42", all.pva$"52"))
 site1year <- lapply(2015:2021, function(yr){
@@ -124,6 +129,20 @@ site2year <- lapply(2015:2020, function(yr){
 lapply(all.pva, function(ap) names(ap))
 names(do.call(c,all.pva))
 
+allpva <- do.call(c,all.pva)
+allpva[1:2]
+
+peryear <- lapply(1996:2022, function(x) {
+  allpva[grepl(x, names(allpva))]
+})
+
+mean(do.call(list,peryear[[1]]))
+
+x<-peryear[[3]]
+lapply(peryear, function(x){ 
+  yr <- do.call(list,x)
+  lambda(mean(yr))
+  })
 
 all.pvamat <- matrix(unlist(all.pva), ncol = length(do.call(c,all.pva)))
 all.pvamat[,1:4]
@@ -153,52 +172,49 @@ all.pvamat[,1:4]
 
 ```
 
-Devenish Nelson et al 2010 Conf Int     
-```{r}
-
-##Correlation structure of growth, survival, reproduction, retrogression following Doak et al 1994 
-# survival 
-head(asmi.all2)
-asmi.all2 %>%
-  mutate(surv = ifelse(fate == "dead",0,1)) %>%
-  group_by(stage, surv) %>%
-  dplyr::summarise(n = n()) %>%
-  group_by(stage) %>%
-  dplyr::summarise(n[surv == 1]/sum(n))
-
-
-## Point estimate of lambda as dominant eigenvalue
-lapply(all.pva, function(x){ 
-  lapply(x, function(y){ 
-    lambda(y)
-    })
-  })
-
-## Resample, parametric bootstrap, from 10,000 replicate projection matrices each element drawn from corresponding likelihood distribution
-## Did not use right shifted Poisson because a reproductive adult could have all individuals fail??
-# split into birth and death matrices
-U <- all.pva$'1'[[1]]
-## Set population size and numbers 
-N <- 100
-start <- stable.stage(U)
-n <- matrix(rep(0,nrow(U)), nrow = 1, byrow = TRUE)
-n <- round(N*start,0) 
-Ubinom <- mapply(as.vector(U[-1,]), n, function(x,y) dbinom())
-dbinom()
-
-boot.lambdas <- lapply(all.pva, function(x){
-  lapply(x, function(y){
-    
-  })
-})
-
-
-
-
-```
-
 
 error is variance^2 = e_i * T(sum e_i)
+
+Morris and Doak Stochastic log growth rate by simulation   
+```{r}
+library(Rage)
+library(popbio)
+# 1. Estimate the mean and variance of vital rates, growth, survival, and retrogression
+
+matU1 <- all.pva[[1]][[1]]
+mats1 <- mpm_split(matU1)
+vitrat <- vital_rates(mats1$matU, mats1$matF, mats1$matC, splitStages = "ontogeny", weights = "SSD",
+                      matrixStages = c("active","active","active","dorm"))
+
+vr_growth(mats1$matU)
+
+## mean for each vital rate (not matrix element) for each MPM
+meanvitalrates <- do.call(rbind,lapply(all.pva, function(m){
+  out <- do.call(rbind,lapply(m, function(x){
+    mats <- mpm_split(x)
+    vitrat <- vital_rates(mats$matU, mats$matF, mats$matC, splitStages = "ontogeny", weights = "SSD")
+    data.frame(JuvSurv = vitrat$survJuv, JuvRetr = vitrat$retrJuv, JuvGrowth = vitrat$progJuv,
+               AduSurv = vitrat$survAdu, AduRetr = vitrat$retrAdu)
+  }))
+  out
+  }))
+
+meanvitalrates <- meanvitalrates %>%
+  mutate(PlotYear = row.names(.)) %>%
+  separate(PlotYear, into = c("Plot","Year"))%>%
+  mutate(Year = as.numeric(Year))
+
+MeanVitRat <- meanvitalrates %>%
+  group_by(Year) %>%
+  dplyr::summarise(across(JuvSurv:AduRetr, mean))
+
+VarVitRat <- meanvitalrates %>%
+  group_by(Year) %>%
+  dplyr::summarise(across(JuvSurv:AduRetr, var))
+
+# 2. Correct for sampling variation  Kendall()
+?Kendall
+```
 
 
 
@@ -208,7 +224,7 @@ vital rates drawn randomly from prob distribution - reflects spatial and covaria
 randomly selected vital rates used for time-invariant matrix population model   
 Sample many matrices, distribution of all vital rates   
 Not time varying like Taljapurkar   
-does not examine time varying effects, must be calculated at stable stage distriubtion (like LTREs)
+does not examine time varying effects, must be calculated at stable stage distribution (like LTREs)
 1. selected reproductive rates from log-normal, selected all other rates from beta-prob distribution adhering to prespecificed variance-covariance structure among vital rates
 
 ```{r}
@@ -234,6 +250,22 @@ named.mpms <- data.frame(matrices)
 names(named.mpms) <- names(names.mpm)
 
 A <- matrix(named.mpms[,1],nrow = mpmdim)
+
+named.mpms[which(colSums(matrices)==0)] ## ??? Why?? 
+
+asmi.all2 %>%
+  filter(plot %in% c(581, 609)) %>%
+  group_by(year, plot, site) %>%
+  dplyr::summarise(n = n()) %>%
+ggplot( aes(year, n, color = as.factor(plot)))+
+  geom_point()+
+  geom_line()
+
+asmi.all2 %>%
+  filter(plot %in% c(581, 609)) %>%
+  group_by(year, plot, site) %>%
+  dplyr::summarise(n = n()) %>%
+  print(n=43)
 
 # named.mpms[1]  ## 1.2015
 popsz <- popsz.yearsite$N[which(grepl(names(named.mpms)[1],popsz.yearsite$Site.Year))]
@@ -315,8 +347,16 @@ abline(v = CI95[,3], col = c("red","blue","green"), lty = "dotted")
 
 ```
 
-Morris and Doak 2002, pg 237. The quantity tau^2/lambda^2 (of the mean matrix) approximates teh temporal (or spatial) variance of the log population growth rate caused by environmental stochasticity    
+Morris and Doak 2002, pg 237. The quantity tau^2/lambda^2 (of the mean matrix) approximates the temporal (or spatial) variance of the log population growth rate caused by environmental stochasticity    
 ```{r}
+
+all.mpm <- do.call(c, all.pva)
+names.mpm <- do.call(c,lapply(all.pva, function(x){
+  lapply(x, function(y) names(y))
+}))
+matrices <- matrix(unlist(all.mpm), ncol = length(all.mpm))
+named.mpms <- data.frame(matrices)
+names(named.mpms) <- names(names.mpm)
 
 lambdatau <- function(mats){
   
@@ -434,13 +474,13 @@ asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 str(asmi.raw) ## n = 1, y = 2
 
 CJS_asmi <- asmi.raw %>%
-  mutate(fence = as.numeric(fence)-1) %>%
-  mutate(fence = if_else(year < 2006, 0, fence)) %>%
-  mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), 0, fence)) %>%
-  mutate(fence = if_else(year > 2015, 0, fence)) %>%
+  dplyr::mutate(fence = as.numeric(fence)-1) %>%
+  dplyr::mutate(fence = if_else(year < 2006, 0, fence)) %>%
+  dplyr::mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), 0, fence)) %>%
+  dplyr::mutate(fence = if_else(year > 2015, 0, fence)) %>%
   tidyr::complete(AsMi_tag_id, year, fill = list(length = 0, fence = 0)) %>%
   group_by(AsMi_site_id, AsMi_plot_id, AsMi_tag_id) %>%
-  summarise(first = min(year),
+  dplyr::summarise(first = min(year),
             dh = if_else(length > 0, 1, 0),
             year = year,
             status = status,
@@ -448,7 +488,7 @@ CJS_asmi <- asmi.raw %>%
             length = length
             ) %>%
   ungroup() %>%
-  complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
+  tidyr::complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
            fill = list(dh = 0, status = "dead", fence = 0),
            explicit = FALSE) %>%
   filter(!is.na(AsMi_site_id))  ## Work around but shouldn't be adding a new first for each
@@ -458,15 +498,15 @@ CJS_asmi %>%
 
 ch_asmi <- CJS_asmi %>%
   group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
-  mutate(first.ln = length[year == first]) %>%
-  arrange(year, .by_group = TRUE) %>%
+  dplyr::mutate(first.ln = length[year == first]) %>%
+  dplyr::arrange(year, .by_group = TRUE) %>%
   dplyr::summarise(ch = paste0(dh, collapse = "")) %>%
   mutate(freq = "1;")
 
 fence_matrix <- CJS_asmi %>%
-  select(c(AsMi_tag_id:year, fence)) %>%
+  dplyr::select(c(AsMi_tag_id:year, fence)) %>%
   group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
-  arrange(year, .by_group = TRUE) %>%
+  dplyr::arrange(year, .by_group = TRUE) %>%
   pivot_wider(names_from = year, values_from = fence)
   
 identical(ch_asmi$AsMi_tag_id, fence_matrix$AsMi_tag_id)
@@ -482,14 +522,72 @@ ch_asmi %>%
               sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
 
 
-## Multistate just use S,V,R for the states (or just V, R, 0 for non-detection)
-
-## Robust design
-# 3 primary occasions (2013-2015) and 9 primary occasions within, just skipped "." a bunch for 2013, skipped some for others
-### time.intervals
-
-save(ch_asmi, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/capturehistoryannual.Rdata")
 save(fence_matrix, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/fencematrix.Rdata")
+
+## Multistate
+CJS_asmi <- asmi.raw %>%
+  mutate(status == as.character(status)) %>%
+  dplyr::mutate(status = if_else((status == "seedling" & flower == 1), "reproductive", as.character(status))) %>%
+  mutate(fence = as.numeric(fence)-1) %>%
+  mutate(fence = if_else(year < 2006, 0, fence)) %>%
+  mutate(fence = if_else(year == 2006 & AsMi_plot_id %in% c(300, 512), 0, fence)) %>%
+  mutate(fence = if_else(year > 2015, 0, fence)) %>%
+  tidyr::complete(AsMi_tag_id, year, fill = list(length = 0, fence = 0)) %>%
+  group_by(AsMi_site_id, AsMi_plot_id, AsMi_tag_id) %>%
+  dplyr::summarise(first = min(year),
+            dh = if_else(length > 0, 1, 0),
+            year = year,
+            status = status,
+            fence = fence,
+            length = length
+            ) %>%
+  ungroup() %>%
+  tidyr::complete(nesting(AsMi_tag_id,AsMi_site_id,AsMi_plot_id,first), year = min(year):max(year), 
+           fill = list(dh = 0, status = "dead", fence = 0),
+           explicit = FALSE) %>%
+  filter(!is.na(AsMi_site_id))  ## Work around but shouldn't be adding a new first for each
+## Multistate just use S,V,R for the states (or just V, R, 0 for non-detection)
+ch_asmiMS <- CJS_asmi %>%
+  mutate(dh = case_when(status == "seedling" ~ "S", 
+                        status == "vegetative" ~ "V",
+                        status == "reproductive" ~ "R",
+                        status %in% c("dormant","dead") ~ "0")) %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  dplyr::mutate(first.ln = rep(length[year == first], length.out = n()))  %>%
+  ungroup() %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id,first,first.ln) %>%
+  dplyr::arrange(year, .by_group = TRUE) %>%  ## fine, they're in the correct order
+  dplyr::summarise(ch = paste0(dh, collapse = "")) %>%
+  ungroup() %>%
+  mutate(freq = "1;")
+
+## Multi-state 
+ch_asmiMS %>%
+  ungroup() %>%
+  dplyr::select(ch:freq) %>%
+  filter(grepl("S", ch)|grepl("V", ch)|grepl("R",ch)) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/chMS.inp", 
+              sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+## Multi-state by Site
+ch_asmiMS %>%
+  ungroup() %>%
+  dplyr::select(AsMi_site_id:freq) %>%
+  filter(grepl("S", ch)|grepl("V", ch)|grepl("R",ch)) %>%
+  dplyr::rename(Site = AsMi_site_id) %>%
+  dplyr::select(c(Site,ch,freq)) %>%
+  dplyr::mutate(Site = as.factor(Site)) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/chMSXplot.inp", 
+              sep = "    ", quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+
+
+ch_asmiMS <- CJS_asmi %>%
+  group_by(AsMi_tag_id, AsMi_site_id, AsMi_plot_id, first) %>%
+  dplyr::mutate(first.ln = length[year == first]) %>%
+  dplyr::arrange(year, .by_group = TRUE) %>%
+  dplyr::summarise(ch = paste0(dh, collapse = "")) %>%
+  mutate(freq = "1;")
 
 ```
 
@@ -608,75 +706,90 @@ ggsave(p1, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P dri
 ```
 
 
+
+## Multistate just use S,V,R for the states (or just V, R, 0 for non-detection)
 ```{r}
-### Just use popbio::stoch.growth.rate
-## Defaults to equal probability of selecting each matrix; max number of time intervals
-## By site
-stoch.lambda <- stoch.growth.rate(all.pva[[1]], maxt = 50000)
 
-## By year
-lapply(all.pva, function(x) names(x))
+groupDATAFRAME <- asmi.raw %>%
+  group_by(AsMi_site_id, AsMi_plot_id) %>%
+  dplyr::summarise(n = n()) %>%
+  dplyr::select(AsMi_site_id:AsMi_plot_id) %>%
+  dplyr::rename(Site = AsMi_site_id) %>%
+  dplyr::rename(Plot = AsMi_plot_id) %>%
+  as.data.frame()
 
-byyear <- lapply(1996:2020, function(yr){
-  lapply(all.pva, function(m) {
-    # print(paste(names(m),yr))
-    m[grepl(as.character(yr), names(m))]
+groupSitedf <- data.frame(Site = unique(asmi.raw$AsMi_site_id))
+
+# asmiMSplot <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/chMSXplot.inp", 
+#                       # group.df = groupSitedf,
+#                       covariates = c("Site"))
+
+
+asmiMS <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/chMS.inp")
+asmiMSproc <- process.data(asmiMS, model = "Multistrata")
+asmiMSddl <- make.design.data(asmiMSproc)
+mod.dotMS <- mark(asmiMSproc, asmiMSddl)
+
+mod.dotMS$results$real
+summary(mod.dotMS, show.fixed = TRUE)
+mod.dotMS$model
+mod.dotMS$parameters  ## S, p, Psi
+mod.dotMS$results$real
+```
+
+
+## Robust design
+# 3 primary occasions (2013-2015) and 9 primary occasions within, just skipped "." a bunch for 2013, skipped some for others
+### time.intervals
+
+
+
+
+
+
+################## Failed
+Devenish Nelson et al 2010 Conf Int     
+```{r}
+
+##Correlation structure of growth, survival, reproduction, retrogression following Doak et al 1994 
+# survival 
+head(asmi.all2)
+asmi.all2 %>%
+  mutate(surv = ifelse(fate == "dead",0,1)) %>%
+  group_by(stage, surv) %>%
+  dplyr::summarise(n = n()) %>%
+  group_by(stage) %>%
+  dplyr::summarise(n[surv == 1]/sum(n))
+
+
+## Point estimate of lambda as dominant eigenvalue
+lapply(all.pva, function(x){ 
+  lapply(x, function(y){ 
+    lambda(y)
     })
+  })
+
+## Resample, parametric bootstrap, from 10,000 replicate projection matrices each element drawn from corresponding likelihood distribution
+## Did not use right shifted Poisson because a reproductive adult could have all individuals fail??
+# split into birth and death matrices
+U <- all.pva$'1'[[1]]
+## Set population size and numbers 
+N <- 100
+start <- stable.stage(U)
+n <- matrix(rep(0,nrow(U)), nrow = 1, byrow = TRUE)
+n <- round(N*start,0) 
+Ubinom <- mapply(as.vector(U[-1,]), n, function(x,y) dbinom())
+dbinom()
+
+boot.lambdas <- lapply(all.pva, function(x){
+  lapply(x, function(y){
+    
+  })
 })
 
-is_invertible <- function(X) !inherits(try(solve(X), silent = TRUE), "try-error")
-
-mpms96 <- do.call(list, unlist(byyear[[1]], recursive = FALSE))
-lapply(mpms96, function(x) lambda(x))
-lapply(mpms96, function(x) is.singular.matrix(matrix(x, nrow = 4, byrow = TRUE)))
-lapply(mpms96, function(x) is_invertible(x)) ## The opposite of is.singular
-
-mpms00 <- do.call(list, unlist(byyear[[5]], recursive = FALSE))
-lapply(mpms00, function(x) matrix(x, nrow = 4, byrow = TRUE))
-lapply(mpms00, function(x) det(str(matrix(x, nrow = 4, byrow = TRUE))))
-str(matrix(mpms00[[1]], nrow = 4, byrow = TRUE))
-library(matrixcalc)
-lapply(mpms00, function(x) is.singular.matrix(matrix(x, nrow = 4, byrow = TRUE)))
-unlist(lapply(mpms00, function(x) is_invertible(x)))
 
 
-
-mpms01 <- do.call(list, unlist(byyear[[6]], recursive = FALSE))
-lapply(mpms01, function(x) lambda(x))
-
-x <- byyear[[1]]
-
-## Average over plots in a site per year
-mean.year.matrix <- lapply
-
-## Use Testing_stoch.growth.rate.Rmd to lower solve tollerance
-stoch.year <- lapply(byyear, function(x){
-  mpms <- do.call(list, unlist(x, recursive = FALSE))
-  stoch.growth.rate(mpms)
-})
-
-stoch.year
-
-stoch1 <- stoch.growth.rate(site1year)
-exp(stoch1$sim)
-exp(stoch1$sim.CI)
 
 ```
 
 
-
-
-
-
-Notes:
-
-## covariance 
-x1 <- rnorm(1000)
-# cov 
-cov1 <- 0.8
-x2 <- cov1*x1 + rnorm(1000)
-
-cov(x1,x2) # is approximately cov1
-
-## G-Wishart distribution 
-?rgwish
