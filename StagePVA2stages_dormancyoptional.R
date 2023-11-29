@@ -46,68 +46,16 @@ StagePVA <- function(df,dormancy = 1){
 
   ## Remove 'dormant' state
   ## Dormant all to dead, next time alive should be seedling or reproductive depending on status
-  years <- sort(unique(df$year)) #start years of each transition, year:year+1
+  # df %>%
+  #   filter(stage == "dormant")
 
   # Create a list to hold output
-  names <- c("plot.matrix",
-             "pro.matrix",
-             "Site",
-             "Plot")
+  names <- c("Plot")
   SiteMatrix <- vector("list", length(names))
   names(SiteMatrix) <- names
 
   require(popbio)
 
-  # Individuals that are new at the current census are considered seedlings,
-  # some are reproductive when they were missed in their first year
-  # These measure the fertility (fruit output) of seedlings
-  # "Seedlings" that are reproductive came from seed at an earlier time, won't be reproductive
-  # if they were a seedling that year - should add to seed stage somehow....
-
-  ## 1
-  # overall
-  # seedlingsfert <- c()
-  #
-  # # projection matrices of of class specific vital rates
-  # pro.matrix <- vector("list", length(years))
-  # names(pro.matrix) <- years
-
-  site.matrix <- vector("list", length(years))
-  names(site.matrix) <- years
-  sitepromatrix <- vector("list", length(years))
-  names(sitepromatrix) <- years
-
-  #Set variables
-  Sites <- unique(df$site)
-
-  ## All plots within a site
-  for(s in Sites){
-    for(i in years){
-
-      fert <- df %>%
-        dplyr::filter(year == i) %>%
-        dplyr::filter(site == s)
-
-
-      # Pre-breeding census
-      # ?projection.matrix uses a column with a stage name as a fertility measure per plant
-      # fruit production per individual as a percent of the total production that year. Time t
-      # this times the number of seedlings in the next year
-
-      # Newly tagged == seedlings
-      seedlings <- nrow(df[df$year == i+1 & df$stage=="seedling", ])
-
-      # Adding a fertility column to seedlings.
-      fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
-
-      pro.matrix[[as.character(i)]] <- projection.matrix(fert)
-      } # end for years loop
-    }
-
-  SiteMatrix$pro.matrix <- pro.matrix
-
-
-  ## 3
   # Projection matrices divided by Plot
 
   plot.matrix <- vector("list", length(years))
@@ -133,12 +81,19 @@ StagePVA <- function(df,dormancy = 1){
       # this times the number of seedlings that survived the next year
 
       seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$plot == j))
+
+      ## now take away seedling stage, just vegetative, reproductive, dormant
+      stages <- c("vegetative", "reproductive", "dormant","dead")
+      fert <- fert %>%
+        dplyr::mutate(stage = as.character(stage)) %>%
+        dplyr::mutate(stage = if_else(stage == "seedling", "vegetative", stage)) %>%
+        dplyr::mutate(stage = as.factor(stage)) %>%
+        dplyr::mutate(stage = ordered(stage, levels = stages))
+
+
       fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
       fert$seedling[is.nan(fert$seedling)] <- 0
       fert$seedling[is.na(fert$seedling)] <- 0
-
-
-      fertplot$seedling <- seedlings * (fertplot$fruits / sum(fertplot$fruits, na.rm = T))
 
       plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
 
