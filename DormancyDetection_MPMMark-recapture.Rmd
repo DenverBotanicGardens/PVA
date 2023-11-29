@@ -60,9 +60,7 @@ SitePlot <- asmi.all2 %>%
   mutate(plot = as.factor(plot))%>%
   mutate(site = as.factor(site))
 
-foo <- lapply(MPM.plots, function(x) lapply(x, function(y) ifelse(is.null(y), NA, lambda(y))))
-
-MPMlam <- data.frame(Lambda = do.call(c,lapply(MPM.plots, function(x) do.call(c, lapply(x, function(y) ifelse(is.null(y), NA, lambda(y)))))))
+MPMlam <- data.frame(Lambda = do.call(c,lapply(MPM.plots, function(x) do.call(c, lapply(x, function(y) lambda(y))))))
 MPMlamdf <- MPMlam %>%
   mutate(PlotYear = row.names(MPMlam)) %>%
   separate(PlotYear, into = c("Plot","Year"))%>%
@@ -71,26 +69,96 @@ MPMlamdf <- MPMlam %>%
   filter(!is.na(Lambda)) %>%
   arrange(site,Plot,Year)
 
-ggplot(MPMlamdf, aes(Year, log(Lambda), color = as.factor(Plot)))+
-  geom_point(position = position_dodge(width = 0.5))+
-  facet_wrap(~site,nrow = 6)+
-  scale_color_manual("Plots", values = rainbow(nrow(SitePlot)))+
-  geom_hline(yintercept = 0)
+### Tuljapukar's log stochastic lambda by year across plots in a site , need to change 
+  # V <- Conj(solve(W, tol = 1e-300))  add tolerance to make it work 
+# For Pradel comparison, exclude sites 1 and 2, and three plots that are added 1996 and 2004
+site1.mpm <- do.call(list,list(MPM.plots$"1", MPM.plots$"22", MPM.plots$"32", MPM.plots$"42", MPM.plots$"52"))
+site1year <- lapply(2015:2022, function(yr){
+  mpmyr <- lapply(site1.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
 
-## Some are null
-alllambdas <- do.call(rbind,lapply(MPM.plots, function(m){
-  out <- do.call(rbind,lapply(m, function(x){
-    ifelse(is.null(x), NA, lambda(x))
-  }))
-  outwona <- data.frame(Year = row.names(out), Lambda = out)
-  outwona[complete.cases(outwona),]
+site2.mpm <- list(MPM.plots$"16", MPM.plots$"58", MPM.plots$"89", MPM.plots$"90", MPM.plots$"96", MPM.plots$"98")  ## 89 removed in 2020
+site2year <- lapply(2015:2021, function(yr){
+  mpmyr <- lapply(site2.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
+
+## So few, might not be able to get anything really
+site5.mpm <- list(MPM.plots$"606", MPM.plots$"607", MPM.plots$"608", MPM.plots$"609", MPM.plots$"610")  
+site5year <- lapply(1995:2020, function(yr){
+  mpmyr <- lapply(site5.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
+
+site15.mpm <- list(MPM.plots$"8", MPM.plots$"578", MPM.plots$"581", MPM.plots$"799")  
+site15year <- lapply(1995:2022, function(yr){
+  mpmyr <- lapply(site15.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
+
+site19.mpm <- list(MPM.plots$"512", MPM.plots$"513", MPM.plots$"514", MPM.plots$"515")  
+site19year <- lapply(1995:2022, function(yr){
+  mpmyr <- lapply(site19.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
+
+site26.mpm <- list(MPM.plots$"480", MPM.plots$"611", MPM.plots$"614")  
+site26year <- lapply(1995:2022, function(yr){
+  mpmyr <- lapply(site26.mpm, function(m) {
+    m[grepl(as.character(yr), names(m))]
+    })
+  stoch.growth.rate(lapply(mpmyr, '[[', 1))
+})
+
+sgr.st.yr <- do.call(c, list(site5year, site15year, site19year, site26year))
+stoch.log.lam <- do.call(rbind,lapply(sgr.st.yr, function(x){
+  data.frame(Approx = x$approx, Sim = x$sim, lcl = x$sim.CI[1], ucl = x$sim.CI[2])
 }))
 
-allLambdas <- alllambdas %>%
-  mutate(PlotYear = row.names(.))%>%
-  separate(PlotYear, into = c("plot","Year")) %>%
-  dplyr::left_join(SitePlot, by = c("plot" = "plot")) %>%
-  dplyr::arrange(site,plot,Year)
+stoch.log.lam$Site = c(rep("Site5", length(site5year)),rep("Site15", length(site15year)), 
+             rep("Site19", length(site19year)), rep("Site26", length(site26year)))
+stoch.log.lam$Year = c(1995:2020, rep(1995:2022, 3))
+
+stoch.log.lam %>%
+  filter(Year < 2022) %>%
+ggplot(  aes(Year, Approx, color = Site))+
+  geom_point(position = position_dodge(width = 1))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+  theme_bw()+
+  ylab(expression(lambda))
+
+
+# ggplot(MPMlamdf, aes(Year, log(Lambda), color = as.factor(Plot)))+
+#   geom_point(position = position_dodge(width = 0.5))+
+#   facet_wrap(~site,nrow = 6)+
+#   scale_color_manual("Plots", values = rainbow(nrow(SitePlot)))+
+#   geom_hline(yintercept = 0)
+# 
+# ## Some are null
+# alllambdas <- do.call(rbind,lapply(MPM.plots, function(m){
+#   out <- do.call(rbind,lapply(m, function(x){
+#     ifelse(is.null(x), NA, lambda(x))
+#   }))
+#   outwona <- data.frame(Year = row.names(out), Lambda = out)
+#   outwona[complete.cases(outwona),]
+# }))
+# 
+# allLambdas <- alllambdas %>%
+#   mutate(PlotYear = row.names(.))%>%
+#   separate(PlotYear, into = c("plot","Year")) %>%
+#   dplyr::left_join(SitePlot, by = c("plot" = "plot")) %>%
+#   dplyr::arrange(site,plot,Year)
 
 ```
 
@@ -545,26 +613,26 @@ Pradel_asmi <- asmi.raw %>%
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id))
 
-dmPlot <- model.matrix(~ -1 + Plot, Pradel_asmi)
-finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
-plotPradeldf <- Pradel_asmi %>%
-  distinct(Plot)
+dmSite <- model.matrix(~ -1 + Site, Pradel_asmi)
+finalSite <- dimnames(dmSite)[[2]][length(dimnames(dmSite)[[2]])]
+sitePradeldf <- Pradel_asmi %>%
+  distinct(Site)
 
 
 Pradel_asmi %>%
   dplyr::select(ch) %>%
-  bind_cols(dmPlot) %>%
-  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  bind_cols(dmSite) %>%
+  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
   write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark_site.inp", sep = " ", 
               col.names = FALSE, row.names = FALSE)
 
 
 asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark_site.inp", 
-                        group.df = plotPradeldf,
+                        group.df = sitePradeldf,
                         covariates = NULL,
                         use.comments = FALSE)
 
-asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot", begin.time = 1995)
+asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Site", begin.time = 1995)
 asmiddl <- make.design.data(asmiproc)
 
 asmiproc$group.covariates
@@ -572,18 +640,15 @@ asmiproc$group.covariates
 run.asmi <- function(){
   Phi.dot = list(formula =  ~ 1)
   Phi.time = list(formula =  ~ time)
-  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
-  Phi.timePlot = list(formula =  ~ time + Plot)
+  Phi.Plot = list(formula =  ~ Site)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Site)
   
   p.dot = list(formula =  ~ 1)
-  # p.time = list(formula = ~ time)
-  # p.Plot = list(formula = ~ -1 + Plot)
-  # p.timePlot = list(formula = ~ time + Plot)
   
   f.dot = list(formula =  ~ 1)
   f.time = list(formula = ~ time)
-  f.Plot = list(formula = ~ Plot)
-  f.timePlot = list(formula = ~ time + Plot)
+  f.Plot = list(formula = ~ Site)
+  f.timePlot = list(formula = ~ time + Site)
   
   asmi.model.list <- create.model.list("Pradrec")
   
@@ -592,18 +657,20 @@ run.asmi <- function(){
   return(asmi.results)
 }
 
-asmi.models <- run.asmi()
-save(asmi.models, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel.Rdata")
+# asmi.models.site <- run.asmi()
+# save(asmi.models.site, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
 
-### LAMBDA
-nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
-paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
+
+### LAMBDA  ## Note that now Plot == Site
+nrow(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
+paramsAll <- row.names(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$design.matrix)
 params <- paramsAll[!grepl("f ", paramsAll)]
 length(params[-length(params)])
 
-lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
+lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
   bind_cols(Params = params[-length(params)]) %>%
-  separate(Params, into = c("parameter","plot","age","time")) %>%
+  separate(Params, into = c("parameter","site","age","time")) %>%
   mutate(time = as.character(time)) %>%
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time))
@@ -619,20 +686,20 @@ allL <- allLambdas %>%
                      "8","578","581","799",
                      "512","513","514","515",
                      "480","611","614")) %>%
-  mutate(plot = as.factor(plot))
+  dplyr::select(c(estimate:ucl, site, Year))
 
 ## From ConfInt_MPM_Astragalus-microcymbus
-PradelMPMplot <- lmdas %>%
-  dplyr::select(c(estimate, lcl:ucl, plot, time)) %>%
-  mutate(plot = gsub("g","", plot)) %>%
-  mutate(plot = as.factor(plot)) %>%
+PradelMPMsite <- lmdas %>%
+  dplyr::select(c(estimate, lcl:ucl, site, time)) %>%
+  mutate(site = gsub("g","", site)) %>%
+  mutate(site = as.factor(site)) %>%
   dplyr::rename(Year = time) %>%
   mutate(Method = "Pradel") %>%
   bind_rows(allL) %>%
-  # mutate(plot = as.numeric(plot)) %>%
+  # mutate(site = as.numeric(site)) %>%
   dplyr::left_join(SitePlot) %>%
-  # mutate(plot = as.factor(plot)) %>%
-ggplot(  aes(Year, estimate, color = plot, shape = Method)) +
+  # mutate(site = as.factor(site)) %>%
+ggplot(  aes(Year, estimate, color = Method, shape = Method)) +
   geom_point(position = position_dodge(width = 1))+
   geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
   theme_bw()+
@@ -645,7 +712,7 @@ ggplot(  aes(Year, estimate, color = plot, shape = Method)) +
   facet_wrap(~site)
   
   
-ggsave(PradelMPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelMPM.jpg",
+ggsave(PradelMPMsite, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelMPMSite.jpg",
          width=450, height=125,units='mm', dpi=300 )
 
 
