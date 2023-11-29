@@ -93,6 +93,8 @@ StagePVA <- function(df,dormancy = 1){
   }
 
   # The list returned from the function
+  # First remove nulls
+  plot.matrix <- plot.matrix[-which(sapply(plot.matrix, is.null))]
   plot.matrix
 }
 
