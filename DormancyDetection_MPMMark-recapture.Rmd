@@ -81,7 +81,7 @@ site1year <- lapply(2015:2022, function(yr){
 })
 
 site2.mpm <- list(MPM.plots$"16", MPM.plots$"58", MPM.plots$"89", MPM.plots$"90", MPM.plots$"96", MPM.plots$"98")  ## 89 removed in 2020
-site2year <- lapply(2015:2021, function(yr){
+site2year <- lapply(2015:2022, function(yr){
   mpmyr <- lapply(site2.mpm, function(m) {
     m[grepl(as.character(yr), names(m))]
     })
@@ -90,7 +90,7 @@ site2year <- lapply(2015:2021, function(yr){
 
 ## So few, might not be able to get anything really
 site5.mpm <- list(MPM.plots$"606", MPM.plots$"607", MPM.plots$"608", MPM.plots$"609", MPM.plots$"610")  
-site5year <- lapply(1995:2020, function(yr){
+site5year <- lapply(1995:2021, function(yr){
   mpmyr <- lapply(site5.mpm, function(m) {
     m[grepl(as.character(yr), names(m))]
     })
@@ -126,13 +126,13 @@ stoch.log.lam <- do.call(rbind,lapply(sgr.st.yr, function(x){
   data.frame(Approx = x$approx, Sim = x$sim, lcl = x$sim.CI[1], ucl = x$sim.CI[2])
 }))
 
-stoch.log.lam$Site = c(rep("Site5", length(site5year)),rep("Site15", length(site15year)), 
-             rep("Site19", length(site19year)), rep("Site26", length(site26year)))
-stoch.log.lam$Year = c(1995:2020, rep(1995:2022, 3))
+stoch.log.lam$Site = c(rep(5, length(site5year)),rep(15, length(site15year)), 
+             rep(19, length(site19year)), rep(26, length(site26year)))
+stoch.log.lam$Year = c(1995:2021, rep(1995:2022, 3))
 
 stoch.log.lam %>%
   filter(Year < 2022) %>%
-ggplot(  aes(Year, Approx, color = Site))+
+ggplot(  aes(Year, Approx, color = as.factor(Site)))+
   geom_point(position = position_dodge(width = 1))+
   geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
   theme_bw()+
@@ -668,52 +668,46 @@ paramsAll <- row.names(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$design.mat
 params <- paramsAll[!grepl("f ", paramsAll)]
 length(params[-length(params)])
 
-lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
+lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
   bind_cols(Params = params[-length(params)]) %>%
   separate(Params, into = c("parameter","site","age","time")) %>%
   mutate(time = as.character(time)) %>%
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time))
 
-allL <- allLambdas %>%
-  mutate(lcl = Lambda, ucl = Lambda) %>%
-  dplyr::rename(estimate = Lambda) %>%
+allL <- stoch.log.lam %>%
+  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
+         lcl = if_else(is.nan(lcl), Approx, lcl),
+         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%
+  dplyr::rename(estimate = Sim) %>%
   mutate(Method = "MPM") %>%
-  relocate(lcl, .after = estimate) %>%
-  relocate(ucl, .after = lcl) %>%
   mutate(Year = as.numeric(Year)) %>%
-  filter(plot %in% c("606","607","608","609","610",
-                     "8","578","581","799",
-                     "512","513","514","515",
-                     "480","611","614")) %>%
-  dplyr::select(c(estimate:ucl, site, Year))
+  dplyr::select(c(estimate:Method)) %>%
+  filter(Year < 2022)
 
-## From ConfInt_MPM_Astragalus-microcymbus
 PradelMPMsite <- lmdas %>%
   dplyr::select(c(estimate, lcl:ucl, site, time)) %>%
-  mutate(site = gsub("g","", site)) %>%
-  mutate(site = as.factor(site)) %>%
+  dplyr::rename(Site = site) %>%
+  mutate(Site = gsub("g","", Site)) %>%
+  mutate(Site = as.numeric(Site)) %>%
   dplyr::rename(Year = time) %>%
   mutate(Method = "Pradel") %>%
   bind_rows(allL) %>%
-  # mutate(site = as.numeric(site)) %>%
-  dplyr::left_join(SitePlot) %>%
-  # mutate(site = as.factor(site)) %>%
-ggplot(  aes(Year, estimate, color = Method, shape = Method)) +
-  geom_point(position = position_dodge(width = 1))+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+ggplot(  aes(Year, estimate, color = Method)) +
+  geom_point(position = position_dodge(width = .3))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = .3))+
   theme_bw()+
-  ylab(expression(lambda))+
+  ylab(expression("log"~lambda))+
   xlab("Year")+
-  # scale_color_grey(guide = 'none')+
-  # scale_color_manual(guide = 'none', values = rainbow(16))+
-  geom_hline(yintercept = 1)+
+  scale_color_manual("Method", values = c("black","grey50"))+
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60")+
   scale_shape_manual(values = c(1,16))+
-  facet_wrap(~site)
+  facet_wrap(~Site, nrow = 4)+
+  theme(legend.position="bottom")
   
   
 ggsave(PradelMPMsite, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelMPMSite.jpg",
-         width=450, height=125,units='mm', dpi=300 )
+         width=200, height=175,units='mm', dpi=300 )
 
 
 #############################################################################################################
