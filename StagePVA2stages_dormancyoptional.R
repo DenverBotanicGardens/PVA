@@ -33,49 +33,29 @@
 
 ## Need by plot to have many MPMs per site over which to estimate VCV matrix and uncertainty
 StagePVA <- function(df,dormancy = 1){
-
-  # Seedlings that are reproductive couldn't have come from the preceding year's fruits, it was alive at least in the preceding year
-  # Change after counting what we marked as seedlings to not being seedling if reproductive, just missed
-  df$stage[df$fruits > 0] <- "reproductive"
-
   require(dplyr)
   library(plyr)
-
-  ## Remove 'dormant' state
-  ## Dormant all to dead, next time alive should be seedling or reproductive depending on status
-  # df %>%
-  #   filter(stage == "dormant")
-
+  require(popbio)
   stages <- c("vegetative","reproductive","dormant")
 
-  require(popbio)
-
   # Projection matrices divided by Plot
-  # years <- unique(df$year)
-  # plot.matrix <- vector("list", length(years))
-  # names(plot.matrix) <- years
-  # plotpromatrix <- vector("list", length(years))
-  # names(plotpromatrix) <- years
-
   plotpromatrix <- vector("list")
   plot.matrix <- vector("list")
+
   #Set variables
   Plots <- unique(df$plot)
-
 
   ## Plot
   for(j in Plots){
     years <- unique(df$year[df$plot == j])
 
-    for(i in years){
-
+    for(i in years[-length(years)]){
       # df$year is Year
       fert <- subset(df, df$year == i & df$plot == j)
 
       # ?projection.matrix uses a column with a stage name as a fertility measure per plant
       # fruit production per individual as a percent of the total production that year. Time t
       # this times the number of seedlings that survived the next year
-      # seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$plot == j))
       newtags <- match(unique(df$tag[df$year == i+1 & df$plot == j]),unique(df$tag[df$year == i & df$plot == j]))
       # deadtags <- match(unique(df$tag[df$year == i & df$plot == j]),unique(df$tag[df$year == i+1 & df$plot == j]))
       # length(deadtags[is.na(deadtags)])
