@@ -75,8 +75,12 @@ StagePVA <- function(df,dormancy = 1){
       # ?projection.matrix uses a column with a stage name as a fertility measure per plant
       # fruit production per individual as a percent of the total production that year. Time t
       # this times the number of seedlings that survived the next year
+      # seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$plot == j))
+      newtags <- match(unique(df$tag[df$year == i+1 & df$plot == j]),unique(df$tag[df$year == i & df$plot == j]))
+      deadtags <- match(unique(df$tag[df$year == i & df$plot == j]),unique(df$tag[df$year == i+1 & df$plot == j]))
+      length(deadtags[is.na(deadtags)])
+      seedlings <- length(newtags[is.na(newtags)])
 
-      seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$plot == j))
 
       ## Seedlings are new vegetative ones
       fert$stage[fert$stage == "seedling"] <- "vegetative"
