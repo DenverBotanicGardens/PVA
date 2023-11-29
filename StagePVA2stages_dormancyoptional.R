@@ -26,12 +26,12 @@
 # 6 2155 2014     19      0 seedling    1    1      n  FALSE vegetative
 
 ## Testing
-load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate2023.Rdata")
-df <- asmi.all2
+# load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate2023.Rdata")
+# df <- asmi.all2
 
+## Too few seedlings so need a different way (diff of tag numbers) to note new, and only have vegetative and reproductive
 
-
-# make it assign fencing or not but do it by each plot seperately, I can go through and average later
+## Need by plot to have many MPMs per site over which to estimate VCV matrix and uncertainty
 StagePVA <- function(df,dormancy = 1){
 
   # Seedlings that are reproductive couldn't have come from the preceding year's fruits, it was alive at least in the preceding year
@@ -40,24 +40,18 @@ StagePVA <- function(df,dormancy = 1){
 
   require(dplyr)
   library(plyr)
-  #Starting point vector, select among numbers each year
-  # Data frame of years per plot, plot per site
-  n_options_plot <- plyr::ddply(df, c("year","site","plot", "fenced"), function(x) return(table(x$stage)))
 
   ## Remove 'dormant' state
   ## Dormant all to dead, next time alive should be seedling or reproductive depending on status
   # df %>%
   #   filter(stage == "dormant")
 
-  # Create a list to hold output
-  names <- c("Plot")
-  SiteMatrix <- vector("list", length(names))
-  names(SiteMatrix) <- names
+  stages <- c("vegetative","reproductive","dormant")
 
   require(popbio)
 
   # Projection matrices divided by Plot
-
+  years <- unique(df$year)
   plot.matrix <- vector("list", length(years))
   names(plot.matrix) <- years
   plotpromatrix <- vector("list", length(years))
@@ -74,7 +68,7 @@ StagePVA <- function(df,dormancy = 1){
     for(i in years){
 
       # df$year is Year
-      fertplot <- subset(df, df$year == i & df$plot == j)
+      fert <- subset(df, df$year == i & df$plot == j)
 
       # ?projection.matrix uses a column with a stage name as a fertility measure per plant
       # fruit production per individual as a percent of the total production that year. Time t
@@ -82,18 +76,14 @@ StagePVA <- function(df,dormancy = 1){
 
       seedlings <- nrow(subset(df, df$year == i+1 & df$stage == "seedling" & df$plot == j))
 
-      ## now take away seedling stage, just vegetative, reproductive, dormant
-      stages <- c("vegetative", "reproductive", "dormant","dead")
-      fert <- fert %>%
-        dplyr::mutate(stage = as.character(stage)) %>%
-        dplyr::mutate(stage = if_else(stage == "seedling", "vegetative", stage)) %>%
-        dplyr::mutate(stage = as.factor(stage)) %>%
-        dplyr::mutate(stage = ordered(stage, levels = stages))
+      ## Seedlings are new vegetative ones
+      fert$stage[fert$stage == "seedling"] <- "vegetative"
+      # fert$stage <- droplevels(fert$stage) ## Will drop reproductive when there are none
+      fert$stage <- factor(fert$stage, levels = stages)
 
-
-      fert$seedling <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
-      fert$seedling[is.nan(fert$seedling)] <- 0
-      fert$seedling[is.na(fert$seedling)] <- 0
+      fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
+      fert$vegetative[is.nan(fert$vegetative)] <- 0
+      fert$vegetative[is.na(fert$vegetative)] <- 0
 
       plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
 
@@ -102,9 +92,8 @@ StagePVA <- function(df,dormancy = 1){
     plot.matrix[[as.character(j)]] <- plotpromatrix
   }
 
-  # add each year list of matrices to each by site and for only fenced and only not fenced
-  SiteMatrix$plot.matrix <- plot.matrix
-
   # The list returned from the function
-  SiteMatrix
+  plot.matrix
 }
+
+
