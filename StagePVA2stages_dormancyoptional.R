@@ -49,7 +49,7 @@ StagePVA <- function(df,dormancy = 1){
   for(j in Plots){
     years <- unique(df$year[df$plot == j])
 
-    for(i in years[-length(years)]){
+    for(i in years){
       # df$year is Year
       fert <- subset(df, df$year == i & df$plot == j)
 
