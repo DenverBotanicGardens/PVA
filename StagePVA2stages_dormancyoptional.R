@@ -51,12 +51,14 @@ StagePVA <- function(df,dormancy = 1){
   require(popbio)
 
   # Projection matrices divided by Plot
-  years <- unique(df$year)
-  plot.matrix <- vector("list", length(years))
-  names(plot.matrix) <- years
-  plotpromatrix <- vector("list", length(years))
-  names(plotpromatrix) <- years
+  # years <- unique(df$year)
+  # plot.matrix <- vector("list", length(years))
+  # names(plot.matrix) <- years
+  # plotpromatrix <- vector("list", length(years))
+  # names(plotpromatrix) <- years
 
+  plotpromatrix <- vector("list")
+  plot.matrix <- vector("list")
   #Set variables
   Plots <- unique(df$plot)
 
@@ -88,13 +90,11 @@ StagePVA <- function(df,dormancy = 1){
       plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
 
     }
-
+    # First remove nulls
     plot.matrix[[as.character(j)]] <- plotpromatrix
   }
 
   # The list returned from the function
-  # First remove nulls
-  plot.matrix <- plot.matrix[-which(sapply(plot.matrix, is.null))]
   plot.matrix
 }
 
