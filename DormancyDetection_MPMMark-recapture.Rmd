@@ -370,12 +370,55 @@ asmiMulti <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P 
                         covariates = NULL,
                         use.comments = FALSE)
 
-multi.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot")
-multi.ddl <- make.design.data(multi.proc)
-multi.mark <- mark(multi.proc, multi.ddl, begin.time = 1995, model = "Multistrata",
+multi.proc.ms <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot")
+multi.ddl.ms <- make.design.data(multi.proc.ms)
+multi.mark <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, model = "Multistrata",
                               model.parameters = list(S = list(formula = ~ 1),
                                                 p = list(formula = ~ 1),
                                                 Psi = list(formula = ~ 1)))
+
+
+multi.mark.interaction <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, model = "Multistrata",
+                               model.parameters = list(S = list(formula = ~ 1),
+                                                       p = list(formula = ~ 1),
+                                                       Psi = list(formula = ~ -1 + stratum:tostratum))) 
+# Psi = list(formula = ~ -1 + stratum:tostratum:time)  ## fit model with time varying transitions 
+### transition that is computed by subtraction can be changed -- to set which stratum is computed by substraction
+# mstrata.ddl=make.design.data(mstrata.processed,parameters=
+#                                list(Psi=list(subtract.stratum=c("A","B","C"))))
+## If need to set some transitions to zero, like PsiAA = PsiBB = PsiCC = 0
+# mstrata.ddl=make.design.data(mstrata.processed,parameters=
+#                                list(Psi=list(subtract.stratum=c("B","A","A"))))
+# mstrata.ddl$Psi=mstrata.ddl$Psi[!(mstrata.ddl$Psi$stratum==
+#                                     "A"&mstrata.ddl$Psi$tostratum=="A"),]
+# mstrata.ddl$Psi=mstrata.ddl$Psi[!(mstrata.ddl$Psi$stratum==
+#                                     "B"&mstrata.ddl$Psi$tostratum=="B"),]
+# mstrata.ddl$Psi=mstrata.ddl$Psi[!(mstrata.ddl$Psi$stratum==
+#                                     "C"&mstrata.ddl$Psi$tostratum=="C"),]
+# mymodel=mark(mstrata.processed,mstrata.ddl)
+# summary(mymodel,show.fixed=T)
+
+run.asmi.ms <- function(){
+  S.dot = list(formula =  ~ 1)
+  S.time = list(formula =  ~ time)
+  S.Plot = list(formula =  ~ Plot)  ## so each plot is offset
+  S.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(formula =  ~ 1)
+  
+  Psi.dot = list(formula =  ~ 1)
+  Psi.time = list(formula = ~ time)
+  Psi.Plot = list(formula = ~ Plot)
+  Psi.timePlot = list(formula = ~ time + Plot)
+  
+  asmi.model.list <- create.model.list("Multistrata")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = multi.proc.ms, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.models.ms <- run.asmi.ms()
 
 multi.mark$results$real
 toMPM <- multi.mark$results$real %>%
