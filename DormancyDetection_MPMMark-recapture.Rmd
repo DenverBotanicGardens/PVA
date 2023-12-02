@@ -383,22 +383,26 @@ multi.mark.interaction <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, m
 # mymodel=mark(mstrata.processed,mstrata.ddl)
 # summary(mymodel,show.fixed=T)
 
+save(multi.mark.interaction, file =  "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/multimarkInteraction.Rdata")
+
+
+
 run.asmi.ms <- function(){
+  ## Survival
   S.dot = list(formula =  ~ 1)
-  S.time = list(formula =  ~ time)
-  S.Plot = list(formula =  ~ Plot)  ## so each plot is offset
-  S.timePlot = list(formula =  ~ time + Plot)
+  # S.Plot = list(formula =  ~ Plot)  ## so each plot is offset
   
-  p.dot = list(formula =  ~ 1)
+  ## Some plots weren't observed all time periods
+  p.dot = list(formula =  ~ 1, fixed = list(index = p.indices, value = p.values))
+  p.Plot = list(formula = ~ Plot, fixed = list(index = p.indices, value = p.values))
   
   Psi.dot = list(formula =  ~ 1)
-  Psi.time = list(formula = ~ time)
-  Psi.Plot = list(formula = ~ Plot)
-  Psi.timePlot = list(formula = ~ time + Plot)
+  # Psi.time = list(formula = ~ time)
+  # Psi.Plot = list(formula = ~ Plot)
+  # Psi.timePlot = list(formula = ~ time + Plot)
   
   asmi.model.list <- create.model.list("Multistrata")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = multi.proc.ms, ddl = asmiddl)
+  asmi.results <- mark.wrapper(asmi.model.list, data = multi.proc.ms, ddl = multi.ddl.ms)
   
   return(asmi.results)
 }
