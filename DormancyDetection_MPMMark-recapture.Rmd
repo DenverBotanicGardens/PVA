@@ -333,7 +333,22 @@ asmiMulti <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P 
                         covariates = NULL,
                         use.comments = FALSE)
 
+sitedf <- CJS_asmi %>%
+  distinct(Site)
+dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
+dimnames(dmSite)[[2]][length(dimnames(dmSite)[[2]])]
 
+CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmSite) %>%
+  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Multi_asmi_mark_site.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+asmiMultisite <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Multi_asmi_mark_site.inp", 
+                        group.df = sitedf,
+                        covariates = NULL,
+                        use.comments = FALSE)
 ### transition that is computed by subtraction can be changed -- to set which stratum is computed by substraction
 # mstrata.ddl=make.design.data(mstrata.processed,parameters=
 #                                list(Psi=list(subtract.stratum=c("A","B","C"))))
@@ -408,9 +423,25 @@ run.asmi.ms <- function(){
 }
 
 asmi.models.ms <- run.asmi.ms()
+save(asmi.models.ms, file =  "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmimodelsms.Rdata")
 
-multi.mark$results$real
-toMPM <- multi.mark$results$real %>%
+
+### Multi-state transition functions
+find.possible.transitions(asmiMulti$ch)
+transition.pairs(asmiMulti$ch)
+# get.real to get a list containing all Psi estimates and the v-c matrix
+psilist <- get.real(asmi.models.ms[[1]], "Psi", vcv = TRUE)
+psivalues <- psilist$estimates
+tranmat <- TransitionMatrix(psivalues[psivalues$time == 1,])
+## with se and conf interval
+tranmatseconf <- TransitionMatrix(psivalues[psivalues$time == 1,], vcv.real = psilist$vsv.real)
+
+CJS_asmi %>%
+  distinct(Site,Plot) %>%
+  print(n = 30)
+
+asmi.models.ms$S.dot.p.Plot.Psi.dot$results$real
+toMPM <- asmi.models.ms$S.dot.p.Plot.Psi.dot$results$real %>%
   mutate(Parms = row.names(.)) %>%
   mutate(Parms = sub(" to", "to", Parms)) %>%
   separate(Parms, into = c("parameter","strata","group","year", "age", "occa","time"))%>%
