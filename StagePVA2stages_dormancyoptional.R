@@ -30,6 +30,7 @@
 # df <- asmi.all2
 
 ## Too few seedlings so need a different way (diff of tag numbers) to note new, and only have vegetative and reproductive
+## when seedlings in t+2, then must have come from last time there were fruit production, stayed in seed bank
 
 ## Need by plot to have many MPMs per site over which to estimate VCV matrix and uncertainty
 StagePVA <- function(df,dormancy = 1){
@@ -49,34 +50,66 @@ StagePVA <- function(df,dormancy = 1){
     ## stage == year t, fate == t+1, seedlings == t+2
     years <- unique(df$year[df$plot == j])
 
+    ## Years with reproductive adults
+    ## Previous of reproduction to assign fecundity, clearly not from individuals that were not reproductive
+    reproYN <- sapply(years, function(yr) sum(df$fruits[df$year == yr & df$plot == j]))
+    YearsNoRep <- years[which(reproYN == 0)]
+    YearsYesRep <- years[which(reproYN != 0)]
+
+    ## if there was no reproduction in a year, assign seedlings to the first prior year with reproductive adults
+    ## cycle through years with reproduction, they get year t+2 and if no reproduction in t+2, then also t+3...
+    if(any(which(reproYN == 0) %in% c(1))) years <- years[-1]
+
     for(i in years[-length(years)]){
-      # df$year is Year
-      fert <- subset(df, df$year == i & df$plot == j)
+      ## When no reproduction
+      if(i %in% YearsNoRep){
+        # df$year is Year
+        fert <- subset(df, df$year == i & df$plot == j)
+        ## Seedlings are new vegetative ones
+        fert$stage <- factor(fert$stage, levels = stages)
+        fert$vegetative <- 0
+        plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+      } else {
+        ## Is there reproduction in year t+1? Then all recruitment in t+2 go to t+1, else t+2 and t+3 go to t+1
+        if(i %in% YearsYesRep & !(i+1 %in% YearsNoRep)){
+          # df$year is Year
+          fert <- subset(df, df$year == i & df$plot == j)
 
-      # ?projection.matrix uses a column with a stage name as a fertility measure per plant
-      # fruit production per individual as a percent of the total production that year. Time t
-      # this times the number of seedlings that survived the next year
-      newtags <- match(unique(df$tag[df$year == i+1 & df$plot == j]),unique(df$tag[df$year == i & df$plot == j]))
-      # deadtags <- match(unique(df$tag[df$year == i & df$plot == j]),unique(df$tag[df$year == i+1 & df$plot == j]))
-      # length(deadtags[is.na(deadtags)])
-      seedlings <- length(newtags[is.na(newtags)])
+          # ?projection.matrix uses a column with a stage name as a fertility measure per plant
+          # fruit production per individual as a percent of the total production that year. Time t
+          # this times the number of seedlings that survived the next year
+          newtags <- match(unique(df$tag[df$year == i+1 & df$plot == j]),unique(df$tag[df$year == i & df$plot == j]))
+          seedlings <- length(newtags[is.na(newtags)])
 
+          ## Seedlings are new vegetative ones
+          fert$stage[fert$stage == "seedling"] <- "vegetative"
+          fert$stage <- factor(fert$stage, levels = stages)
+          fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
+          plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+        } else {
+          # df$year is Year
+          fert <- subset(df, df$year == i & df$plot == j)
 
-      ## Seedlings are new vegetative ones
-      fert$stage[fert$stage == "seedling"] <- "vegetative"
-      # fert$stage <- droplevels(fert$stage) ## Will drop reproductive when there are none
-      fert$stage <- factor(fert$stage, levels = stages)
+          # ?projection.matrix uses a column with a stage name as a fertility measure per plant
+          # fruit production per individual as a percent of the total production that year. Time t+1
+          # this times the number of seedlings that survived t+2 and t+3
+          newtags1 <- match(unique(df$tag[df$year == i+1 & df$plot == j]),unique(df$tag[df$year == i & df$plot == j]))
+          newtags2 <- match(unique(df$tag[df$year == i+2 & df$plot == j]),unique(df$tag[df$year == i+1 & df$plot == j]))
+          seedlings <- length(newtags1[is.na(newtags1)]) + length(newtags2[is.na(newtags2)])
 
-      fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
-      fert$vegetative[is.nan(fert$vegetative)] <- 0
-      fert$vegetative[is.na(fert$vegetative)] <- 0
-
-      plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
-
+          ## Seedlings are new vegetative ones
+          fert$stage[fert$stage == "seedling"] <- "vegetative"
+          # fert$stage <- droplevels(fert$stage) ## Will drop reproductive when there are none
+          fert$stage <- factor(fert$stage, levels = stages)
+          fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
+          plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+        }
+      }
+      # First remove nulls
+      plot.matrix[[as.character(j)]] <- plotpromatrix
     }
-    # First remove nulls
-    plot.matrix[[as.character(j)]] <- plotpromatrix
   }
+
 
   # The list returned from the function
   plot.matrix
