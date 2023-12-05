@@ -34,7 +34,6 @@
 ## Need by plot to have many MPMs per site over which to estimate VCV matrix and uncertainty
 StagePVA <- function(df,dormancy = 1){
   require(dplyr)
-  library(plyr)
   require(popbio)
   stages <- c("vegetative","reproductive","dormant")
 
