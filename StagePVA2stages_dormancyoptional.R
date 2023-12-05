@@ -47,9 +47,10 @@ StagePVA <- function(df,dormancy = 1){
 
   ## Plot
   for(j in Plots){
+    ## stage == year t, fate == t+1, seedlings == t+2
     years <- unique(df$year[df$plot == j])
 
-    for(i in years){
+    for(i in years[-length(years)]){
       # df$year is Year
       fert <- subset(df, df$year == i & df$plot == j)
 
