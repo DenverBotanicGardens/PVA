@@ -1,0 +1,666 @@
+---
+title: "Pradel and CountPVA"
+author: "Michelle DePrenger-Levin"
+date: "2023-12-06"
+output: html_document
+---
+
+Chapter 3: dormancy and detection in plants
+
+# Population-level analyses
+Demographic data for Astragalus microcymbus
+RMark
+
+```{r}
+rm(list=ls())
+
+
+library(dplyr)
+library(tidyr)
+library(RMark)
+library(boot)
+library(ggplot2)
+library(lme4)
+
+currentyr <- 2023
+userpath <- "C:/Users/DePrengm/"
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+# need to remove all plot 89, site 1 in 2020 and beyond
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+# In a Stage-Fate format. stage is year t, fate is year t+1
+load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate2023.Rdata")
+
+```
+
+
+
+Check out count.DD.PVA from Bruce Kendall PVA package in R. Count-based Density-dependent PVA  https://rdrr.io/github/BruceKendall/PVA/man/count.DD.PVA.html     
+
+
+
+counts and a count based PVA   
+```{r}
+count.yr <- asmi.raw %>%
+  filter(length > 0) %>%
+  rename(plot = AsMi_plot_id) %>%
+  rename(site = AsMi_site_id) %>%
+  group_by(site, plot, year) %>%
+  dplyr::summarise(count = n())
+
+plotsSite <- count.yr %>%
+  distinct(site,plot)
+  
+
+loglams <- do.call(rbind, lapply(plotsSite$plot, function(plot){
+  y.count <- count.yr$count[count.yr$plot == plot]
+  x.years <- count.yr$year[count.yr$plot == plot]
+  ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
+  yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
+
+  
+  PVA.lm <- lm(ySpecies ~ -1 + yr)
+  mu_sp <- predict(PVA.lm, level= 0.95,
+                   interval = "confidence",
+                   se.fit = T)$fit[1,]
+  
+  
+  rsq <- summary(PVA.lm)$adj.r.squared
+  data.frame(plot = plot, mu = mu_sp[1], lwr = mu_sp[2], upr = mu_sp[3],
+             geomean = mean(ySpecies), var.r = var(ySpecies), sd.r = sd(ySpecies))
+  }))
+
+## All together with plot per site as random effect
+# lmer.df <- do.call(rbind, lapply(plotsSite$plot, function(plot){
+#   y.count <- count.yr$count[count.yr$plot == plot]
+#   x.years <- count.yr$year[count.yr$plot == plot]
+#   ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
+#   yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
+#   
+#   lmer.df <- data.frame(plot = plot, ySpecies, yr) %>%
+#     left_join(plotsSite)
+#   lmer.df
+# }))
+#   
+# PVA.lm <- lmer(ySpecies ~ -1 + yr + (1|site), lmer.df)
+
+######################################################
+
+loglams %>%
+  left_join(plotsSite) %>%
+  mutate(site = as.factor(site),
+         plot = as.factor(plot)) %>%
+  group_by(site) %>%
+  dplyr::summarise(sitegeomean = mean(geomean),
+                   sitevar = var(var.r),
+                   sitesd = sd(sd.r)) %>% 
+  filter(site %in% c(5,15,19,26))%>%
+  ggplot( aes(site, sitegeomean))+
+    geom_point()+
+    geom_errorbar(aes(ymin = sitegeomean - sitesd, ymax = sitegeomean + sitesd), width = 0.2)+
+    theme_bw() +
+    geom_hline(yintercept = 0, linetype = "dotted") +
+    ylab(expression(log~lambda))+
+    xlab("Site")
+
+```
+
+
+
+Format data of all years
+```{r}
+# asmi.raw <- asmi.raw3
+
+## Just add "." for all the ones that we're measured
+# assign group at first encounter, age 0 if 'seedling' or vegetative, older if reproductive. 
+CJS_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)  
+dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
+finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+
+## By Plot
+CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+## By Site
+CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmSite) %>%
+  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark_site.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+fields <- CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmSite) %>%
+  bind_cols(dmPlot) %>%
+  colnames()
+
+plotdf <- CJS_asmi %>%
+  distinct(Site,Plot)
+
+sitedf <- CJS_asmi %>%
+  distinct(Site)
+
+```
+
+
+
+Mark-recapture by plot    
+```{r}
+
+## Convert for MARK  
+asmi.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", 
+                        group.df = plotdf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+asmiSite.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark_site.inp", 
+                        group.df = sitedf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+```
+
+CJS   
+Took out "." notation, need to get index and fix to zero detection
+```{r}
+asmi.proc <- process.data(asmi.inp, model = "CJS", groups = "Plot")
+asmi.ddl <- make.design.data(asmi.proc)
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(formula =  ~ 1)
+  p.time = list(formula = ~ time)
+  p.Plot = list(formula = ~ Plot)
+  p.timePlot = list(formula = ~ time + Plot)
+
+  asmi.model.list <- create.model.list("CJS")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmi.proc, ddl = asmi.ddl)
+  
+  return(asmi.results)
+}
+
+asmi.models <- run.asmi()
+asmi.models$Phi.timePlot.p.timePlot$results$real
+
+```
+
+## Plot
+Pradel model for lambda (population growth rate) and recruitment (phi) and detection (p)    
+```{r}
+Pradel_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>%
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  # mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              # id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id)) %>%
+  filter(grepl("1",ch))
+
+table(Pradel_asmi$Site, Pradel_asmi$Plot)
+
+dmPlot <- model.matrix(~ -1 + Plot, Pradel_asmi)
+dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+plotPradeldf <- Pradel_asmi %>%
+  distinct(Plot)
+
+## without Cebolla Creek
+Pradel_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+
+asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark.inp", 
+                        group.df = plotPradeldf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot", begin.time = 1995)
+asmiddl <- make.design.data(asmiproc)
+
+asmiproc$group.covariates
+plotsSite <- Pradel_asmi %>%
+  distinct(Plot,Site)
+
+## Fix p to zero when no survey
+pindex <- asmiddl$p
+# p.idSite1_2 <- pindex %>%
+#   mutate(time = as.numeric(as.character(time)))%>%
+#   ## Sites 1 and 2 were added in 2014, nothing can start in any of these years, time
+#   filter((group %in% plotsSite$Plot[plotsSite$Site %in% c(1,2)] & time < 2014)) 
+p.idAddedlater <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(598) & time < 2004))
+p.idAdded1996 <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(300,238) & time < 1996))  
+
+## Fixed indices
+p.indices <- c(#p.idSite1_2$par.index, 
+  p.idAdded1996$par.index, p.idAddedlater$par.index)
+p.values <- rep(0, length(p.indices))
+
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Plot)
+  
+  p.dot = list(formula =  ~ 1, fixed = list(index = p.indices, value = p.values))
+
+  f.dot = list(formula =  ~ 1)
+  f.time = list(formula = ~ time)
+  f.Plot = list(formula = ~ Plot)
+  f.timePlot = list(formula = ~ time + Plot)
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.models <- run.asmi()
+save(asmi.models, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC.Rdata")
+```
+
+```{r}
+## Both CC and SBC
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel.Rdata")
+## South Beaver Creek only
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC.Rdata")
+
+asmi.models
+asmi.models$model.table
+
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  filter(parameter == "Phi") %>%
+  distinct(estimate,se,lcl,ucl)   
+
+asmi.models$Phi.Plot.p.dot.f.Plot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  filter(parameter == "p")
+  
+
+### LAMBDA
+nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
+paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
+paramsAll[grepl("Phi", paramsAll)]
+params <- paramsAll[grepl("Phi", paramsAll)]
+
+lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
+  bind_cols(Params = params) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
+  mutate(plot = gsub("g","", plot)) %>%
+  group_by(plot) %>%
+  dplyr::summarize(meanLambda = mean(estimate),
+                   marginerror = qt(0.975, df = (n()-1)*sd(estimate)/sqrt(n())),
+                   lcl = meanLambda - marginerror,
+                   ucl = meanLambda + marginerror) %>%
+  dplyr::rename(Plot = plot) %>%
+  left_join(plotsSite)
+
+
+
+asmi.models$Phi.dot.p.dot.f.dot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl)
+
+asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl)
+
+## Just by plot, not different over time
+paramsAll <- row.names(asmi.models$Phi.Plot.p.dot.f.Plot$design.matrix)
+paramsAll[grepl("Phi", paramsAll)]
+lmdas <- asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  bind_cols(SitePlot) 
+
+lmdas %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  ggplot( aes(plot, estimate)) +
+    geom_point()+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.2)+
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  theme_bw()+
+  facet_wrap(~site, scales = "free_x")
+
+CountLogLams <- loglams %>%
+  left_join(plotsSite) %>%
+  filter(site %in% c(5,15,19,26))%>%
+  dplyr::rename(estimate = mu) %>%
+  dplyr::rename(lcl = lwr) %>% 
+  dplyr::rename(ucl = upr) %>%
+  mutate(Method = "CountPVA") %>%
+  mutate(plot = as.factor(plot)) %>%
+  dplyr::select(c(plot, estimate, lcl:ucl, site))
+
+## From ConfInt_MPM_Astragalus-microcymbus
+PradelMPMplot <- lmdas %>%
+  dplyr::select(c(plot, estimate, lcl:ucl, site)) %>%
+  filter(site %in% c(5,15,19,26))%>%
+  mutate(Method = "Pradel") %>%
+  bind_rows(CountLogLams) %>%
+ggplot(  aes(plot, estimate, color = Method)) +
+  geom_point(position = position_dodge(width = 1))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+  theme_bw()+
+  ylab(expression(lambda))+
+  xlab("Plot")+
+  geom_hline(yintercept = 0)+
+  scale_shape_manual(values = c(1,16))+
+  facet_wrap(~site, scales = "free_x")+
+  scale_color_manual(values = c("black","grey70"))
+  
+  
+ggsave(PradelMPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelCountPVA.jpg",
+         width=150, height=125,units='mm', dpi=300 )
+
+
+#############################################################################################################
+
+## Geometric mean growth rate on real scale 
+## Variance from random effects, variance components approach
+lmdas %>%
+  group_by(time) %>%
+  summarise(lamhats = exp(mean(log(estimate)))) %>%
+  print(n=30)
+
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params[-length(params)]) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
+  group_by(time) %>%
+  summarise(lamhats = exp(mean(estimate)))
+
+realasmi <- get.real(asmi.models$Phi.timePlot.p.dot.f.timePlot, "Phi", vcv=TRUE)
+rasmi <- realasmi$estimates$estimate  ## One less than time length? or time length?
+vcv <- realasmi$vcv.real
+varc <- var.components(rasmi, design = matrix(rep(1,length(rasmi)), ncol=1), vcv)
+df <- asmi.models$Phi.timePlot.p.dot.f.timePlot$design.data$Phi
+shrinkest <- data.frame(time = 1:27, value = varc$betarand$estimate)
+df <- merge(df, shrinkest, by="time")
+md <- mark(asmiPradel.inp, model="Pradrec", 
+           model.parameters = list(Phi = list(formula = ~ time + Plot,
+                                              fixed=list(index=df$par.index,value=df$value)),
+                                   f = list(formula = ~ time + Plot)),
+           adjust=FALSE,delete=TRUE)
+
+## Recruitment
+recruit <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  bind_cols(Params = paramsAll)%>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+
+## Recruitment is the number of added individuals C times the survival of adults is the change between time t+1 and t+2
+recruit %>%
+  filter(parameter == "f") %>%
+  ggplot(    aes(time, estimate, color = plot)) +
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  ylab(expression(f[0]))+
+  scale_color_discrete(guide = "none")
+
+```
+
+## Site
+Pradel model for lambda (population growth rate) and recruitment (phi) and detection (p)    
+```{r}
+Pradel_asmi <- asmi.raw %>%
+  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(!is.na(year)) %>%  
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>% ## exclude Cebolla Creek that was added 2014
+  filter(AsMi_plot_id != 598) %>% ## exclude the one plot added in 2004
+  filter(!(AsMi_plot_id %in% c(300,238))) %>% ## Since two plots, 300, 238 were added in 1996
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  group_by(AsMi_tag_id) %>%
+  filter(any(length > 0)) %>%
+  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+  unite(ch, Year1995:Year2022, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id))
+
+dmSite <- model.matrix(~ -1 + Site, Pradel_asmi)
+finalSite <- dimnames(dmSite)[[2]][length(dimnames(dmSite)[[2]])]
+sitePradeldf <- Pradel_asmi %>%
+  distinct(Site)
+
+
+Pradel_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmSite) %>%
+  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
+  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark_site.inp", sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+
+asmiPradel.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel_asmi_mark_site.inp", 
+                        group.df = sitePradeldf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Site", begin.time = 1995)
+asmiddl <- make.design.data(asmiproc)
+
+asmiproc$group.covariates
+
+run.asmi <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.time = list(formula =  ~ time)
+  Phi.Plot = list(formula =  ~ Site)  ## so each plot is offset
+  Phi.timePlot = list(formula =  ~ time + Site)
+  
+  p.dot = list(formula =  ~ 1)
+  
+  f.dot = list(formula =  ~ 1)
+  f.time = list(formula = ~ time)
+  f.Plot = list(formula = ~ Site)
+  f.timePlot = list(formula = ~ time + Site)
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+# asmi.models.site <- run.asmi()
+# save(asmi.models.site, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
+
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
+
+
+### LAMBDA  ## Note that now Plot == Site
+nrow(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
+paramsAll <- row.names(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$design.matrix)
+params <- paramsAll[!grepl("f ", paramsAll)]
+length(params[-length(params)])
+
+lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params[-length(params)]) %>%
+  separate(Params, into = c("parameter","site","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+allL <- stoch.log.lam %>%
+  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
+         lcl = if_else(is.nan(lcl), Approx, lcl),
+         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%
+  dplyr::rename(estimate = Sim) %>%
+  mutate(Method = "MPM") %>%
+  mutate(Year = as.numeric(Year)) %>%
+  dplyr::select(c(estimate:Method)) %>%
+  filter(Year < 2022)
+
+PradelMPMsite <- lmdas %>%
+  dplyr::select(c(estimate, lcl:ucl, site, time)) %>%
+  dplyr::rename(Site = site) %>%
+  mutate(Site = gsub("g","", Site)) %>%
+  mutate(Site = as.numeric(Site)) %>%
+  dplyr::rename(Year = time) %>%
+  mutate(Method = "Pradel") %>%
+  bind_rows(allL) %>%
+ggplot(  aes(Year, estimate, color = as.factor(Site), shape = Method)) +
+  geom_point(position = position_dodge(width = .8))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = .8), width = 1)+
+  theme_bw()+
+  ylab(expression("log"~lambda))+
+  xlab("Year")+
+  scale_color_manual("Site", values = wes_palette("Darjeeling1"))+
+  # scale_color_manual("Method", values = c("black","grey50","grey30","grey80"))+
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60")+
+  scale_shape_manual(values = c(4,16))+
+  # facet_wrap(~Site, nrow = 4)+
+  theme(legend.position="bottom")
+  
+  
+ggsave(PradelMPMsite, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelMPMSite.jpg",
+         width=300, height=125,units='mm', dpi=300 )
+
+
+#############################################################################################################
+
+
+lambda.ftimePlot <- asmi.models.site$Phi.dot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change`%>%
+  bind_cols(Params = params[-length(params)]) %>%
+  separate(Params, into = c("parameter","site","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+lambda.ftimePlot %>%
+  dplyr::select(c(estimate, lcl:ucl, site, time)) %>%
+  dplyr::rename(Site = site) %>%
+  mutate(Site = gsub("g","", Site)) %>%
+  mutate(Site = as.numeric(Site)) %>%
+  dplyr::rename(Year = time) %>%
+  mutate(Method = "Pradel") %>%
+  bind_rows(allL) %>%
+ggplot(  aes(Year, estimate, color = as.factor(Site), shape = Method)) +
+  geom_point(position = position_dodge(width = .3))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = .3))+
+  theme_bw()+
+  ylab(expression("log"~lambda))+
+  xlab("Year")+
+  scale_color_manual("Site", values = wes_palette("Darjeeling1"))+
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey60")+
+  scale_shape_manual(values = c(3,16))+
+  # facet_wrap(~Site, nrow = 4)+
+  theme(legend.position="bottom")
+
+## Recruitment
+recruit <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  bind_cols(Params = paramsAll)%>%
+  separate(Params, into = c("parameter","site","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time))
+
+
+## Recruitment is the number of added individuals C times the survival of adults is the change between time t+1 and t+2
+recruitplot <- recruit %>%
+  filter(parameter == "f") %>%
+  ggplot(    aes(time, estimate, color = site)) +
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  ylab(expression(f[0]))+
+  xlab("Year")+
+  scale_color_manual("Site", values = wes_palette("Darjeeling1"))+
+  theme(legend.position="bottom")
+
+
+ggsave(recruitplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/recruitmentPradelMPMSite.jpg",
+         width=300, height=125,units='mm', dpi=300 )
+
+fandphi <- recruit %>%
+  filter(parameter != "p") %>%
+  ggplot(    aes(time, estimate, color = site, shape = parameter)) +
+  geom_point(position = position_dodge(width = 0.9))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
+  theme_bw()+
+  ylab("")+
+  xlab("Year")+
+  scale_color_manual("Site", values = wes_palette("Darjeeling1"))+
+  scale_shape_manual("Parameter", labels = c(expression(f[0]), expression(Phi)), values = c(4,16))+
+  theme(legend.position="bottom")+
+  geom_hline(yintercept = recruit$estimate[recruit$parameter == "p"], color = "grey60", linetype = "dotted")+
+  geom_hline(yintercept = recruit$lcl[recruit$parameter == "p"], color = "grey60", linetype = "longdash")+
+  geom_hline(yintercept = recruit$ucl[recruit$parameter == "p"], color = "grey60", linetype = "longdash")
+
+ggsave(fandphi, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/recruitmentPhiPradelSite.jpg",
+         width=300, height=125,units='mm', dpi=300 )
+  
+```
+
+
