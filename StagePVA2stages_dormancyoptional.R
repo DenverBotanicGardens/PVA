@@ -39,8 +39,8 @@ StagePVA <- function(df,dormancy = 1){
   stages <- c("vegetative","reproductive","dormant")
 
   # Projection matrices divided by Plot
-  plotpromatrix <- vector("list")
   plot.matrix <- vector("list")
+  plotpromatrix <- vector("list")
 
   #Set variables
   Plots <- unique(df$plot)
@@ -68,7 +68,7 @@ StagePVA <- function(df,dormancy = 1){
         ## Seedlings are new vegetative ones
         fert$stage <- factor(fert$stage, levels = stages)
         fert$vegetative <- 0
-        plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+        plotpromatrix[[paste("Year",as.character(i),sep = "")]] <- projection.matrix(fert)
       } else {
         ## Is there reproduction in year t+1? Then all recruitment in t+2 go to t+1, else t+2 and t+3 go to t+1
         if(i %in% YearsYesRep & !(i+1 %in% YearsNoRep)){
@@ -85,7 +85,7 @@ StagePVA <- function(df,dormancy = 1){
           fert$stage[fert$stage == "seedling"] <- "vegetative"
           fert$stage <- factor(fert$stage, levels = stages)
           fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
-          plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+          plotpromatrix[[paste("Year",as.character(i),sep = "")]] <- projection.matrix(fert)
         } else {
           # df$year is Year
           fert <- subset(df, df$year == i & df$plot == j)
@@ -102,15 +102,13 @@ StagePVA <- function(df,dormancy = 1){
           # fert$stage <- droplevels(fert$stage) ## Will drop reproductive when there are none
           fert$stage <- factor(fert$stage, levels = stages)
           fert$vegetative <- seedlings * (fert$fruits / sum(fert$fruits, na.rm = T))
-          plotpromatrix[[as.character(i)]] <- projection.matrix(fert)
+          plotpromatrix[[paste("Year",as.character(i),sep = "")]] <- projection.matrix(fert)
         }
-      }
-      # First remove nulls
-      plot.matrix[[as.character(j)]] <- plotpromatrix
-    }
+      } # End years with reproduction
+
+    plot.matrix[[paste("Plot",as.character(j),sep = "")]] <- plotpromatrix
+    } # End years loop
   }
-
-
   # The list returned from the function
   plot.matrix
 }

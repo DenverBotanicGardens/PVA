@@ -3,8 +3,8 @@ title: "AsMi_annual report"
 author: "Michelle DePrenger-Levin"
 date: "Tuesday, October 27, 2015"
 output:
-  html_document: default
   word_document: default
+  html_document: default
 ---
 The git remote is "AsMiPVA"
 AsMiPVA
@@ -50,6 +50,9 @@ library(lattice)
 library(DiagrammeR)
 library(patchwork)
 
+library(MASS)
+library(HDInterval)
+
 ```
 
 
@@ -64,12 +67,12 @@ Function for t.tests, for annual lambdas
 ```{r}
 
 # StagePVA_Function.R
-source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R")
+# source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R")
 # script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_Function.R",ssl.verifypeer = FALSE)
 # eval(parse(text = script))
 
 # StagePVA_simple for one plot at a time function is StagePVA_single
-source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R")
+# source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R")
 # script <- getURL("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA_simple.R",ssl.verifypeer = FALSE)
 # eval(parse(text = script))
 
@@ -79,6 +82,13 @@ source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/St
 # 					or fenced.Site.matrix$"19"[2:17])    
 # y is the start year    
 # z is the start of the last transition
+
+
+## 2023 - too much uncertainty about a seedling vs. a resprout, use three stage PVA
+# Vegetative, Reproductive, Dormant
+## Get 2 stage pva to make MPMs
+source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA2stages_dormancyoptional.R")
+
 
 lmdSD <- function(x,y,z){
   
@@ -118,6 +128,7 @@ grViz("digraph integrated_pop {
       b [label = '@@1-2']
       c [label = '@@1-3']
       d [label = '@@1-4']
+      i [label = '@@1-5']
       
       # Within season monitoring
       e [label = '@@2-1']
@@ -130,15 +141,21 @@ grViz("digraph integrated_pop {
         graph [style = dashed, color = Sienna]
         rank = same; a;d;
         rank = same; b; c;
+        i -> a
         a -> {b c}
         b -> c
-        c -> a [style = dashed, color = LimeGreen]
+        # c -> a # [style = dashed, color = LimeGreen]
+        c -> i [style = dashed, color = red]
         a -> d
         b -> d
         c -> d
-        c -> b [color = red]
-        d -> b [color = red]
-        d -> c [color = red]
+        c -> b [color = darkgrey]
+        d -> b [color = darkgrey]
+        d -> c [color = darkgrey]
+        d -> d [style = dashed, color = red] #, dir = back]
+        c -> c
+        b -> b
+        i -> i [style = dashed, color = red]
         
         label = 'Demography'
       }
@@ -151,6 +168,13 @@ grViz("digraph integrated_pop {
         label = 'Within season'
       }
       
+      subgraph cluster_census {
+        graph [style = dashed, color = grey]
+        N_t
+        
+        label = 'Time series'
+      }
+      
       subgraph cluster_detection {
         graph [style = dashed, color = Sienna]
         h
@@ -161,9 +185,10 @@ grViz("digraph integrated_pop {
     h -> {e f g} [lhead = cluster_seasonal] [style = dashed, color = Indigo, dir = both]
     h -> d [color = Indigo]
     # f -> d [ltail = cluster_demography, lhead = cluster_seasonal] 
+    [lhead = cluster_demography, ltail = cluster_census]
     }
       
-      [1]: c('Seedling','Vegetative','Reproductive','Dormant')
+      [1]: c('Seedling','Vegetative','Reproductive','Dormant','Seed')
       [2]: c('Seedling','Vegetative','Reproductive')
       ")
 
@@ -253,20 +278,53 @@ asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
 asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
 asmi.raw[asmi.raw$AsMi_data_id %in% wrongAsMidataid,]
 
+## If not first year seen, cannot be seedling (found this error when checking stage to fate table)
+asmi.raw %>%
+  filter(AsMi_tag_id == 2551)
+
+asmi.raw <- asmi.raw %>%
+  mutate(status = as.character(status)) %>%
+  dplyr::mutate(status = case_when((AsMi_tag_id == 2551 & year == 2015) ~ "vegetative",
+                            TRUE ~ status)) %>%
+  mutate(status = as.factor(status))
+
+
 # Years of study in the abstract
 length(1995:currentyr)
 ```
 
-Instantaneous rates of change  <https://www.webpages.uidaho.edu/wlf448/Peterson2.htm>  
-if population doubles each year   
-R = 2 = finite rate of growth yearly  
-R = $e^r$ = 2   
-r = ln R = 0.693
-```{r}
-R <- 2
-r <- log(R)
 
+## First age of reproduction   
+```{r}
+# Assign age of 1 to all seedlings
+asmi.raw$age[asmi.raw$status == "seedling"] <- 1
+
+i <- unique(asmi.raw$AsMi_tag_id)[1]
+for(i in unique(asmi.raw$AsMi_tag_id)){
+  if(any(asmi.raw$status[asmi.raw$AsMi_tag_id == i] %in% "seedling")){
+    asmi.raw$age[asmi.raw$AsMi_tag_id == i] <-  1:length(asmi.raw$year[asmi.raw$AsMi_tag_id == i])
+  } else {
+    asmi.raw$age[asmi.raw$AsMi_tag_id == i] <- 2:(length(asmi.raw$year[asmi.raw$AsMi_tag_id == i])+1)
+  }
+}  
+
+head(asmi.raw)
+## Estimate of age of first reproduction from known ages
+firstagerepro <- c()
+for(i in unique(asmi.raw$AsMi_tag_id)){
+  if(any(asmi.raw$status[asmi.raw$AsMi_tag_id == i] %in% "seedling")){
+    firstagerepro <- c(firstagerepro, match("reproductive",asmi.raw$status[asmi.raw$AsMi_tag_id == i]) )
+  }
+}
+
+length(firstagerepro)
+sum(is.na(firstagerepro))
+
+hist(firstagerepro)
+median(firstagerepro, na.rm = TRUE) ## 3
+HDInterval::hdi(firstagerepro)
 ```
+
 
 UTM Zone 13 from ArcGIS
 ```{r}
@@ -291,7 +349,6 @@ asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Mo
 
 
 ### Drop to bottom to download new climate data!! and to make and save annual, seasonal data
-
 ```{r}
 ## I think wants wide instead of long as in asmi.annual
 # asmi.c <- asmi.climate
@@ -312,6 +369,7 @@ asmi.c <- asmi.c %>%
   dplyr::rename(Plot = AsMi_plot_id, SiteID = AsMi_site_id)
 
 asmi.season.wide %>%
+  filter(Prev12 > 2012 & Prev12 < 2016) %>%
   ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% #, .names = "{.col}_scaled")) %>%
   # pivot_longer(cols = ppt_fall_scaled:tmin_winter_scaled, names_to = "VarSeason",
@@ -323,7 +381,25 @@ asmi.season.wide %>%
     geom_point()+
     stat_smooth()+
     theme_bw()+
+    scale_color_manual("Site", values = c("black","grey50","deepskyblue","cyan4","cyan","cornflowerblue"))+
+    # facet_grid(Variable ~ season + Creek)
+    facet_grid(Variable ~ season)
+
+asmi.season.wide %>%
+  filter(Prev12 > 1994) %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
+  pivot_longer(cols = ppt_fall:tmin_winter, names_to = "VarSeason",
+               values_to = "Value") %>%
+  left_join(plots.site, by = c('Plot' = 'AsMi_plot_id')) %>%
+  separate(VarSeason, c("Variable","season"), sep = "_") %>%
+  ggplot(  aes(Prev12, Value, color = site))+
+    geom_point()+
+    stat_smooth()+
+    theme_bw()+
+    scale_color_manual("Site", values = c("black","grey60","deepskyblue","cyan4","cyan","cornflowerblue"))+
     facet_grid(Variable ~ season + Creek)
+    # facet_grid(Variable ~ season)
 
 ```
 
@@ -346,13 +422,13 @@ ggplot(  aes(Prev12, value, color = site, group = site))+
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1980_2022 = mean(value), sd1980_2022 = sd(value)) 
+  dplyr::summarise(mean1980_2022 = mean(value), sd1980_current = sd(value)) 
 
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   filter(Year > 1994) %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1995_2022 = mean(value), sd1995_2022 = sd(value)) 
+  dplyr::summarise(mean1995_2022 = mean(value), sd1995_current = sd(value)) 
 ```
 
 
@@ -677,6 +753,22 @@ Can look at these and then work forward to test predictive on new data (like the
 # Table 3 Differences by site, fencing, and within site among plots?
 Survival instead of AGG 
 ```{r}
+## use scaled numbers!
+asmi.merged <- asmi.raw %>%
+  group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
+  left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%
+  dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
+  filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
+  filter(length.x > 0) %>%
+  filter(!is.na(length.x)) %>%
+  # left_join(asmi.c, by = c("AsMi_plot_id" = "Plot", 
+  #                                    "year.y" = "Year")) %>%
+  left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
+                                      "year.y" = "Prev12")) %>%
+  mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
+                          length.y == 0 | is.na(length.y) ~ 0)) %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 3 ~ "South Beaver")) 
 
 asmi.merged %>%
   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
@@ -744,23 +836,6 @@ Year and site differ for the total allive with AGG.
 # Climate factors  
 ```{r}
 
-## use scaled numbers!
-asmi.merged <- asmi.raw %>%
-  group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
-  left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%
-  dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
-  filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
-  filter(length.x > 0) %>%
-  filter(!is.na(length.x)) %>%
-  # left_join(asmi.c, by = c("AsMi_plot_id" = "Plot", 
-  #                                    "year.y" = "Year")) %>%
-  left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
-                                      "year.y" = "Prev12")) %>%
-  mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
-                          length.y == 0 | is.na(length.y) ~ 0)) %>%
-  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
-                           AsMi_site_id > 3 ~ "South Beaver")) 
-
 ggplot(asmi.merged, aes(length.x, length.y, color = site))+
   geom_point()+
   stat_smooth(method="glm")
@@ -798,6 +873,17 @@ for(i in 2:length(glm.list)){
 ```
 
 ```{r}
+
+labels4bins <- asmi.merged %>%
+  ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+  dplyr::select(ppt_winter_bin) %>%
+  distinct(ppt_winter_bin) %>%
+  arrange(ppt_winter_bin)
+  
+
+
 Fig4Survabiotic <- asmi.merged %>%
   ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
@@ -806,10 +892,10 @@ ggplot(  aes(tmax_springSummer,surv,color = site))+
   geom_point()+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
-             labeller = labeller(ppt_winter_bin =
-                                   c("(-1.86,-0.395]" = "low winter precipitation", 
-                                     "(-0.395,1.07]" = "mid winter precipitation",
-                                     "(1.07,2.53]" = "high winter precipitation"))
+             # labeller = labeller(ppt_winter_bin =
+             #                       c(paste(labels4bins$ppt_winter_bin[1]) = "low winter precipitation", 
+             #                         paste(labels4bins$ppt_winter_bin[2]) = "mid winter precipitation",
+             #                         paste(labels4bins$ppt_winter_bin[3]) = "high winter precipitation"))
              )+
   xlab("Summer maximum temperature")+
   ylab("Survival")+
@@ -823,6 +909,9 @@ Table 3e
 #AIC for reproduction per plot   
 ps.asmi.reduced are plot summaries
 ```{r}
+
+ps.asmi.reduced <- ps.asmi[!is.na(ps.asmi$Total.Alive),]
+
 
 ## Fruit and reproduction by above ground growth - correlated
 ps.asmi.reduced %>%
@@ -892,7 +981,8 @@ ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
 
 ```
 
-# AIC for fruit  
+# AIC for fruit   
+first binomial for fruit or not, then poisson with those that produce fruit
 ```{r}
 ## pull out when no reproduction, that was the binomial parts, just do the amount when there is reproduction
 asmi.fruit <- asmi.reproductive %>%
@@ -1003,14 +1093,14 @@ nrow(asmi.raw) #13806->16377->17817->19324
 table(asmi.raw$AsMi_site_id,asmi.raw$year)
 
 cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
-table(cebolla$AsMi_site_id,cebolla$year)
+table(cebolla$AsMi_plot_id,cebolla$year)
+# 89 lost in 2020
 
 sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
-table(sbc$AsMi_site_id,sbc$year)
+table(sbc$AsMi_plot_id,sbc$year)
 
-#remove plot 598 from SBC, it was added late; Plot 598 was added in 2004, remove for this. .. or do all plots on their own instead of by sites? Or make sure the transitions are proportional, I think I need each plot on it's own since they start at different times, can't combine into one site. 
-# or since they aren't seedlings the first year, it's fine, there's still the number transitioning 
-# sbc <- sbc[sbc$AsMi_plot_id != 598,]
+#remove plot 598 from SBC, it was added late; Plot 598 was added in 2004, remove for this. .. do all plots on their own so not a change in the space counted as a site. 
+# 238 and 300 added in 1996
 
 # the others added later: 238 & 300 @ 1996 - take out 1995
 # sbc <- sbc[sbc$year > 1995,]
@@ -1082,26 +1172,39 @@ asmi.all$browsed[asmi.all$browsing==0]<-FALSE
 asmi.all$browsed[asmi.all$browsing==1]<-TRUE
 table(asmi.all$browsed)
 table(asmi.all$browsing)
+
+## Fencing only in years it was up
+asmi.all <- asmi.all %>%
+  dplyr::mutate(fence = as.character(fence)) %>%
+  dplyr::mutate(fence = case_when(year < 2006 ~ "n",
+                                  year > 2015 ~ "n",
+                                  year < 2007 & AsMi_site_id == 19 ~ "n",
+                                  TRUE ~ fence))
+
+table(asmi.all$fence, asmi.all$year)
+
+save(asmi.all, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.all", currentyr,".Rdata", sep=""))
+
 ```
 
 
 ### Make 'seedlings' that are reprodutive 'reproductive' before binding stage - fate  
 Merge year to year, year.x is year t, year.y is year t+1   
 remove dead from stages, just fate    
-At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together
+At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together    
+      1. two stage PVA counts all new tags as recruitment (in year t+2) from those that transitions (or remain) in reproductive stage at t+1 (fate)    
+      2. Then changes all 'seedlings' to 'vegetative' 
 ```{r}
-# first use seasonal observation percentages, climate, and size the next time seen to turn all dormant (or not yet germinated for seedlings with length > 10cm) to seedling, vegetative, or reproductive 
-# percent of dormant that were each of the following in July
-# perstagedormant <- c(Year = 2014:2015, seedling = c())
-## how many individuals that are dormant in July in 2014 and 2015 were of each category within the year?  
-head(asmi.all)
 
-# clearly not 'seedlings' just missed them. can make StagePVA add any 'seedlings' and any new tags
 asmi.all$status[asmi.all$status == "seedling" & asmi.all$flower == 1] <- "reproductive"
-# 'seedlings' that are large should be called vegetative (will be added accordingly as recruitment from reproductive two years prior)
 hist(asmi.all$length[asmi.all$status == "seedling"])
-ggplot(asmi.all, aes(status, length))+
-  geom_violin(scale = "width")
+
+asmi.all %>%
+  filter(!(status %in% c("dead","dormant"))) %>%
+    ggplot( aes(length, fill = status))+
+      # geom_violin(scale = "width")
+      geom_density(alpha = 0.5)+
+      theme_bw()
 
 asmi.all1 <- subset(merge(asmi.all, asmi.all, by = "AsMi_tag_id", sort = FALSE), year.x == year.y - 1)  
 
@@ -1134,11 +1237,17 @@ asmi.all2$stage <- ordered(asmi.all2$stage, levels = stages[-length(stages)])
 # check transitions
 #fate down and stage across the top; These are the raw numbers combined for all years 
 table(Fate = asmi.all2$fate, Stage = asmi.all2$stage) #Nope, cannot have 2 seedlings stay seedlings! And Dormant never go dead!
+## Now have one vegetative that goes to seedling! 
+asmi.all2 %>%
+  filter(stage == "vegetative" & fate == "seedling")
+
 
 asmi.all2[asmi.all2$fate == "seedling" & asmi.all2$stage == "seedling",] # tag 3571 and 3946
 # asmi.raw[asmi.raw$AsMi_tag_id %in% c(3571,3946),]
 
 asmi.all2[asmi.all2$stage == "dormant" & asmi.all2$fate == "dead",]
+
+save(asmi.all2, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
 
 ```
 
@@ -1153,34 +1262,67 @@ Will change all seedling with fruit to reproductive
 ```{r}
 asmi.boot <- asmi.all2
 asmi.boot$fruits[is.na(asmi.boot$fruits)] <- 0
+## Initialize the first of two stages, vegetative, column as zero
+asmi.boot$vegetative <- 0
 
-table(asmi.boot$year, asmi.boot$site) # from 1995 transitions stage -> fate up to currentyr-1 stage->fate 
-# add 'seedling' column
-# give credit for reproductive seedlings to two years prior because must be more than one year old
-asmi.boot[asmi.boot$fruits>0 & asmi.boot$stage=="seedling" & asmi.boot$length<20,]
-# should probably not call plants over 20cm with fruit a seedling
-asmi.boot$stage[asmi.boot$fruits>0 & asmi.boot$stage=="seedling" & asmi.boot$length>19] <- "reproductive"
+# table(asmi.boot$year, asmi.boot$site) # from 1995 transitions stage -> fate up to currentyr-1 stage->fate 
+# add 'seedling' column as the number of new tags in t+2 (stage = t, fate = t+1)
+# plot <- split(asmi.boot, asmi.boot$plot)[[1]]
+# asmi.boot$seedling <- unlist(lapply(split(asmi.boot, asmi.boot$plot), function(plot){
+for(j in unique(asmi.boot$plot)){
+  years <- unique(asmi.boot$year[asmi.boot$plot == j])    
+  reproYN <- sapply(years, function(yr) sum(asmi.boot$fruits[asmi.boot$year == yr & asmi.boot$plot == j]))
+  YearsNoRep <- years[which(reproYN == 0)]
+  YearsYesRep <- years[which(reproYN != 0)]
+  if(any(which(reproYN == 0) %in% c(1))) years <- years[-1]
+  
+  for(i in years[-length(years)]){
+    ## No reproduction, assign nothing
+    if(i %in% YearsNoRep){
+      asmi.boot$vegetative[asmi.boot$year == i & asmi.boot$plot == j] <- 0
+    } else {
+      ## Is there reproduction in year t+1? Then all recruitment in t+2 go to t+1, else t+2 and t+3 go to t+1
+      if(i %in% YearsYesRep & !(i+1 %in% YearsNoRep)){
+        newtags <- match(unique(asmi.boot$tag[asmi.boot$year == i+1 & asmi.boot$plot == j]),
+                         unique(asmi.boot$tag[asmi.boot$year == i & asmi.boot$plot == j]))
+        seedlings <- length(newtags[is.na(newtags)])
+        # The number of fruit produced per individual divided by all fruit produced * seedlings in the next year
+        asmi.boot$vegetative[asmi.boot$year == i & asmi.boot$plot == j] <- 
+          (asmi.boot$fruits[asmi.boot$year==i & 
+                              asmi.boot$plot == j]/sum(asmi.boot$fruits[asmi.boot$year==i & 
+                                                                          asmi.boot$plot == j],na.rm = TRUE)) * seedlings
+      } else {
+        newtags1 <- match(unique(asmi.boot$tag[asmi.boot$year == i+1]), unique(asmi.boot$tag[asmi.boot$year == i]))
+        newtags2 <- match(unique(asmi.boot$tag[asmi.boot$year == i+2]), unique(asmi.boot$tag[asmi.boot$year == i+1]))
+        seedlings <- length(newtags1[is.na(newtags1)]) + length(newtags2[is.na(newtags2)])
+        # The number of fruit produced per individual divided by all fruit produced * seedlings in the next year
+        asmi.boot$vegetative[asmi.boot$year == i & asmi.boot$plot == j] <- 
+          (asmi.boot$fruits[asmi.boot$year==i &
+                              asmi.boot$plot == j]/sum(asmi.boot$fruits[asmi.boot$year==i &
+                                                                          asmi.boot$plot == j],na.rm = TRUE)) * seedlings
+      }
+      } # when there are reproductive individuals
+  } # years
+}
 
 
-nrow(asmi.boot ) #13868 -> 15280
+## Uncertainty about seedling vs vegetative so change all to vegetative
+asmi.boot <- asmi.boot %>%
+  mutate(stage = as.character(stage),
+         fate = as.character(fate)) %>%
+  mutate(stage = if_else(stage == "seedling", "vegetative", stage)) %>%
+  mutate(stage = factor(stage, levels = c("vegetative", "reproductive", "dormant")),
+         fate = factor(fate, levels = c("vegetative", "reproductive", "dormant"))) %>%
+  mutate(stage = ordered(stage, levels = c("vegetative", "reproductive", "dormant")),
+         fate = ordered(fate, levels = c("vegetative", "reproductive", "dormant"))) %>%
+  mutate(tag = as.factor(tag),
+         plot = as.factor(plot),
+         site = as.factor(site))
 
-asmi.boot$seedling <- unlist(lapply(split(asmi.boot, asmi.boot$plot), function(plot){
-  # [-length(sort(unique(plot$year)))] want all years to get correct length
-  out <- lapply(sort(unique(plot$year)),function(year){
-  # For each next year, how many seedlings were there? 
-  seedlings.t1 <- nrow(asmi.boot[asmi.boot$year == year+1 &
-                                   asmi.boot$stage == "seedling" & 
-                                   asmi.boot$fruits==0,])
-  seedlings.t2 <- nrow(asmi.boot[asmi.boot$year == year+2 & 
-                                   asmi.boot$stage == "seedling" & 
-                                   asmi.boot$fruits>0,])
-  seedlings <- sum(seedlings.t1, seedlings.t2)
-  # The number of fruit produced per individual divided by all fruit produced * seedlings in the next year
-  seedlingsout <- plot$fruits[plot$year==year]/sum(plot$fruits[plot$year==year],na.rm = TRUE) * seedlings
-  seedlingsout
-  })
-  out
-}))
+# asmi.boot$stage <- ordered(asmi.boot$stage, 
+#                            levels = c("seedling", "vegetative", "reproductive", "dormant"))
+# asmi.boot$fate <- ordered(asmi.boot$fate, 
+#                            levels = c("seedling", "vegetative", "reproductive", "dormant"))
 
 boottrans <- lapply(split(asmi.boot, asmi.boot$plot), function(x){
   data.frame(Plot = unique(x$plot),
@@ -1188,13 +1330,148 @@ boottrans <- lapply(split(asmi.boot, asmi.boot$plot), function(x){
              Boot = boot.transitions(x,1000,fertility = "fruits")$lambda)
   })
 
+
+boottransyr <- lapply(split(asmi.boot, asmi.boot$year), function(x){
+  data.frame(Year = unique(x$year),
+             Boot = boot.transitions(x,1000,fertility = "fruits")$lambda)
+  })
+
 bt <- do.call(rbind, boottrans)
+btyr <- do.call(rbind, boottransyr)
 
 ggplot(bt, aes(as.factor(Plot), Boot, colour = as.factor(Plot)))+
   geom_boxplot()+
   facet_wrap(~Site, ncol=3, scales = "free")+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+bt %>%
+  group_by(Plot, Site) %>%
+  summarise(lowerLambda = hdi(Boot)[1],
+            upperLambda = hdi(Boot)[2]) 
+
+ggplot(btyr, aes(Year, Boot, group = Year))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))+
+  ylab(expression(lambda)) +
+  geom_hline(yintercept = 1, linetype = "dotted")
+
+ggplot(btyr, aes(Year, log(Boot), group = Year))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))+
+  ylab(expression(log~lambda)) +
+  geom_hline(yintercept = 0, linetype = "dotted")
+
+bt %>%
+  group_by(Plot, Site) %>%
+  summarise(lowerLambda = hdi(Boot)[1],
+            upperLambda = hdi(Boot)[2]) 
+
+lambdaHDI <- do.call(rbind, lapply(unique(bt$Plot), function(x){
+  out <- hdi(log(bt$Boot[bt$Plot == x]))
+  data.frame(Plot = x, estimate = mean(log(bt$Boot[bt$Plot == x])), lower = out[1], upper = out[2])
+}))
+
+SitePlot <- bt %>%
+  distinct(Site,Plot)
+
+
+bootplot <- lambdaHDI %>%
+  left_join(SitePlot) %>%
+  # pivot_longer(lower:upper) %>%
+  ggplot( aes(as.factor(Plot), estimate))+
+    geom_point()+
+    theme_bw()+
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2)+
+    geom_hline(yintercept = 0, linetype = "dotted")+
+    facet_wrap(~Site, scales = "free_x")+
+  ylab(expression(log~lambda))+
+  xlab("Plot")
+  
+ggsave(paste(savepath, "FigBootLambda.jpg", sep=""), bootplot,
+       units = "mm", dpi = 300, height = 100, width = 150)
+
+lambdaHDI %>%
+  left_join(SitePlot) %>%
+  save(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/bootlambda.Rdata")
+
+
+SBCbootplot <- lambdaHDI %>%
+  left_join(SitePlot) %>%
+  filter(Site %in% c(5,15,19,26)) %>%
+  # pivot_longer(lower:upper) %>%
+  ggplot( aes(as.factor(Plot), estimate))+
+    geom_point()+
+    theme_bw()+
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2)+
+    geom_hline(yintercept = 0, linetype = "dotted")+
+    facet_wrap(~Site, scales = "free_x")+
+  ylab(expression(log~lambda))+
+  xlab("Plot")
+
+ggsave(paste(savepath, "FigBootLambdaSBC.jpg", sep=""), SBCbootplot,
+       units = "mm", dpi = 300, height = 100, width = 100)
+
+
+
+bt %>%
+  ggplot( aes(log(Boot), fill = as.factor(Plot)))+
+    geom_density(alpha=0.5)+
+    facet_wrap(~Site)+
+    theme_bw()+
+    geom_vline(xintercept = 0)+
+    guides(fill = 'none')+
+    xlab(expression("log("~lambda~")"))
+
+## By year across sites
+bootyear <- lapply(split(asmi.boot, asmi.boot$year), function(x){
+  data.frame(Year = unique(x$year),
+             Boot = boot.transitions(x,1000,fertility = "fruits")$lambda)
+  })
+
+btyear <- do.call(rbind, bootyear)
+
+ggplot(btyear, aes(as.factor(Year), Boot))+
+  # geom_jitter(col="blue", pch = 16)+
+  geom_boxplot()+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
+bt %>%
+  group_by(Plot, Site) %>%
+  summarise(lowerLambda = hdi(Boot)[1],
+            upperLambda = hdi(Boot)[2]) 
+
+
+
+lambdaHDI <- do.call(rbind, lapply(unique(bt$Plot), function(x){
+  out <- hdi(log(bt$Boot[bt$Plot == x]))
+  data.frame(Plot = x, lower = out[1], upper = out[2])
+}))
+
+bt %>%
+  ggplot( aes(log(Boot), fill = as.factor(Plot)))+
+    geom_density(alpha=0.5)+
+    facet_wrap(~Site)+
+    theme_bw()+
+    geom_vline(xintercept = 0)+
+    guides(fill = 'none')+
+    xlab(expression("log("~lambda~")"))
+
+bt %>%
+  ggplot( aes(as.factor(Plot), log(Boot), fill = as.factor(Plot)))+
+    geom_violin(alpha=0.5)+
+    facet_wrap(~Site, scales = "free_x")+
+    theme_bw()+
+    geom_hline(yintercept = 0, color = "grey30", linetype = "dotted")+
+    guides(fill = 'none')+
+    ylab(expression("log("~lambda~")"))+
+  xlab("Plot")
+
+
+
 ```
 
 
@@ -1220,15 +1497,105 @@ Dormancy can be set to 0-1
 
 ```{r}
 # In 2020 all the tags were removed by someone. An attempt was made to relocate and retag plants but that was abandoned. Need to remove all 2020 data and after. 
-table(asmi.all2$stage[asmi.all2$plot == 89], asmi.all2$year[asmi.all2$plot==89])
-
-asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2012,]
-asmi.all2[asmi.all2$plot == 799 & asmi.all2$year == 2020,]
 
 all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
-  out <- StagePVA_single(df)
+  out <- StagePVA(df)
   out
 })
+
+save(all.pva, file = paste(savepath, "allpva", Sys.Date(), ".Rdata", sep = ""))
+
+```
+
+Get the mean matrix per site, then get demographic parameters
+```{r}
+# Define function
+lifeTimeRepEvents <- function(matU, matF, startLife = 1) {
+  
+  uDim = dim(matU)[1]
+  surv = colSums(matU)
+  repLifeStages = colSums(matF)
+  
+  repLifeStages[which(repLifeStages>0)] <- 1
+  
+  if(missing(matF) | missing(matU)) {stop('matU or matF missing')}
+  if(sum(matF, na.rm=T)==0) {stop('matF contains only 0 values')}
+  
+  # Probability of survival to first reprod event
+  Uprime <- matU
+  Uprime[, which(repLifeStages==1)] <- 0
+  Mprime = matrix(0,2,uDim)
+  for (p in 1:uDim[1]) {
+    if (repLifeStages[p]==1) {Mprime[2,p] = 1} else {
+      Mprime[1,p] = 1-surv[p]
+    }
+  }
+  Bprime = Mprime%*%(ginv(diag(uDim)-Uprime))
+  pRep = Bprime[2,startLife]
+  
+  out = data.frame(pRep = pRep)
+  
+  # Age at first reproduction (La; Caswell 2001, p 124) AGE OF REPRODUCTIVE MATURITY
+  D = diag(c(Bprime[2,]))
+  Uprimecond = D%*%Uprime%*%ginv(D)
+  expTimeReprod = colSums(ginv(diag(uDim)-Uprimecond))
+  La = expTimeReprod[startLife]
+  
+  out$La = La
+  
+  # Mean life expectancy conditional on 
+  # entering the life cycle in the first reproductive stage ## longevity after being reproductive given that you made it to be reprodutive, if you died before then this would be negative
+  firstRepLifeStage = min(which(repLifeStages==1))
+  N = solve(diag(uDim[1])-matU) ## solve finds the inverse (so you can multiply to do division basically)
+  meanRepLifeExpectancy = colSums(N)[firstRepLifeStage]
+  
+  out$meanRepLifeExpectancy = meanRepLifeExpectancy
+  
+  # Life expectancy from mean maturity
+  remainingMatureLifeExpectancy = colSums(N)[startLife]-La
+  
+  out$remainingMatureLifeExpectancy = remainingMatureLifeExpectancy
+  
+  return(out)
+}
+
+names(all.pva)
+
+## Three stage matrix (V,R,D) names them twice, is so nice. Need to fix eventually
+A_site1 <- mean(do.call(c,list(all.pva$"1"$"1", all.pva$"22"$"22", all.pva$"32"$"32", all.pva$"42"$"42", all.pva$"52"$"52")))
+A_site2 <- mean(do.call(c,list(all.pva$"16"$"16", all.pva$"58"$"58", all.pva$"89"$"89", 
+                               all.pva$"90"$"90", all.pva$"96"$"96", all.pva$"98"$"98")))
+A_site5 <- mean(do.call(c,list(all.pva$"606"$"606", all.pva$"607"$"607", 
+                               all.pva$"608"$"608", all.pva$"609"$"609", all.pva$"610"$"610")))
+A_site15 <- mean(do.call(c,list(all.pva$"8"$"8", all.pva$"578"$"578", all.pva$"581"$"581", all.pva$"799"$"799")))
+A_site19 <- mean(do.call(c,list(all.pva$"300"$"300", all.pva$"512"$"512", 
+                                all.pva$"513"$"513", all.pva$"514"$"514", all.pva$"515"$"515")))
+A_site26 <- mean(do.call(c,list(all.pva$"238"$"238", all.pva$"480"$"480", all.pva$"598"$"598", 
+                                all.pva$"611"$"611", all.pva$"614"$"614")))
+
+lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) lambda(x))
+lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) elasticity(x))
+
+## Summed elasticities by stage
+do.call(rbind,lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) colSums(elasticity(x))))
+
+
+
+## pRep = prob of survival to first reproductive event, La = age at first reproduction, 
+## meanRepLifeExpectancy = how long live after age of first reproduction,
+## remainingMatureLifeExpectancy = how long live after age of first reproduction (most don't make it when negative)
+lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x){ 
+  matU <- x
+  matU[1,3] <- 0
+  matF <- x
+  matF[2:4,] <- 0
+  lifeTimeRepEvents(matU = matU, matF = matF, startLife = 1)
+  })
+lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) { 
+  matU <- x
+  matU[1,3] <- 0
+  Rage::longevity(matU, start = 1, lx_crit = 0.01)
+  })
 
 ```
 
@@ -2199,7 +2566,7 @@ ggplot(plotrepros, aes(x=Var2, y=Freq ))+
 
 ```
 
-```{r}
+```{r, eval=FALSE}}
 #is survival associated with a continuous classifying variable?
 surv.asmi <- asmi.all2  # asmi.2
 surv.asmi$surv <- 1
@@ -2244,7 +2611,7 @@ https://rpubs.com/daspringate/survival
 https://datascience.stackexchange.com/questions/8162/r-plotsurv-newdata-draws-same-lines-many-times-why    
 
 
-```{r}
+```{r, eval=FALSE}}
 #plot survival of a given year by size
 for(i in sort(unique(surv.asmi$year))){
   plot(surv.asmi$length[surv.asmi$year==i], 
@@ -2296,7 +2663,7 @@ plot(surv.asmi$length,
 
 Does this not only want the max YrsAlive per tag? Yes I think so 
 # Another way to look at survival curves
-```{r}
+```{r, eval=FALSE}}
 fit <- survfit(Surv(length, surv) ~ fenced, 
                data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
 
@@ -2313,7 +2680,7 @@ ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,],
 # Fit these with dampening survival estimates? based on what are likely to be seen in the rest of the year but dormant in July? 
 
 
-```{r}
+```{r, eval=FALSE}}
 fit <- survfit(Surv(length, surv) ~ site, 
                data = surv.asmi[surv.asmi$length>0 & surv.asmi$year>2005,]) 
 
@@ -2325,7 +2692,7 @@ ggsurvplot(fit, data=surv.asmi[surv.asmi$length>0& surv.asmi$year>2005,], risk.t
 
 ############################# 
 
-```{r}
+```{r, eval=FALSE}}
 
 asmi.raw.1 <- asmi.raw[with(asmi.raw, order(AsMi_site_id,AsMi_plot_id,AsMi_tag_id,year)),]
 
@@ -2374,7 +2741,7 @@ plot(surv.asmi.1$YrsAlive,
 ```
 
 Does this not only want the max YrsAlive per tag?
-```{r}
+```{r, eval=FALSE}}
 surv.asmi.2 <- merge(surv.asmi, notdeadyet, by.x=c("tag","year"), by.y=c("Tag","year"))
 
 fit <- survfit(Surv(YrsAlive, surv) ~ site, 
@@ -2384,7 +2751,7 @@ ggsurvplot(fit, data=surv.asmi.2[surv.asmi.2$length>0,], risk.table = FALSE, xla
 
 ```
 
-```{r}
+```{r, eval=FALSE}}
 plot(10,10, type="n")
 matplot(contr.poly(15)[,1:4], type="b") 
 ```
@@ -2972,8 +3339,6 @@ m.tmin <- lapply(prism_archive_subset("tmin","monthly",years = 1986:currentyr), 
              date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
 })
 
-
-
 mins.avg <- do.call(rbind, m.tmin)
 maxs.avg <- do.call(rbind, m.tmax)
 ppt.avg <- do.call(rbind, m.ppt)
@@ -2982,8 +3347,12 @@ asmi.climate <- rbind(do.call(rbind, m.tmin),
                     do.call(rbind, m.tmax),
                     do.call(rbind, m.ppt))
 
+## Get rid of provisional data of the previous year
+asmi.climate2 <- asmi.climate %>%
+  filter(!(grepl("provisional", date) & grepl(paste(currentyr-1), date)))
 
-asmi.climate.monthly <- asmi.climate %>%
+
+asmi.climate.monthly <- asmi.climate2 %>%
   mutate(Year = as.numeric(substr(date,  (nchar(date)+1)-10,nchar(date)-6)),
          Month = as.numeric(substr(date, (nchar(date)+1)-6, nchar(date)-4)),
          # Make previous 12 months match year (previous to May survey)
