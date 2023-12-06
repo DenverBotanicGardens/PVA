@@ -93,19 +93,68 @@ nrow(stoch.log.lam[is.na(stoch.log.lam$Sim),])
 ## Just report the CI of the plots within the sites 
 stoch.log.lam %>%
   mutate(plot = row.names(.)) %>%
-  mutate(plot = gsub("Plot","",Plot)) %>%
+  mutate(plot = gsub("Plot","",plot)) %>%
   left_join(SitePlot) %>%
   mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
          lcl = if_else(is.nan(lcl), Approx, lcl),
-         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%
-ggplot(  aes(Plot, Approx, color = as.factor(site)))+
-  geom_point(position = position_dodge(width = 1))+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%  
+  filter(site %in% c(5,15,19,26)) %>%
+  # group_by(site) %>%
+  # dplyr::summarize(meanLambda = mean(Approx),
+  #                  marginerror = qt(0.975, df = (n()-1)*sd(Approx)/sqrt(n())),
+  #                  lcl = meanLambda - marginerror,
+  #                  ucl = meanLambda + marginerror) %>%
+ggplot(  aes(site, Approx, color = as.factor(site)))+
+  # geom_point(position = position_dodge(width = 1))+
+  # geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+  geom_boxplot()+
+  geom_jitter(height = 0)+
   theme_bw()+
-  ylab(expression(lambda)) +
-  facet_wrap(~site)
+  ylab(expression(lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted")
+
+stoch.log.lam_plot <- stoch.log.lam %>%
+  mutate(plot = row.names(.)) %>%
+  mutate(plot = gsub("Plot","",plot)) %>%
+  left_join(SitePlot) %>%
+  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
+         lcl = if_else(is.nan(lcl), Approx, lcl),
+         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%  
+  filter(site %in% c(5,15,19,26))
+```
 
 
+
+# just counts and a count based PVA   
+```{r}
+count.yr <- asmi.all2 %>%
+  filter(length > 0) %>%
+  group_by(site, plot, year) %>%
+  dplyr::summarise(count = n())
+
+loglams <- do.call(rbind, lapply(plotsSite$Plot, function(plot){
+  y.count <- count.yr$count[count.yr$plot == plot]
+  x.years <- count.yr$year[count.yr$plot == plot]
+  ySpecies <- log10(y.count[-1]/y.count[-length(y.count)])
+  yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
+  
+  PVA.lm <- lm(ySpecies ~ -1 + yr)
+  mu_sp <- predict(PVA.lm, level= 0.95,
+                   interval = "confidence",
+                   se.fit = T)$fit[1,]
+  rsq <- summary(PVA.lm)$adj.r.squared
+  data.frame(plot = plot, mu = mu_sp[1], lwr = mu_sp[2], upr = mu_sp[3])
+  }))
+
+loglams %>%
+  left_join(SitePlot) %>%
+  filter(site %in% c(5,15,19,26))%>%
+  ggplot( aes(plot, mu))+
+    geom_point()+
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2)+
+    theme_bw() +
+    facet_wrap(~site, scales = "free_x")+
+    geom_hline(yintercept = 0, linetype = "dotted")
 ```
 
 
@@ -499,31 +548,48 @@ lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Popul
   dplyr::rename(Plot = plot) %>%
   left_join(plotsSite)
 
-######################################################
-### merge siteplot, limit by site, keep all plots
-allL <- allLambdas %>%
-  mutate(lcl = Lambda, ucl = Lambda) %>%
-  dplyr::rename(estimate = Lambda) %>%
+asmi.models$Phi.dot.p.dot.f.dot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl)
+
+asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl)
+
+## Just by plot, not different over time
+paramsAll <- row.names(asmi.models$Phi.Plot.p.dot.f.Plot$design.matrix)
+paramsAll[grepl("Phi", paramsAll)]
+lmdas <- asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  bind_cols(SitePlot)
+  # group_by(site) %>%
+  # dplyr::summarize(meanLambda = mean(estimate),
+  #                  marginerror = qt(0.975, df = (n()-1)*sd(estimate)/sqrt(n())),
+  #                  lcl = meanLambda - marginerror,
+  #                  ucl = meanLambda + marginerror) 
+
+lmdas %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  ggplot( aes(plot, estimate)) +
+    geom_point()+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.2)+
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  theme_bw()+
+  facet_wrap(~site, scales = "free_x")
+
+CountLogLams <- loglams %>%
+  left_join(SitePlot) %>%
+  filter(site %in% c(5,15,19,26))%>%
+  dplyr::rename(estimate = mu) %>%
+  dplyr::rename(lcl = lwr) %>% 
+  dplyr::rename(ucl = upr) %>%
   mutate(Method = "MPM") %>%
-  relocate(lcl, .after = estimate) %>%
-  relocate(ucl, .after = lcl) %>%
-  mutate(Year = as.numeric(Year)) %>%
-  filter(plot %in% c("606","607","608","609","610",
-                     "8","578","581","799",
-                     "512","513","514","515",
-                     "480","611","614")) %>%
   mutate(plot = as.factor(plot))
 
 ## From ConfInt_MPM_Astragalus-microcymbus
 PradelMPMplot <- lmdas %>%
-  dplyr::select(c(estimate, lcl:ucl, plot, time)) %>%
-  mutate(plot = gsub("g","", plot)) %>%
-  mutate(plot = as.factor(plot)) %>%
+  dplyr::select(c(plot, estimate, lcl:ucl, site)) %>%
   dplyr::rename(Year = time) %>%
   mutate(Method = "Pradel") %>%
-  bind_rows(allL) %>%
-  # mutate(plot = as.numeric(plot)) %>%
-  dplyr::left_join(SitePlot) %>%
+  bind_rows(CountLogLams) %>%
   # mutate(plot = as.factor(plot)) %>%
 ggplot(  aes(Year, estimate, color = plot, shape = Method)) +
   geom_point(position = position_dodge(width = 1))+
