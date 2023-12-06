@@ -72,18 +72,18 @@ loglams <- do.call(rbind, lapply(plotsSite$plot, function(plot){
   }))
 
 ## All together with plot per site as random effect
-# lmer.df <- do.call(rbind, lapply(plotsSite$plot, function(plot){
-#   y.count <- count.yr$count[count.yr$plot == plot]
-#   x.years <- count.yr$year[count.yr$plot == plot]
-#   ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
-#   yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
-#   
-#   lmer.df <- data.frame(plot = plot, ySpecies, yr) %>%
-#     left_join(plotsSite)
-#   lmer.df
-# }))
-#   
-# PVA.lm <- lmer(ySpecies ~ -1 + yr + (1|site), lmer.df)
+lmer.df <- do.call(rbind, lapply(plotsSite$plot, function(plot){
+  y.count <- count.yr$count[count.yr$plot == plot]
+  x.years <- count.yr$year[count.yr$plot == plot]
+  ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
+  yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
+
+  lmer.df <- data.frame(plot = plot, ySpecies, yr) %>%
+    left_join(plotsSite)
+  lmer.df
+}))
+
+PVA.lm <- lmer(ySpecies ~ -1 + yr + (1|plot), lmer.df)
 
 ######################################################
 
@@ -313,6 +313,9 @@ asmi.models <- run.asmi()
 save(asmi.models, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC.Rdata")
 ```
 
+
+## Examine Pradel models
+plot Pradel with Count PVA
 ```{r}
 ## Both CC and SBC
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Pradel.Rdata")
@@ -334,27 +337,6 @@ asmi.models$Phi.Plot.p.dot.f.Plot$results$real %>%
   filter(parameter == "p")
   
 
-### LAMBDA
-nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
-paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
-paramsAll[grepl("Phi", paramsAll)]
-params <- paramsAll[grepl("Phi", paramsAll)]
-
-lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change` %>%
-  bind_cols(Params = params) %>%
-  separate(Params, into = c("parameter","plot","age","time")) %>%
-  mutate(time = as.character(time)) %>%
-  mutate(time = gsub("t", "",time)) %>%
-  mutate(time = as.numeric(time)) %>%
-  mutate(plot = gsub("g","", plot)) %>%
-  group_by(plot) %>%
-  dplyr::summarize(meanLambda = mean(estimate),
-                   marginerror = qt(0.975, df = (n()-1)*sd(estimate)/sqrt(n())),
-                   lcl = meanLambda - marginerror,
-                   ucl = meanLambda + marginerror) %>%
-  dplyr::rename(Plot = plot) %>%
-  left_join(plotsSite)
-
 
 
 asmi.models$Phi.dot.p.dot.f.dot$results$derived$`log(Lambda) Population Change` %>%
@@ -362,21 +344,40 @@ asmi.models$Phi.dot.p.dot.f.dot$results$derived$`log(Lambda) Population Change` 
 
 asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
   distinct(estimate, se, lcl, ucl)
-
-## Just by plot, not different over time
-paramsAll <- row.names(asmi.models$Phi.Plot.p.dot.f.Plot$design.matrix)
+### LAMBDA
+nrow(asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`Lambda Population Change`)
+paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
 paramsAll[grepl("Phi", paramsAll)]
-lmdas <- asmi.models$Phi.Plot.p.dot.f.Plot$results$derived$`log(Lambda) Population Change` %>%
-  distinct(estimate, se, lcl, ucl) %>%
-  bind_cols(SitePlot) 
+params <- paramsAll[grepl("Phi", paramsAll)]
 
+lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
+  mutate(plot = gsub("g","", plot)) %>%
+  mutate(plot = as.numeric(as.character(plot))) %>%
+  group_by(plot) %>%
+  dplyr::summarize(meanLambda = mean(estimate),
+                   sdLambda = sd(estimate),
+                   varLambda = var(estimate),
+                   marginerror = qt(0.975, df = (n()-1)*sd(estimate)/sqrt(n())),
+                   lcl = meanLambda - marginerror,
+                   ucl = meanLambda + marginerror) %>%
+  left_join(plotsSite)
+
+
+#################### Lambdas from asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change`
 lmdas %>%
-  filter(site %in% c(5,15,19,26)) %>%
-  ggplot( aes(plot, estimate)) +
+  mutate(site = as.factor(site)) %>%
+  mutate(plot = as.factor(plot)) %>%
+  # filter(Site %in% c(5,15,19,26)) %>%
+  ggplot( aes(plot, meanLambda)) +
     geom_point()+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.2)+
-  geom_hline(yintercept = 0, linetype = "dotted")+
-  theme_bw()+
+    geom_errorbar(aes(ymin = meanLambda - sdLambda, ymax = meanLambda + sdLambda), width = 0.2)+
+    geom_hline(yintercept = 0, linetype = "dotted")+
+    theme_bw() +
   facet_wrap(~site, scales = "free_x")
 
 CountLogLams <- loglams %>%
@@ -385,26 +386,29 @@ CountLogLams <- loglams %>%
   dplyr::rename(estimate = mu) %>%
   dplyr::rename(lcl = lwr) %>% 
   dplyr::rename(ucl = upr) %>%
-  mutate(Method = "CountPVA") %>%
+  mutate(Method = "Count") %>%
   mutate(plot = as.factor(plot)) %>%
-  dplyr::select(c(plot, estimate, lcl:ucl, site))
+  dplyr::select(c(plot, estimate, lcl:ucl, site, Method))
 
-## From ConfInt_MPM_Astragalus-microcymbus
 PradelMPMplot <- lmdas %>%
-  dplyr::select(c(plot, estimate, lcl:ucl, site)) %>%
+  mutate(lcl = meanLambda - sdLambda, ucl = meanLambda + sdLambda) %>%
+  dplyr::select(plot, meanLambda, lcl, ucl, site) %>%
+  # dplyr::select(c(plot, estimate, lcl:ucl, site)) %>%
+  rename(estimate = meanLambda) %>%
   filter(site %in% c(5,15,19,26))%>%
+  mutate(plot = as.factor(plot)) %>%
   mutate(Method = "Pradel") %>%
   bind_rows(CountLogLams) %>%
 ggplot(  aes(plot, estimate, color = Method)) +
-  geom_point(position = position_dodge(width = 1))+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
+  geom_point(position = position_dodge(width = 0.5))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.5))+
   theme_bw()+
-  ylab(expression(lambda))+
+  ylab(expression(log~lambda))+
   xlab("Plot")+
-  geom_hline(yintercept = 0)+
+  geom_hline(yintercept = 0, linetype = "dotted")+
   scale_shape_manual(values = c(1,16))+
   facet_wrap(~site, scales = "free_x")+
-  scale_color_manual(values = c("black","grey70"))
+  scale_color_manual(values = c("black","grey40"))
   
   
 ggsave(PradelMPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelCountPVA.jpg",
@@ -412,7 +416,10 @@ ggsave(PradelMPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Ga
 
 
 #############################################################################################################
+```
 
+
+```{r}
 ## Geometric mean growth rate on real scale 
 ## Variance from random effects, variance components approach
 lmdas %>%
