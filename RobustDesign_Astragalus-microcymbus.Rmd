@@ -41,104 +41,6 @@ asmiRDSite.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Garde
 
 ```
 
-## SKIP THIS
-Format data of all years
-```{r, eval = FALSE}
-asmi.raw <- asmi.raw3
-
-## Just add "." for all the ones that we're measured
-# assign group at first encounter, age 0 if 'seedling' or vegetative, older if reproductive. 
-CJS_asmi <- asmi.raw %>%
-  filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
-  filter(!is.na(year)) %>%  
-  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
-  group_by(AsMi_tag_id) %>%
-  filter(any(length > 0)) %>%
-  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
-  ungroup() %>%
-  mutate(Obs = case_when(length > 0 ~ 1, 
-                         length == 0 ~ 0,
-                         is.na(length) ~ 0)) %>%
-  arrange(year) %>%
-  mutate(Obs = as.character(Obs)) %>%
-  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
-              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
-  mutate(Year1995 = case_when((AsMi_plot_id %in% c(300,238,598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year1995),
-         Year1996 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year1996),
-         Year1997 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year1997),
-         Year1998 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year1998),
-         Year1999 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year1999),
-         Year2000 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year2000),
-         Year2001 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year2001),
-         Year2002 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year2002),
-         Year2003 = case_when((AsMi_plot_id %in% c(598) | AsMi_site_id %in% c(1,2)) ~ ".",
-                              TRUE ~ Year2003),
-         Year2004 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2004),
-         Year2005 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2005),
-         Year2006 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2006),
-         Year2007 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2007),
-         Year2008 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2008),
-         Year2009 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2009),
-         Year2010 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2010),
-         Year2011 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2011),
-         Year2012 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2012),
-         Year2013 = case_when(AsMi_site_id %in% c(1,2) ~ ".",
-                              TRUE ~ Year2013)) %>%
-  unite(ch, Year1995:Year2022, sep ="") %>%
-  mutate(Tag = as.factor(AsMi_tag_id),
-         Site = as.factor(AsMi_site_id),
-         Plot = as.factor(AsMi_plot_id))
-
-dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)  
-dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
-finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
-
-## By Plot
-CJS_asmi %>%
-  dplyr::select(ch) %>%
-  bind_cols(dmPlot) %>%
-  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
-  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark.inp", sep = " ", 
-              col.names = FALSE, row.names = FALSE)
-
-## By Site
-CJS_asmi %>%
-  dplyr::select(ch) %>%
-  bind_cols(dmSite) %>%
-  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
-  write.table(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/CJS_asmi_mark_site.inp", sep = " ", 
-              col.names = FALSE, row.names = FALSE)
-
-fields <- CJS_asmi %>%
-  dplyr::select(ch) %>%
-  bind_cols(dmSite) %>%
-  bind_cols(dmPlot) %>%
-  colnames()
-
-plotdf <- CJS_asmi %>%
-  distinct(Site,Plot)
-
-sitedf <- CJS_asmi %>%
-  distinct(Site)
-
-```
 
 # instead of dot notation (robust models and pradel won't accept "." for missing surveys even though Cooch and Laake say they do!!), fix the probabilities of detection to zero for those periods in the ddls. fix p=0 for that occasion
 ```{r}
@@ -146,16 +48,30 @@ sitedf <- CJS_asmi %>%
 ## dataCJS
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/dataCJS3yrs.Rdata")
 
+## Can only be one strata within a primary session - need to assign V if never reproductive, R if eventually reproductive  
+##### Could condense to spring and fall, then have V early and some R late
 ## Repeated for the three years
 obsmodel <- dataCJS %>%
+  group_by(Year, Plot, Site, Tag) %>%
+  ## Make the multistate options
+  dplyr::mutate(MSObs = case_when(Ln == 0 ~ "0",
+                                  (Ln > 0 & Fl == 0) ~ "V",
+                                  any((Ln > 0 & Fl == 1)) ~ "R")) %>%
+  # dplyr::mutate(MSObs = case_when(any(MSObs == "R") ~ replace(MSObs, MSObs == "V", "R"),
+  #                                 TRUE ~ MSObs)) %>%
   ungroup()%>%
   distinct(Day,Year,Plot,Site,Tag,encounter, .keep_all = TRUE) %>%
-  dplyr::select(c(Site:Tag, encounter, Obs, Year)) %>%
+  # dplyr::select(c(Site:Tag, encounter, Obs, Year)) %>%
+  dplyr::select(c(Site:Tag, encounter, MSObs, Year)) %>%
   ## Fill in all tags within a Plot and Site across all years
-  mutate(Obs = as.character(Obs)) %>%
-  tidyr::complete(nesting(Site,Plot,Tag),Year, encounter, fill = list(Obs = "0")) %>%
+  tidyr::complete(nesting(Site,Plot,Tag),Year, encounter, fill = list(MSObs = "0")) %>%
   arrange(encounter) %>%
-  pivot_wider(names_from = encounter, values_from = Obs, values_fill = "0", names_prefix = "Occ")
+  pivot_wider(names_from = encounter, values_from = MSObs, values_fill = "0", names_prefix = "Occ") %>%
+  filter(Site %in% c(5,15,19,26))
+
+obsmodel %>%
+  filter(if_any(.cols = everything(), ~ grepl("V", .))) %>%
+  print(n=100)
 
 plotssurveyed <- table(dataCJS$Plot, dataCJS$encounter, dataCJS$Year)  
 
@@ -163,13 +79,20 @@ plotssurveyed <- table(dataCJS$Plot, dataCJS$encounter, dataCJS$Year)
 
 
 asmiRD <- obsmodel %>%
-  dplyr::mutate(across(Occ1:Occ10, ~ ifelse(.x > 0, 1, .x))) %>%
+  ## unite within each year
   tidyr::unite(ch, Occ1:Occ10, sep="") %>%
+  ## Change all to R if any within a year
+  dplyr::mutate(ch = if_else(grepl("R",ch), gsub("V","R",ch), ch)) %>%
   dplyr::group_by(Site,Plot,Tag) %>%
   dplyr::mutate(Plot = as.factor(Plot)) %>%
   dplyr::mutate(Site = as.factor(Site)) %>%
+  ## paste across years
   dplyr::summarise(ch = paste0(ch, collapse = "")) %>%
-  ungroup()
+  ungroup() %>%
+  filter((grepl("V", ch) | grepl("R",ch)))
+
+asmiRD %>%
+  filter(grepl("R",ch))
 
 dmPlot <- model.matrix(~ -1 + Plot, asmiRD)
 dmSite <- model.matrix(~ -1 + Site, asmiRD)
@@ -203,8 +126,8 @@ sitedf <- asmiRD %>%
   ungroup() %>%
   dplyr::distinct(Site)
 
-save(plotdf, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/plotdf.Rdata")
-save(sitedf, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/sitedf.Rdata")
+# save(plotdf, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/plotdf.Rdata")
+# save(sitedf, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/sitedf.Rdata")
 
 ```
 
@@ -227,106 +150,93 @@ asmiRDSite.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Garde
 ```
 
 
-In the dll PIMs set p to zero for all times not surveyed
+In the dll PIMs set p to zero for all times not surveyed   
+Need a 'dead' state that is never observed, fix detection to the dead state as zero  
+Set the transition from dead to alive to zero
+Set dead to dead to 1    
+
 ```{r}
 
 plotssurveyed <- table(dataCJS$Plot, dataCJS$encounter, dataCJS$Year) 
 time.intervals <- c(0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0)
 
-RDproc <- process.data(asmiRDPlot.inp, model = "Robust", begin.time = 2013, groups = "Plot",
+RDproc <- process.data(asmiRDPlot.inp, model = "ORDMSState", begin.time = 2013, groups = "Plot",
                        time.intervals = time.intervals)
-RDddl <- make.design.data(RDproc)
+RDddl <- make.design.data(RDproc) #, parameters = list(Psi = list(subtract.stratum = c("R","R"))))
+
+RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("V","R"))
+RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("V","R"))
+RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("V","R"))
+RDddl$pent$stratum <- factor(RDddl$pent$stratum, levels = c("V","R"))
+RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("V","R"))
+
+table(RDddl$Psi[,c("stratum","tostratum")]) ## R to V computed by subtraction
 
 ## Now add zero for detection p, at all times when not visited; session = Year, time = secondary occasion 1:10, Plot = Plot
-plotssurveyed
 pindex <- RDddl$p
 ## Missed entire survey period
 p2013.indices <- pindex %>%
-  filter(session == 2013 & time %in% c(1,2,4,5,7,9)) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2013 & time %in% c(1,2,4,5,7,9))
 ## Missed these plots [Plot, Survey, Year]
 p2013.ind3 <- pindex %>%
-  filter(session == 2013 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,1])[which(plotssurveyed[,3,1] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2013 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,1])[which(plotssurveyed[,3,1] == 0)]))
 p2013.ind6 <- pindex %>%
-  filter(session == 2013 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,1])[which(plotssurveyed[,6,1] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2013 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,1])[which(plotssurveyed[,6,1] == 0)])) 
 p2013.ind8 <- pindex %>%
-  filter(session == 2013 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,1])[which(plotssurveyed[,8,1] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2013 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,1])[which(plotssurveyed[,8,1] == 0)])) 
 p2013.ind10 <- pindex %>%
-  filter(session == 2013 & time == 10 & Plot %in% as.numeric(names(plotssurveyed[,10,1])[which(plotssurveyed[,10,1] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
-p2013.inds <- c(p2013.indices$idx, p2013.ind3$idx, p2013.ind6$idx, p2013.ind8$idx, p2013.ind10$idx)
+  filter(session == 2013 & time == 10 & Plot %in% as.numeric(names(plotssurveyed[,10,1])[which(plotssurveyed[,10,1] == 0)])) 
+p2013.inds <- c(p2013.indices$par.index, p2013.ind3$par.index, p2013.ind6$par.index, p2013.ind8$par.index, p2013.ind10$par.index)
 
 ## Missed in 2014
 p2014.indices <- pindex %>%
   filter(session == 2014 & time == 4)
 p2014.ind1 <- pindex %>%
-  filter(session == 2014 & time == 1 & Plot %in% as.numeric(names(plotssurveyed[,1,2])[which(plotssurveyed[,1,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 1 & Plot %in% as.numeric(names(plotssurveyed[,1,2])[which(plotssurveyed[,1,2] == 0)])) 
 p2014.ind2 <- pindex %>%
-  filter(session == 2014 & time == 2 & Plot %in% as.numeric(names(plotssurveyed[,2,2])[which(plotssurveyed[,2,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 2 & Plot %in% as.numeric(names(plotssurveyed[,2,2])[which(plotssurveyed[,2,2] == 0)])) 
 p2014.ind3 <- pindex %>%
-  filter(session == 2014 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,2])[which(plotssurveyed[,3,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,2])[which(plotssurveyed[,3,2] == 0)])) 
 p2014.ind5 <- pindex %>%
-  filter(session == 2014 & time == 5 & Plot %in% as.numeric(names(plotssurveyed[,5,2])[which(plotssurveyed[,5,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 5 & Plot %in% as.numeric(names(plotssurveyed[,5,2])[which(plotssurveyed[,5,2] == 0)]))
 p2014.ind6 <- pindex %>%
-  filter(session == 2014 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,2])[which(plotssurveyed[,6,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,2])[which(plotssurveyed[,6,2] == 0)])) 
 p2014.ind7 <- pindex %>%
-  filter(session == 2014 & time == 7 & Plot %in% as.numeric(names(plotssurveyed[,7,2])[which(plotssurveyed[,7,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 7 & Plot %in% as.numeric(names(plotssurveyed[,7,2])[which(plotssurveyed[,7,2] == 0)])) 
 p2014.ind8 <- pindex %>%
-  filter(session == 2014 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,2])[which(plotssurveyed[,8,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,2])[which(plotssurveyed[,8,2] == 0)])) 
 p2014.ind9 <- pindex %>%
-  filter(session == 2014 & time == 9 & Plot %in% as.numeric(names(plotssurveyed[,9,2])[which(plotssurveyed[,9,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2014 & time == 9 & Plot %in% as.numeric(names(plotssurveyed[,9,2])[which(plotssurveyed[,9,2] == 0)])) 
 p2014.ind10 <- pindex %>%
-  filter(session == 2014 & time == 10 & Plot %in% as.numeric(names(plotssurveyed[,10,2])[which(plotssurveyed[,10,2] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
-p2014.inds <- c(p2014.indices$idx, p2014.ind1$idx, p2014.ind2$idx, p2014.ind3$idx, p2014.ind5$idx,
-                p2014.ind6$idx, p2014.ind7$idx, p2014.ind8$idx, p2014.ind9$idx, p2014.ind10$idx)
+  filter(session == 2014 & time == 10 & Plot %in% as.numeric(names(plotssurveyed[,10,2])[which(plotssurveyed[,10,2] == 0)])) 
+p2014.inds <- c(p2014.indices$par.index, p2014.ind1$par.index, p2014.ind2$par.index, p2014.ind3$par.index, p2014.ind5$par.index,
+                p2014.ind6$par.index, p2014.ind7$par.index, p2014.ind8$par.index, p2014.ind9$par.index, p2014.ind10$par.index)
 
 
 ## Missed in 2015
 p2015.indices <- pindex %>%
-  filter(session == 2015 & time == 10) %>%
-  mutate(idx = as.numeric(row.names(.))) 
+  filter(session == 2015 & time == 10) 
 p2015.ind1 <- pindex %>%
-  filter(session == 2015 & time == 1 & Plot %in% as.numeric(names(plotssurveyed[,1,3])[which(plotssurveyed[,1,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 1 & Plot %in% as.numeric(names(plotssurveyed[,1,3])[which(plotssurveyed[,1,3] == 0)])) 
 p2015.ind2 <- pindex %>%
-  filter(session == 2015 & time == 2 & Plot %in% as.numeric(names(plotssurveyed[,2,3])[which(plotssurveyed[,2,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 2 & Plot %in% as.numeric(names(plotssurveyed[,2,3])[which(plotssurveyed[,2,3] == 0)])) 
 p2015.ind3 <- pindex %>%
-  filter(session == 2015 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,3])[which(plotssurveyed[,3,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 3 & Plot %in% as.numeric(names(plotssurveyed[,3,3])[which(plotssurveyed[,3,3] == 0)]))
 p2015.ind4 <- pindex %>%
-  filter(session == 2015 & time == 4 & Plot %in% as.numeric(names(plotssurveyed[,4,3])[which(plotssurveyed[,4,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 4 & Plot %in% as.numeric(names(plotssurveyed[,4,3])[which(plotssurveyed[,4,3] == 0)]))
 p2015.ind5 <- pindex %>%
-  filter(session == 2015 & time == 5 & Plot %in% as.numeric(names(plotssurveyed[,5,3])[which(plotssurveyed[,5,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 5 & Plot %in% as.numeric(names(plotssurveyed[,5,3])[which(plotssurveyed[,5,3] == 0)])) 
 p2015.ind6 <- pindex %>%
-  filter(session == 2015 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,3])[which(plotssurveyed[,6,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 6 & Plot %in% as.numeric(names(plotssurveyed[,6,3])[which(plotssurveyed[,6,3] == 0)])) 
 p2015.ind7 <- pindex %>%
-  filter(session == 2015 & time == 7 & Plot %in% as.numeric(names(plotssurveyed[,7,3])[which(plotssurveyed[,7,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 7 & Plot %in% as.numeric(names(plotssurveyed[,7,3])[which(plotssurveyed[,7,3] == 0)])) 
 p2015.ind8 <- pindex %>%
-  filter(session == 2015 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,3])[which(plotssurveyed[,8,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 8 & Plot %in% as.numeric(names(plotssurveyed[,8,3])[which(plotssurveyed[,8,3] == 0)])) 
 p2015.ind9 <- pindex %>%
-  filter(session == 2015 & time == 9 & Plot %in% as.numeric(names(plotssurveyed[,9,3])[which(plotssurveyed[,9,3] == 0)])) %>%
-  mutate(idx = as.numeric(row.names(.)))
+  filter(session == 2015 & time == 9 & Plot %in% as.numeric(names(plotssurveyed[,9,3])[which(plotssurveyed[,9,3] == 0)])) 
 
-p2015.inds <- c(p2015.indices$idx, p2015.ind1$idx, p2015.ind2$idx, p2015.ind3$idx, p2015.ind4$idx,
-                p2015.ind5$idx, p2015.ind6$idx, p2015.ind7$idx, p2015.ind8$idx, p2015.ind9$idx)
+p2015.inds <- c(p2015.indices$par.index, p2015.ind1$par.index, p2015.ind2$par.index, p2015.ind3$par.index, p2015.ind4$par.index,
+                p2015.ind5$par.index, p2015.ind6$par.index, p2015.ind7$par.index, p2015.ind8$par.index, p2015.ind9$par.index)
 
 
 ## Final for all missed ones that need to be zero
@@ -334,9 +244,6 @@ p.indices <- c(p2013.inds,p2014.inds, p2015.inds)
 p.values <- rep(0, length(p.indices))
 
 
-# RDddl$p$fix <- ifelse(RDddl$p$par.index %in% p.indices, 0, NA)
-## This will take another set like above
-# RDddl$c$fix <- ifelse(RDddl$c$par.index)
 ```
 
 
@@ -430,13 +337,139 @@ p2013.inds <- c(p2013.ind3$par.index, p2013.ind6$par.index, p2013.ind8$par.index
 ```
 
 
+# Open Robust Design multi-state with State probabilities   
+Assumptions : does not change state during primary session   
 
+model = "ORDMSState"
+S(s): survival rate between primary occasions for state s            
+Psi(r,s): transitions between states between primary periods from r to state s              
+Omega: probability of being in each of the states          
+pent(s,t): probability of entry onto study area of state s at time t, prob of entering just prior to last secondary occasion obtained by subtraction. sum(pent) <= 1 using MLogit link function             
+Phi(s,t): probability of remaining on the study area of state s at time t (can fix to 1, plants can't move)    
+p(s,t): capture probability of animal on study area of state s and time t       
 
-model = "RDHuggins" for Huggins Random emigration, p=c varies by time and session; S by time
+derived parameters: population size for each state and primary session, 2 sets of residence times (not needed for plants when can't do dormancy)    
 ```{r}
 
 
 
+RDopenMSmodeldot <- mark(data = RDproc, ddl = RDddl, model = "ORDMSState",
+                      time.intervals = time.intervals,
+                      model.parameters = list(S = list(formula = ~ stratum),
+                                              Psi = list(formula = ~ stratum),
+                                              Omega = list(formula = ~ stratum),
+                                              pent = list(formula = ~ 1),
+                                              Phi = list(formula = ~1, fixed = 1),
+                                              p = list(formula = ~ stratum, fixed = list(index = p.indices, value = p.values))))
+
+head(summary(RDopenMSmodeldot, show.fixed = TRUE))
+RDopenMSmodeldot$results$real
+
+Psilist <- get.real(RDopenMSmodeldot, "Psi", vcv = TRUE)
+Psivalues <- Psilist$estimates
+Psivalues$stratum <- factor(Psivalues$stratum, levels = c("V","R"))
+Psivalues$tostratum <- factor(Psivalues$tostratum, levels = c("V","R"))
+
+
+## split by plot
+## shows the rate from year to year that living plants transition from row to column (rows always sum to 1)
+transMats <- lapply(plotdf$Plot, function(x){
+  TransitionMatrix(Psivalues[Psivalues$time == 2013 & Psivalues$group == x,], vcv.real = Psilist$vcv.real)
+})
+
+rowSums(transMats[[1]]$TransitionMat)
+## VtoV, RtoV, VtoR, RtoR
+sapply(transMats, "[[", 1)
+sapply(transMats, "[[", 2)
+
+ 
+      
+RDopenMSmodeldot$results$real %>%
+  mutate(ParmsGroupsTime = row.names(RDopenMSmodeldot$results$real )) %>%
+  filter(grepl("Psi", ParmsGroupsTime )) %>%
+  separate(ParmsGroupsTime, into = c("Parm", "strata", "tostrata", "group", "cohort", "age", "year")) %>%
+  # distinct(estimate, se, lcl, ucl) %>%
+ggplot( aes(strata, estimate, color = tostrata)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl))+
+  theme_bw()+
+  scale_color_manual("Transition", values = c("black","grey60"))
+
+RDopenMSmodeldot$results$real %>%
+  mutate(ParmsGroupsTime = row.names(RDopenMSmodeldot$results$real )) %>%
+  filter(grepl("Omega", ParmsGroupsTime )) %>%
+  # separate(ParmsGroupsTime, into = c("Parm", "strata", "group", "age", "year")) %>%
+  distinct(estimate,lcl,ucl)
+ 
+
+RDopenMSmodeldot$results$real %>%
+  mutate(ParmsGroupsTime = row.names(RDopenMSmodeldot$results$real )) %>%
+  filter(grepl("p", ParmsGroupsTime )) %>%
+  filter(!grepl("pent", ParmsGroupsTime)) 
+
+RDopenMSmodeldot$results$real %>%
+  distinct(estimate,lcl,ucl)
+
+
+RDopenMSmodeldot$results$derived$`N Population Size` ## of the 29 plots, each year (3), for Veg and Rep
+
+```
+
+
+stratum:time for both, but over three years, don't let vary over time
+
+```{r}
+
+RDopenMSmodeltime <- mark(data = RDproc, ddl = RDddl, model = "ORDMSState",
+                      time.intervals = time.intervals,
+                      model.parameters = list(S = list(formula = ~ stratum),
+                                              Psi = list(formula = ~ stratum),
+                                              Omega = list(formula = ~ stratum),
+                                              pent = list(formula = ~ stratum),
+                                              Phi = list(formula = ~ 1, fixed = 1),
+                                              p = list(formula = ~ stratum, fixed = list(index = p.indices, value = p.values))))
+
+Psilisttime <- get.real(RDopenMSmodeltime, "Psi", vcv = TRUE)
+Psivaluestime <- Psilisttime$estimates
+
+head(summary(RDopenMSmodeltime))
+
+p1 <- RDopenMSmodeltime$results$real %>%
+  # distinct(estimate,lcl,ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Phi") %>%
+  ggplot(  aes(estimate, Parameter, color = stage))+
+  geom_point() +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.2))+
+  theme_bw()+
+  ylab("")+
+  scale_color_manual("Stage", values = c("black","black","grey70","grey70"), 
+                     labels = c("Reproductive", "R to V", "Vegetative", "V to R"))
+
+  ggsave(p1, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/ORDMSStateresults.jpg",
+         width=200, height=100,units='mm', dpi=300 )
+
+  
+RDopenMSmodeltime$results$real %>%
+  distinct(estimate,se,lcl,ucl)
+
+```
+
+
+Model: Robust Design Pradel Lambda Closed Population Estimation  "RDPdlClosed"
+
+```{r}
+
+```
+
+
+
+
+model = "RDHuggins" for Huggins Random emigration, p=c varies by time and session; S by time
+```{r}
 
 # run.robust <- function(){
   ## 3 primary sessions with secondary sessions all of length 10 ("." for missing surveys)
