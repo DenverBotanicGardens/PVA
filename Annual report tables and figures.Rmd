@@ -403,13 +403,14 @@ asmi.season.wide %>%
 
 ```
 
-
+# Environmental Data
 ```{r}
 
 # 1986 to currentyr
 asmi.c %>% 
   group_by(Creek) %>%
-  dplyr::summarise(across(ppt:tmin, mean))
+  dplyr::summarise(across(ppt:tmin, mean)) %>%
+  as.data.frame()
 
 
 asmi.c %>%
@@ -422,13 +423,15 @@ ggplot(  aes(Prev12, value, color = site, group = site))+
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1980_2022 = mean(value), sd1980_current = sd(value)) 
+  dplyr::summarise(mean1980_2022 = mean(value), sd1980_current = sd(value)) %>%
+  as.data.frame()
 
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   filter(Year > 1994) %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1995_2022 = mean(value), sd1995_current = sd(value)) 
+  dplyr::summarise(mean1995_2022 = mean(value), sd1995_current = sd(value)) %>%
+  as.data.frame()
 ```
 
 
@@ -761,8 +764,6 @@ asmi.merged <- asmi.raw %>%
   filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
   filter(length.x > 0) %>%
   filter(!is.na(length.x)) %>%
-  # left_join(asmi.c, by = c("AsMi_plot_id" = "Plot", 
-  #                                    "year.y" = "Year")) %>%
   left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
                                       "year.y" = "Prev12")) %>%
   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
@@ -783,6 +784,10 @@ ggplot(  aes(year.y, surv, color = site))+
 
 Fig4asurvCreekBr <- asmi.merged %>%
   filter(!is.na(browsing.x)) %>%
+  ## Merge seedling and vegetative
+  mutate(status.x = as.character(status.x)) %>%
+  mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                              TRUE ~ status.x)) %>%
 ggplot( aes(length.x, surv, color = as.factor(browsing.x)))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
   geom_point(shape = "|")+
@@ -794,12 +799,16 @@ ggplot( aes(length.x, surv, color = as.factor(browsing.x)))+
   ggtitle("a)")
 
 Fig4asurvCreek <- asmi.merged %>%
+  ## Merge seedling and vegetative
+  mutate(status.x = as.character(status.x)) %>%
+  mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                              TRUE ~ status.x)) %>%
 ggplot( aes(length.x, surv, color = site))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
   geom_point(shape = "|")+
   theme_light()+
   xlab("Length of longest stem (cm)")+
-  facet_wrap(~ status.x, nrow=3 )+
+  facet_grid(status.x ~ Creek )+
   ylab("Survival")
 
 asmi.merged %>%
@@ -892,10 +901,10 @@ ggplot(  aes(tmax_springSummer,surv,color = site))+
   geom_point()+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
-             # labeller = labeller(ppt_winter_bin =
-             #                       c(paste(labels4bins$ppt_winter_bin[1]) = "low winter precipitation", 
-             #                         paste(labels4bins$ppt_winter_bin[2]) = "mid winter precipitation",
-             #                         paste(labels4bins$ppt_winter_bin[3]) = "high winter precipitation"))
+             labeller = labeller(ppt_winter_bin =
+                                   c("(-1.87,-0.408]" = "low winter precipitation",
+                                     "(-0.408,1.05]"  = "mid winter precipitation",
+                                     "(1.05,2.51]"  = "high winter precipitation"))
              )+
   xlab("Summer maximum temperature")+
   ylab("Survival")+
@@ -963,7 +972,12 @@ Fig4bReprodYN <- asmi.reproductive %>%
 ggplot(  aes(tmax_springSummer,FlYN))+
   geom_point()+
   theme_bw()+
-  facet_grid(~ppt_winter_bin, scales = "free")+
+  facet_grid(~ppt_winter_bin, scales = "free", 
+              labeller = labeller(ppt_winter_bin =
+                                    c("(-1.87,-0.317]" = "low winter precipitation",
+                                      "(-0.317,1.23]"  = "mid winter precipitation",
+                                      "(1.23,2.77]"  = "high winter precipitation"))
+              )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
@@ -973,7 +987,12 @@ Fig4bReprodYN_site <- asmi.reproductive %>%
 ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
   geom_point()+
   theme_bw()+
-  facet_wrap(~ppt_winter_bin, scales = "free")+
+  facet_grid(~ppt_winter_bin, scales = "free", 
+              labeller = labeller(ppt_winter_bin =
+                                    c("(-1.87,-0.317]" = "low winter precipitation",
+                                      "(-0.317,1.23]"  = "mid winter precipitation",
+                                      "(1.23,2.77]"  = "high winter precipitation"))
+              )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.1)+
@@ -1012,11 +1031,16 @@ ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
   geom_point()+
   theme_bw()+
   geom_boxplot()+
-  facet_grid(~ppt_winter_bin, scales = "free")+
+  facet_grid(~ppt_winter_bin, scales = "free", 
+               labeller = labeller(ppt_winter_bin =
+                                     c("(-1.26,0.0843]" = "low winter precipitation",
+                                       "(0.0843,1.43]"  = "mid winter precipitation",
+                                       "(1.43,2.77]"  = "high winter precipitation")))+
   xlab("low, mid, and high summer maximum temperature")+
   ylab("log(Total fruit production)")+
   scale_color_discrete("Site")+
-  ggtitle("d) low, mid, and high winter precipitation")+
+  # ggtitle("d) low, mid, and high winter precipitation")+
+  ggtitle("d)")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) # rotate labels
 ```
 
@@ -1074,9 +1098,9 @@ tbl3 <- lapply(sites, function(x){
 })
 
 #Cebolla Creek
-write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table5_Cebolla.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[1]],tbl3[[2]]), file=paste(savepath,"Table5_Cebolla.csv", sep = ""), row.names=TRUE)
 #South Beaver Creek
-write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table5_SouthBeaver.csv"), row.names=TRUE)
+write.csv(data.frame(tbl3[[3]],tbl3[[4]],tbl3[[5]],tbl3[[6]]), file=paste(savepath,"Table5_SouthBeaver.csv", sep=""), row.names=TRUE)
 
 ```
 
@@ -1196,6 +1220,7 @@ At this point, just get asmi.all1 to work, if can deal with addition of plots, t
       2. Then changes all 'seedlings' to 'vegetative' 
 ```{r}
 
+### Fine but doesn't matter, in 3 stage MPM turns all seedlings to vegetative
 asmi.all$status[asmi.all$status == "seedling" & asmi.all$flower == 1] <- "reproductive"
 hist(asmi.all$length[asmi.all$status == "seedling"])
 
@@ -1498,10 +1523,12 @@ Dormancy can be set to 0-1
 ```{r}
 # In 2020 all the tags were removed by someone. An attempt was made to relocate and retag plants but that was abandoned. Need to remove all 2020 data and after. 
 
-all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
-  out <- StagePVA(df)
-  out
-})
+# all.pva <- lapply(split(asmi.all2, asmi.all2$plot), function(df){
+#   out <- StagePVA(df)
+#   out
+# })
+
+all.pva <- StagePVA(asmi.all2, TF = FALSE)
 
 save(all.pva, file = paste(savepath, "allpva", Sys.Date(), ".Rdata", sep = ""))
 
@@ -1562,35 +1589,36 @@ lifeTimeRepEvents <- function(matU, matF, startLife = 1) {
 names(all.pva)
 
 ## Three stage matrix (V,R,D) names them twice, is so nice. Need to fix eventually
-A_site1 <- mean(do.call(c,list(all.pva$"1"$"1", all.pva$"22"$"22", all.pva$"32"$"32", all.pva$"42"$"42", all.pva$"52"$"52")))
-A_site2 <- mean(do.call(c,list(all.pva$"16"$"16", all.pva$"58"$"58", all.pva$"89"$"89", 
-                               all.pva$"90"$"90", all.pva$"96"$"96", all.pva$"98"$"98")))
-A_site5 <- mean(do.call(c,list(all.pva$"606"$"606", all.pva$"607"$"607", 
-                               all.pva$"608"$"608", all.pva$"609"$"609", all.pva$"610"$"610")))
-A_site15 <- mean(do.call(c,list(all.pva$"8"$"8", all.pva$"578"$"578", all.pva$"581"$"581", all.pva$"799"$"799")))
-A_site19 <- mean(do.call(c,list(all.pva$"300"$"300", all.pva$"512"$"512", 
-                                all.pva$"513"$"513", all.pva$"514"$"514", all.pva$"515"$"515")))
-A_site26 <- mean(do.call(c,list(all.pva$"238"$"238", all.pva$"480"$"480", all.pva$"598"$"598", 
-                                all.pva$"611"$"611", all.pva$"614"$"614")))
+A_site1 <- mean(do.call(c,list(all.pva$Plot1, all.pva$Plot22, all.pva$Plot32, all.pva$Plot42, all.pva$Plot52)))
+A_site2 <- mean(do.call(c,list(all.pva$Plot16, all.pva$Plot58, all.pva$Plot89, 
+                               all.pva$Plot90, all.pva$Plot96, all.pva$Plot98)))
+A_site5 <- mean(do.call(c,list(all.pva$Plot606, all.pva$Plot607, 
+                               all.pva$Plot608, all.pva$Plot609, all.pva$Plot610)))
+A_site15 <- mean(do.call(c,list(all.pva$Plot8, all.pva$Plot578, all.pva$Plot581, all.pva$Plot799)))
+A_site19 <- mean(do.call(c,list(all.pva$Plot300, all.pva$Plot512, all.pva$Plot513, all.pva$Plot514, all.pva$Plot515)))
+A_site26 <- mean(do.call(c,list(all.pva$Plot238, all.pva$Plot480, all.pva$Plot598, all.pva$Plot611, all.pva$Plot614)))
 
 lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) lambda(x))
 lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) elasticity(x))
 
 ## Summed elasticities by stage
+# Table 6: elasticities
 do.call(rbind,lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) colSums(elasticity(x))))
 
-
+mpm_all_split <- StagePVA(asmi.all2, TF = TRUE)
 
 ## pRep = prob of survival to first reproductive event, La = age at first reproduction, 
 ## meanRepLifeExpectancy = how long live after age of first reproduction,
 ## remainingMatureLifeExpectancy = how long live after age of first reproduction (most don't make it when negative)
-lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x){ 
-  matU <- x
-  matU[1,3] <- 0
-  matF <- x
-  matF[2:4,] <- 0
-  lifeTimeRepEvents(matU = matU, matF = matF, startLife = 1)
-  })
+lifeestimates <- do.call(rbind,lapply(mpm_all_split, function(x){ 
+  mm <- rowMeans(sapply(x, '[[', 1))
+  mU <- matrix(mm, nrow = 3)
+  mf <- rowMeans(sapply(x, '[[', 2))
+  mF <- matrix(mf, nrow = 3)
+  out <- lifeTimeRepEvents(matU = mU, matF = mF, startLife = 1) 
+  out
+  }))
+
 lapply(list(A_site1,A_site2,A_site5,A_site15,A_site19,A_site26), function(x) { 
   matU <- x
   matU[1,3] <- 0
@@ -1607,26 +1635,33 @@ Pre, post, and all functions
 # all.pva is the list of plots which each is a list of years from StagePVA_single
 # plots is a vector of plots to use
 
-GrowthRateMeanSD <- function(all.pva = all.pva, plots, PreFence = FALSE, PostFence = FALSE){
-  plotsout <- unlist(lapply(1:length(plots), function(i){
-    oneplot <- all.pva[names(all.pva) %in% plots][[i]]
-    if(PreFence == TRUE){
-      oneplot <- oneplot[as.numeric(names(oneplot)) < 2005]
-    }
-    if(PostFence == TRUE){
-      oneplot <- oneplot[as.numeric(names(oneplot)) >= 2005]
-    }
-    if(length(oneplot)>1){
-      plotlambda <- lapply(1:length(oneplot), function(tm){
-        popbio::lambda(oneplot[[tm]])
-        })
-    unlist(plotlambda)
-    }
+# Which sites/plots were fenced when
+PlotSiteYrFence <- asmi.all2 %>%
+  distinct(year,plot,site,fenced)
+
+## The question should be, does the distribution of growth rates differ by fencing status
+GrowthRateMeanSD <- function(all.pva = all.pva, dataset = asmi.all2){ #, PreFence = FALSE, PostFence = FALSE){
+  plots <- dataset %>%
+    distinct(plot)
+  PlotSiteYrFence <- asmi.all2 %>%
+    distinct(plot,site,fenced)
+  
+  Lambdadf <- do.call(rbind,lapply(plots$plot, function(i){
+    oneplot <- all.pva[grepl(paste("Plot",i,"$", sep=""), names(all.pva))][[1]]
+    lambdas <- do.call(c,lapply(oneplot, function(x) popbio::lambda(x)))
+    ldf <- data.frame(plot = i, Year = names(oneplot), Lambda = lambdas)
+    out <- ldf %>%
+      mutate(Year = gsub("Year","",Year)) %>%
+      arrange(Year) %>%
+      inner_join(PlotSiteYrFence)
+    out
   }))
+  Lambdadf
+}
+
   
   # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
-  data.frame(mean(plotsout), sd(plotsout))
-  }
+  # data.frame(mean(plotsout), sd(plotsout))
 
 # GrowthRateMeanSD(all.pva, plots = openSBCplots)
 
@@ -1636,71 +1671,78 @@ Table 5: Average growth rate ($\lambda$) and standard deviation ...
 ```{r}
 
 # South Beaver Creek
-SBCplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id > 4])
-GrowthRateMeanSD(all.pva, SBCplots, PreFence = TRUE)
+# SBCplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id > 4])
+# GrowthRateMeanSD(all.pva, SBCplots, PreFence = TRUE)
+Growthrates <- GrowthRateMeanSD(all.pva = all.pva, dataset = asmi.all2)
 
-all.pva['89'] # not first year or last year so 2015-2017 because 2019 was the last year and the year == y:y+1
-all.pva['90']
-all.pva['598'] # Yay! it goes 2005/06 through 2019/20 when current year is 2021
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  filter(Lambda > 0) %>%
+  filter(site %in% c(5,19,26)) %>%
+ggplot(  aes(fenced, log(Lambda)))+
+  geom_boxplot()+
+  geom_jitter(height = 0)+
+  theme_bw() +
+  facet_wrap(~site)+
+  ylab(expression(log~lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted")
 
+## Table 5: By fencing
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  group_by(site,fenced)%>%
+  dplyr::summarise(geomean = mean(Lambda),
+                   sdLam = sd(Lambda),
+                   varLam = var(Lambda)) %>%
+  mutate(expLambda = exp(geomean))
+  
+## Table 5: all
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  group_by(site)%>%
+  dplyr::summarise(geomean = mean(Lambda),
+                   sdLam = sd(Lambda),
+                   varLam = var(Lambda)) %>%
+  mutate(expLambda = exp(geomean))
 
-# Are only at SBC
-fencedplots <- unique(asmi.raw$AsMi_plot_id[asmi.raw$fence == "y"])
-GrowthRateMeanSD(all.pva, fencedplots, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fencedplots, PostFence = TRUE)
+## Table 5: by creek
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  filter(site %in% c(1,2))%>%
+  dplyr::summarise(geomean = mean(Lambda),
+                   sdLam = sd(Lambda),
+                   varLam = var(Lambda)) %>%
+  mutate(expLambda = exp(geomean))
 
-# Open South Beaver Creek 
-openSBCplots <- setdiff(SBCplots,fencedplots)
-GrowthRateMeanSD(all.pva, openSBCplots, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, openSBCplots, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, openSBCplots)
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  filter(site %in% c(5,15,19,26))%>%
+  dplyr::summarise(geomean = mean(Lambda),
+                   sdLam = sd(Lambda),
+                   varLam = var(Lambda)) %>%
+  mutate(expLambda = exp(geomean))
 
-# Site 05
-site05all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 5])
-fenced05 <- intersect(site05all, fencedplots)
-open05 <- setdiff(site05all, fencedplots)
-GrowthRateMeanSD(all.pva, site05all, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced05, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced05, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open05, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, open05, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open05)
-
-# Site 15
-site15all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 15])
-GrowthRateMeanSD(all.pva, site15all, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, site15all, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, site15all)
-
-# Site 19
-site19all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 19])
-fenced19 <- intersect(site19all, fencedplots)
-open19 <- setdiff(site19all, fencedplots)
-GrowthRateMeanSD(all.pva, site19all, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced19, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced19, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open19, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, open19, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open19)
-
-# Site 26
-site26all <-  unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 26])
-fenced26 <- intersect(site26all, fencedplots)
-open26 <- setdiff(site26all, fencedplots)
-GrowthRateMeanSD(all.pva, site26all, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced26, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, fenced26, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open26, PreFence = TRUE)
-GrowthRateMeanSD(all.pva, open26, PostFence = TRUE)
-GrowthRateMeanSD(all.pva, open26)
-
-#Cebolla Creek
-cebolla <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id < 4])
-site1 <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 1])
-site2 <- unique(asmi.raw$AsMi_plot_id[asmi.raw$AsMi_site_id == 2])
-GrowthRateMeanSD(all.pva, cebolla)
-GrowthRateMeanSD(all.pva, site1)
-GrowthRateMeanSD(all.pva, site2)
+Growthrates %>%
+  mutate(Lambda = log(Lambda)) %>%
+  filter(!is.na(Lambda)) %>%
+  filter(!is.infinite(Lambda)) %>%
+  filter(site %in% c(5,15,19,26
+                     ))%>%
+  group_by(fenced) %>%
+  dplyr::summarise(geomean = mean(Lambda),
+                   sdLam = sd(Lambda),
+                   varLam = var(Lambda)) %>%
+  mutate(expLambda = exp(geomean))
 
 ```
 
@@ -1716,12 +1758,12 @@ eigen.analysis(A)
 grViz("digraph integrated_pop {
       
       # digraph = directed, graph = undirected, graphID
-      graph [compound = true, color = blue, rankdir = TB]
+      graph [compound = true, color = blue, rankdir = LR]
       
       # node definitions with substituted label text
       node [shape = circle, fontname = Helvetica]
       # Demographic monitoring
-      a [label = '@@1-1'] # seedling
+      # a [label = '@@1-1'] # seedling
       b [label = '@@1-2'] # veg
       c [label = '@@1-3'] # rep
       d [label = '@@1-4'] # dormant
@@ -1729,23 +1771,24 @@ grViz("digraph integrated_pop {
       # name must start with 'cluster_'
       subgraph cluster_demography {
         graph [style = dashed, color = Sienna]
-      {rank = min; b}
-      {rank = same; a;c}
+      # {rank = min; b}
+      # {rank = same; a;c}
       # {rank = min; b}
       {rank = max; d}
       # {rank = max; a;b;c}
-        a -> b [label = '@@2-2']
-        a -> c [label = '@@2-3']
-        a -> d [label = '@@2-4']
+        # a -> b [label = '@@2-2']
+        # a -> c [label = '@@2-3']
+        # a -> d [label = '@@2-4']
         b -> b [label = '@@3-2']
         b -> c [label = '@@3-3']
         b -> d [label = '@@3-4']
         c -> d [label = '@@4-4']
-        c -> a [style = dashed, color = LimeGreen, label = '@@4-1']
+        # c -> a [style = dashed, color = LimeGreen, label = '@@4-1']
+        c -> b [style = dashed, color = LimeGreen, label = '@@4-1']
         c -> b [color = red, label = '@@4-2']
         c -> c [label = '@@4-3']
-        d -> b [color = red, label = '@@5-2']
-        d -> c [color = red, label = '@@5-3']
+        d -> b [color = blue, label = '@@5-2']
+        d -> c [color = blue, label = '@@5-3']
         d -> d [label = '@@5-4']
         
         label = 'Demography'
@@ -1754,10 +1797,10 @@ grViz("digraph integrated_pop {
       }
       
       [1]: c('Seedling','Vegetative','Reproductive','Dormant')
-      [2]: round(A[,1],2) # seedling to
-      [3]: round(A[,2],2) # veg to
-      [4]: round(A[,3],2) # reprod to
-      [5]: round(A[,4],2) # dormant to
+      # [2]: round(A[,1],2) # seedling to
+      [3]: round(A[,1],2) # veg to
+      [4]: round(A[,2],2) # reprod to
+      [5]: round(A[,3],2) # dormant to
       ")
 
 ## Export to save as impage 
@@ -2201,7 +2244,8 @@ noreproductiveyears %>%
 ggplot(  aes(tmax_springSummer,flower))+#,colour=as.factor(AsMi_site_id)))+
   geom_point()+
   xlab("Summer maximum temperature")+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)#+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  theme_bw()
   # facet_grid(~Creek, scales = "free")
 
 ## exclude Cebolla creek that has never had a year without seeding
@@ -2255,17 +2299,18 @@ Fig4emastseed <- noreproductiveyears %>%
 ggplot(  aes(tmax_springSummer,flower, colour=site))+
   geom_point()+
   theme_bw()+
-  facet_grid(~ppt_winter_bin, scales = "free", 
+  # facet_grid(~ppt_winter_bin, scales = "free")+
+  facet_grid(~ppt_winter_bin, scales = "free",
              labeller = labeller(ppt_winter_bin =
-                                   c("(-1.82,-0.185]" = "low winter precipitation", 
-                                     "(-0.185,1.45]" = "mid winter precipitation",
-                                     "(1.45,3.09]" = "high winter precipitation"))
+                                   c("(-1.85,-0.226]" = "low winter precipitation",
+                                     "(-0.226,1.39]" = "mid winter precipitation",
+                                     "(1.39,3.02]" = "high winter precipitation"))
              )+
-             # labeller = labeller(.cols = label_both))+
+  # labeller = labeller(.cols = label_both))+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by year")+
   ggtitle("e)")+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.1)#+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.4)#+
   # facet_grid(~Creek, scales = "free")  ## for later years if Cebolla reproduction fails
 
 ###############################################################################################
@@ -2275,8 +2320,8 @@ ggsave(paste(savepath, "Fig4AICresultsa-b.jpg", sep = ""),
  (Fig4asurvCreekBr + Fig4asurvCreek)/
    # b) 
  Fig4Survabiotic +
-   plot_layout(heights = c(2, 1))
-, width=250, height=250,units='mm', dpi=300)
+   plot_layout(heights = c(1, 1))
+, width=250, height=200,units='mm', dpi=300)
 
 ggsave(paste(savepath, "Fig4AICresultsc-e.jpg", sep = ""),
    # c)1 and 2
