@@ -397,6 +397,7 @@ asmi.season.wide %>%
     geom_point()+
     stat_smooth()+
     theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
     scale_color_manual("Site", values = c("black","grey60","deepskyblue","cyan4","cyan","cornflowerblue"))+
     facet_grid(Variable ~ season + Creek)
     # facet_grid(Variable ~ season)
@@ -543,11 +544,22 @@ width=275, height=250,units='mm', dpi=300)
 alive.site <-aggregate(length ~ year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)]))
 
+a.s <- asmi.raw %>%
+  group_by(year, AsMi_site_id, fence) %>%
+  filter(length > 0 & !is.na(length)) %>%
+  dplyr::summarise(length = n()) %>%
+  arrange(AsMi_site_id, fence, year) %>%
+  as.data.frame()
 
 #AGG and dormant
 aggdorm.site <- aggregate(status ~ year + AsMi_site_id  + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
 
+agg.s <- asmi.raw %>%
+  group_by(year, AsMi_site_id, fence) %>%
+  filter(status != "dead" & !is.na(status)) %>%
+  dplyr::summarise(length = n()) %>%
+  arrange(AsMi_site_id, fence, year)
 
 PercentAlive <- lapply(split(alive.site, alive.site$AsMi_site_id), function(x){
   nofence <- x$length[x$year == max(x$year)&
@@ -821,10 +833,10 @@ ggplot( aes(year.y, surv, color = fence))+
   ylab("Survival")
 
 
-glm1 <- glm(surv ~ year.y, family = binomial, data = asmi.merged)
-glm2 <- glm(surv ~ year.y*as.factor(site), family = binomial, data = asmi.merged)
-glm3 <- glm(surv ~ year.y*Creek, family = binomial, data = asmi.merged) 
-glm4 <- glm(surv ~ year.y*fence, family = binomial, data = asmi.merged)
+glm1 <- glm(surv ~ year.x, family = binomial, data = asmi.merged)
+glm2 <- glm(surv ~ year.x*as.factor(site), family = binomial, data = asmi.merged)
+glm3 <- glm(surv ~ year.x*Creek, family = binomial, data = asmi.merged) 
+glm4 <- glm(surv ~ year.x*fence, family = binomial, data = asmi.merged)
 glm5 <- glm(surv ~ 1, family = binomial, data = asmi.merged)
 glm6 <- glm(surv ~ as.factor(site), family = binomial, data = asmi.merged)
 glm7 <- glm(surv ~ Creek, family = binomial, data = asmi.merged) 
@@ -1957,7 +1969,8 @@ p1SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,],
   theme_bw() +
   ylab("Above Ground Growth")+
   ggtitle("a)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
   geom_vline(xintercept = 2015.5, lty =3) +
@@ -1991,7 +2004,8 @@ p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,],
   theme_bw() +
   ylab("Above Ground Growth")+
   ggtitle("e)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   scale_color_manual("Site",
                      values=c("#000000","#7e7e7e"),
                      labels = c("Cebolla Mid","Cebolla North"))+
@@ -2031,7 +2045,8 @@ p3SBC <-
   theme_bw() +
   ylab("log(Total Fruit)")+
   ggtitle("c)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
   geom_vline(xintercept = 2015.5, lty =3) +
@@ -2039,7 +2054,7 @@ p3SBC <-
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1),
+  theme(legend.justification=c(0.15,1), legend.position=c(0.15,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
 ```
@@ -2071,7 +2086,8 @@ p3CC <-
   theme_bw() +
   ylab("log(Total Fruit)")+
   ggtitle("g)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   scale_color_manual("Site", 
                      values=c("#000000","#7e7e7e"),
                      labels = c("Cebolla Mid","Cebolla North"))+
@@ -2104,7 +2120,8 @@ p4SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Creek == "SouthBeaver",],
   theme_bw() +
   ylab("% Reproductive")+
   ggtitle("d)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   geom_vline(xintercept = 2005.75, lty =3)+      # Fencing put in, removed after 2015 census
   geom_vline(xintercept = 2006.75, lty = 4)+
   geom_vline(xintercept = 2015.5, lty =3) +
@@ -2135,7 +2152,8 @@ p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,],
   theme_bw() +
   ylab("% Reproductive")+
   ggtitle("h)") +
-  theme(plot.title=element_text(hjust=0))+
+  theme(plot.title=element_text(hjust=0),
+        legend.background = element_rect(fill='transparent'))+
   scale_color_manual("Site",
                      values=c("#000000","#7e7e7e"),
                      labels = c("Cebolla Mid","Cebolla North"))+
