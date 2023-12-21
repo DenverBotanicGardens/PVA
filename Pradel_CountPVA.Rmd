@@ -79,19 +79,24 @@ lmer.df <- do.call(rbind, lapply(plotsSite1$plot, function(plot){
   ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
   yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
 
-  lmer.df <- data.frame(plot = plot, ySpecies, Year = x.years[-1]) %>%
+  lmer.df <- data.frame(plot = plot, ySpecies, Year = x.years[-length(x.years)]) %>%
     left_join(plotsSite1)
   lmer.df
 }))
+
+lmer.df <- lmer.df %>%
+  mutate(plot = as.factor(plot)) %>%
+  filter(site %in% c(5,15,19,26))
 
 PVA.lm <- lmer(ySpecies ~ -1 + Year + (1|plot), lmer.df)
 ggplot(lmer.df, aes(Year, ySpecies, color = plot))+
   geom_point()+
   stat_smooth(method = "lm", alpha = 0.3)+
-  facet_wrap(~site)+
+  facet_wrap(~site, scales = "free_x")+
   theme_bw()+
   ylab(expression(log~lambda))+
-  scale_color_grey(guide = 'none')
+  scale_color_grey(guide = 'none')+
+  ggtitle("Count")
 
 ######################################################
 
@@ -364,15 +369,66 @@ paramsAll <- row.names(asmi.models$Phi.timePlot.p.dot.f.timePlot$design.matrix)
 paramsAll[grepl("Phi", paramsAll)]
 params <- paramsAll[grepl("Phi", paramsAll)]
 
-lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+lmdasPlot <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
   bind_cols(Params = params) %>%
   separate(Params, into = c("parameter","plot","age","time")) %>%
   mutate(time = as.character(time)) %>%
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time)) %>%
-  mutate(plot = gsub("g","", plot))
+  mutate(plot = gsub("g","", plot)) %>%
+  left_join(plotsSite) %>%
+  mutate(site = as.factor(site))
 
-lm.pradel <- 
+Pradel.lm <- lmer(estimate ~ -1 + time + (1|plot), lmdasPlot) 
+ggplot(lmdasPlot, aes(time, estimate, color = plot))+
+  geom_point()+
+  stat_smooth(method = "lm", alpha = 0.3)+
+  facet_wrap(~site)+
+  theme_bw()+
+  ylab(expression(log~lambda))+
+  scale_color_grey(guide = 'none')+
+  ggtitle("Pradel")
+
+CountLam <- lmer.df %>%
+  rename(estimate = ySpecies) %>%
+  rename(time = Year) %>%
+  mutate(Method = "Count") %>%
+  mutate(site = as.factor(site)) %>%
+  filter(time < 2022)
+
+PradelMPMlongplot <- 
+  lmdasPlot %>%
+  dplyr::select(c(plot, estimate, time, site)) %>%
+  mutate(plot = as.factor(plot)) %>%
+  mutate(Method = "Pradel") %>%
+  bind_rows(CountLam) %>%
+ggplot(  aes(time, estimate, color = Method, linetype = Method, 
+             shape = Method, group = interaction(plot,Method))) +
+  geom_point()+
+  stat_smooth(method = "lm", alpha = 0.2)+
+  theme_bw()+
+  ylab(expression(log~lambda))+
+  xlab("Year")+
+  # geom_hline(yintercept = 0, linetype = "dotted")+
+  facet_wrap(~site, scales = "free_x")+
+  scale_color_manual(values = c("black","grey40"))+
+  scale_linetype_manual(values = c("solid","dotted"))+
+  scale_shape_manual(values = c(4,17))
+  
+  
+ggsave(PradelMPMlongplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasOverTimePradelCountPVA.jpg",
+         width=125, height=150,units='mm', dpi=300 )
+
+
+get.real(asmi.models$Phi.timePlot.p.dot.f.timePlot, "p", vcv=TRUE)$estimates %>%
+  distinct(estimate, se, lcl, ucl)
+  
+  
+```
+
+
+## Not this one
+```{r}
 
 ## Pradel
 lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
