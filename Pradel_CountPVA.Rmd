@@ -49,11 +49,11 @@ count.yr <- asmi.raw %>%
   group_by(site, plot, year) %>%
   dplyr::summarise(count = n())
 
-plotsSite <- count.yr %>%
+plotsSite1 <- count.yr %>%
   distinct(site,plot)
   
-
-loglams <- do.call(rbind, lapply(plotsSite$plot, function(plot){
+## I think the lwr and upr are most appropriate 
+loglams <- do.call(rbind, lapply(plotsSite1$plot, function(plot){
   y.count <- count.yr$count[count.yr$plot == plot]
   x.years <- count.yr$year[count.yr$plot == plot]
   ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
@@ -68,41 +68,54 @@ loglams <- do.call(rbind, lapply(plotsSite$plot, function(plot){
   
   rsq <- summary(PVA.lm)$adj.r.squared
   data.frame(plot = plot, mu = mu_sp[1], lwr = mu_sp[2], upr = mu_sp[3],
-             geomean = mean(ySpecies), var.r = var(ySpecies), sd.r = sd(ySpecies))
+             geomean = mean(ySpecies), var.r = var(ySpecies), sd.r = sd(ySpecies), 
+             lowerLambda = HDInterval::hdi(ySpecies)[1], upperLambda = HDInterval::hdi(ySpecies)[2])
   }))
 
 ## All together with plot per site as random effect
-lmer.df <- do.call(rbind, lapply(plotsSite$plot, function(plot){
+lmer.df <- do.call(rbind, lapply(plotsSite1$plot, function(plot){
   y.count <- count.yr$count[count.yr$plot == plot]
   x.years <- count.yr$year[count.yr$plot == plot]
   ySpecies <- log(y.count[-1]/y.count[-length(y.count)])
   yr <- sqrt(x.years[-1]-x.years[-length(x.years)])
 
-  lmer.df <- data.frame(plot = plot, ySpecies, yr) %>%
-    left_join(plotsSite)
+  lmer.df <- data.frame(plot = plot, ySpecies, Year = x.years[-1]) %>%
+    left_join(plotsSite1)
   lmer.df
 }))
 
-PVA.lm <- lmer(ySpecies ~ -1 + yr + (1|plot), lmer.df)
+PVA.lm <- lmer(ySpecies ~ -1 + Year + (1|plot), lmer.df)
+ggplot(lmer.df, aes(Year, ySpecies, color = plot))+
+  geom_point()+
+  stat_smooth(method = "lm", alpha = 0.3)+
+  facet_wrap(~site)+
+  theme_bw()+
+  ylab(expression(log~lambda))+
+  scale_color_grey(guide = 'none')
 
 ######################################################
 
 loglams %>%
-  left_join(plotsSite) %>%
+  left_join(plotsSite1) %>%
   mutate(site = as.factor(site),
          plot = as.factor(plot)) %>%
-  group_by(site) %>%
-  dplyr::summarise(sitegeomean = mean(geomean),
-                   sitevar = var(var.r),
-                   sitesd = sd(sd.r)) %>% 
+  # group_by(site) %>%
+  # dplyr::summarise(sitegeomean = mean(geomean),
+  #                  sitevar = var(var.r),
+  #                  sitesd = sd(sd.r),
+  #                  lowerLambda = HDInterval::hdi(geomean)[1],
+  #                  upperLambda = HDInterval::hdi(geomean)[2]) %>% 
   filter(site %in% c(5,15,19,26))%>%
-  ggplot( aes(site, sitegeomean))+
+  ggplot( aes(plot, mu))+
     geom_point()+
-    geom_errorbar(aes(ymin = sitegeomean - sitesd, ymax = sitegeomean + sitesd), width = 0.2)+
+    # geom_errorbar(aes(ymin = sitegeomean - sitesd, ymax = sitegeomean + sitesd), width = 0.2)+
+    # geom_errorbar(aes(ymin = lowerLambda, ymax = upperLambda), width = 0.2)+
+    geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
     theme_bw() +
     geom_hline(yintercept = 0, linetype = "dotted") +
     ylab(expression(log~lambda))+
-    xlab("Site")
+    xlab("Plot") +
+  facet_wrap(~site, scales= "free_x")
 
 ```
 
@@ -132,7 +145,8 @@ CJS_asmi <- asmi.raw %>%
   unite(ch, Year1995:Year2022, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
-         Plot = as.factor(AsMi_plot_id))
+         Plot = as.factor(AsMi_plot_id)) %>%
+  filter(grepl("1",ch))
 
 dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)  
 dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
@@ -356,6 +370,17 @@ lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) 
   mutate(time = as.character(time)) %>%
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time)) %>%
+  mutate(plot = gsub("g","", plot))
+
+lm.pradel <- 
+
+## Pradel
+lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
   mutate(plot = gsub("g","", plot)) %>%
   mutate(plot = as.numeric(as.character(plot))) %>%
   group_by(plot) %>%
@@ -364,7 +389,10 @@ lmdas <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) 
                    varLambda = var(estimate),
                    marginerror = qt(0.975, df = (n()-1)*sd(estimate)/sqrt(n())),
                    lcl = meanLambda - marginerror,
-                   ucl = meanLambda + marginerror) %>%
+                   ucl = meanLambda + marginerror,
+                   lowerHDI = HDInterval::hdi(estimate)[1],
+                   upperHDI = HDInterval::hdi(estimate[2])) %>%
+  mutate(plot = as.factor(plot)) %>%
   left_join(plotsSite)
 
 
@@ -375,40 +403,51 @@ lmdas %>%
   # filter(Site %in% c(5,15,19,26)) %>%
   ggplot( aes(plot, meanLambda)) +
     geom_point()+
-    geom_errorbar(aes(ymin = meanLambda - sdLambda, ymax = meanLambda + sdLambda), width = 0.2)+
+    # geom_errorbar(aes(ymin = meanLambda - sdLambda, ymax = meanLambda + sdLambda), width = 0.2)+
+    geom_errorbar(aes(ymin = lowerHDI, ymax = upperHDI), width = 0.2) +
     geom_hline(yintercept = 0, linetype = "dotted")+
     theme_bw() +
-  facet_wrap(~site, scales = "free_x")
+  facet_wrap(~site, scales = "free_x")+
+  ggtitle("Pradel")
+
+# plotsSite <- plotsSite %>%
+#   rename(plot = Plot) %>%
+#   rename(site = Site)
 
 CountLogLams <- loglams %>%
+  mutate(plot = as.factor(plot)) %>%
   left_join(plotsSite) %>%
   filter(site %in% c(5,15,19,26))%>%
   dplyr::rename(estimate = mu) %>%
-  dplyr::rename(lcl = lwr) %>% 
-  dplyr::rename(ucl = upr) %>%
+  # dplyr::rename(lcl = lwr) %>%
+  # dplyr::rename(ucl = upr) %>%
+  dplyr::rename(lcl = lowerLambda) %>%
+  dplyr::rename(ucl = upperLambda) %>%
   mutate(Method = "Count") %>%
-  mutate(plot = as.factor(plot)) %>%
   dplyr::select(c(plot, estimate, lcl:ucl, site, Method))
 
 PradelMPMplot <- lmdas %>%
-  mutate(lcl = meanLambda - sdLambda, ucl = meanLambda + sdLambda) %>%
-  dplyr::select(plot, meanLambda, lcl, ucl, site) %>%
+  # mutate(lcl = meanLambda - sdLambda, ucl = meanLambda + sdLambda) %>%
+  dplyr::select(plot, meanLambda, lowerHDI, upperHDI, site) %>%
   # dplyr::select(c(plot, estimate, lcl:ucl, site)) %>%
+  # rename(estimate = meanLambda) %>%
   rename(estimate = meanLambda) %>%
+  rename(lcl = lowerHDI) %>%
+  rename(ucl = upperHDI) %>%
   filter(site %in% c(5,15,19,26))%>%
   mutate(plot = as.factor(plot)) %>%
   mutate(Method = "Pradel") %>%
   bind_rows(CountLogLams) %>%
 ggplot(  aes(plot, estimate, color = Method)) +
   geom_point(position = position_dodge(width = 0.5))+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.5))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.5), width = 0.3)+
   theme_bw()+
   ylab(expression(log~lambda))+
   xlab("Plot")+
   geom_hline(yintercept = 0, linetype = "dotted")+
   scale_shape_manual(values = c(1,16))+
   facet_wrap(~site, scales = "free_x")+
-  scale_color_manual(values = c("black","grey40"))
+  scale_color_manual(values = c("black","grey70"))
   
   
 ggsave(PradelMPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasPradelCountPVA.jpg",
@@ -542,7 +581,11 @@ run.asmi <- function(){
 
 # asmi.models.site <- run.asmi()
 # save(asmi.models.site, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
+```
 
+
+
+```{r}
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSite.Rdata")
 
 
@@ -552,6 +595,7 @@ paramsAll <- row.names(asmi.models.site$Phi.timePlot.p.dot.f.timePlot$design.mat
 params <- paramsAll[!grepl("f ", paramsAll)]
 length(params[-length(params)])
 
+# Pradel
 lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lambda) Population Change` %>%
   bind_cols(Params = params[-length(params)]) %>%
   separate(Params, into = c("parameter","site","age","time")) %>%
@@ -559,15 +603,15 @@ lmdas <- asmi.models.site$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lam
   mutate(time = gsub("t", "",time)) %>%
   mutate(time = as.numeric(time))
 
-allL <- stoch.log.lam %>%
-  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
-         lcl = if_else(is.nan(lcl), Approx, lcl),
-         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%
-  dplyr::rename(estimate = Sim) %>%
-  mutate(Method = "MPM") %>%
-  mutate(Year = as.numeric(Year)) %>%
-  dplyr::select(c(estimate:Method)) %>%
-  filter(Year < 2022)
+# allL <- stoch.log.lam %>%
+#   mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
+#          lcl = if_else(is.nan(lcl), Approx, lcl),
+#          ucl = if_else(is.nan(ucl), Approx, ucl)) %>%
+#   dplyr::rename(estimate = Sim) %>%
+#   mutate(Method = "MPM") %>%
+#   mutate(Year = as.numeric(Year)) %>%
+#   dplyr::select(c(estimate:Method)) %>%
+#   filter(Year < 2022)
 
 PradelMPMsite <- lmdas %>%
   dplyr::select(c(estimate, lcl:ucl, site, time)) %>%
