@@ -260,6 +260,11 @@ asmiMultisite <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Garden
                         group.df = sitedf,
                         covariates = NULL,
                         use.comments = FALSE)
+
+```
+
+
+```{r}
 ### transition that is computed by subtraction can be changed -- to set which stratum is computed by substraction
 # mstrata.ddl=make.design.data(mstrata.processed,parameters=
 #                                list(Psi=list(subtract.stratum=c("A","B","C"))))
@@ -295,6 +300,10 @@ p.idAdded1996 <- pindex %>%
 p.indices <- c(p.idAdded1996$par.index, p.idAddedlater$par.index)
 p.values <- rep(0, length(p.indices))
 
+```
+
+
+```{r}
 multi.mark.interaction <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, model = "Multistrata",
                                model.parameters = list(S = list(formula = ~ 1),
                                                        p = list(formula = ~ 1,

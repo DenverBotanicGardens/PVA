@@ -25,6 +25,34 @@ load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitP
 ```
 
 
+## Compare to 3 stage for just the years 2013-2015 and grouping by site  
+```{r}
+## Get 2 stage pva to make MPMs
+source_url("https://raw.githubusercontent.com/DenverBotanicGardens/PVA/master/StagePVA2stages_dormancyoptional.R")
+
+load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate2023.Rdata")
+
+asmi.allSite <- asmi.all2 %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  filter(year > 2012 & year < 2016) %>%
+  mutate(plot = site)
+
+table(asmi.allSite$plot, asmi.allSite$site)
+
+## StagePVA2stages_dormancyoptional.R but dormancy isn't optional yet :)
+MPM.plots <- StagePVA(asmi.allSite,TF = FALSE)
+MPM.plotsSplit <- StagePVA(asmi.allSite,TF = TRUE)
+
+## All together  
+asmi.allALL <- asmi.all2 %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  filter(year > 2012 & year < 2016) %>%
+  mutate(plot = 1)
+
+MPM.all <- StagePVA(asmi.allALL, TF = TRUE)
+```
+
+
 
 instead of dot notation (robust models and pradel won't accept "." for missing surveys even though Cooch and Laake say they do!!), fix the probabilities of detection to zero for those periods in the ddls. fix p=0 for that occasion
 ```{r}
@@ -149,11 +177,18 @@ RDproc <- process.data(asmiRDPlot.inp, model = "ORDMSState", begin.time = 2013, 
                        time.intervals = time.intervals)
 RDddl <- make.design.data(RDproc) #, parameters = list(Psi = list(subtract.stratum = c("R","R"))))
 
-RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("V","R"))
-RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("V","R"))
-RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("V","R"))
-RDddl$pent$stratum <- factor(RDddl$pent$stratum, levels = c("V","R"))
-RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("V","R"))
+# RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("V","R"))
+# RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("V","R"))
+# RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("V","R"))
+# RDddl$pent$stratum <- factor(RDddl$pent$stratum, levels = c("V","R"))
+# RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("V","R"))
+
+## Try to relevel to R first?
+RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("R","V"))
+RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("R","V"))
+RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("R","V"))
+RDddl$pent$stratum <- factor(RDddl$pent$stratum, levels = c("R","V"))
+RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("R","V"))
 
 table(RDddl$Psi[,c("stratum","tostratum")]) ## R to V computed by subtraction
 
@@ -398,7 +433,7 @@ RDopenMSmodeldot$results$derived$`N Population Size` ## of the 29 plots, each ye
 ```
 
 
-stratum:time for both, but over three years, don't let vary over time
+would use stratum:time for both, but over three years, don't let vary over time
 
 ```{r}
 
@@ -463,11 +498,11 @@ RDproc <- process.data(asmiRDPlot.inp, model = "CRDMSOHug", begin.time = 2013, g
                        time.intervals = time.intervals)
 RDddl <- make.design.data(RDproc) #, parameters = list(Psi = list(subtract.stratum = c("R","R"))))
 
-RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("V","R"))
-RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("V","R"))
-RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("V","R"))
-RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("V","R"))
-RDddl$c$stratum <- factor(RDddl$c$stratum, levels = c("V","R"))
+RDddl$Psi$stratum <- factor(RDddl$Psi$stratum, levels = c("R","V"))
+RDddl$S$stratum <- factor(RDddl$S$stratum, levels = c("R","V"))
+RDddl$Omega$stratum <- factor(RDddl$Omega$stratum, levels = c("R","V"))
+RDddl$p$stratum <- factor(RDddl$p$stratum, levels = c("R","V"))
+RDddl$c$stratum <- factor(RDddl$c$stratum, levels = c("R","V"))
 
 table(RDddl$Psi[,c("stratum","tostratum")]) ## R to R and V to V computed by subtraction
 ## Now add zero for detection p, at all times when not visited; session = Year, time = secondary occasion 1:10, Plot = Plot
@@ -610,7 +645,7 @@ c.indices <- c(c2013.inds,c2014.inds, c2015.inds)
 c.values <- rep(0, length(c.indices))
 
 Huggins <- mark(data = RDproc, ddl = RDddl, model = "CRDMSOHug",
-                      time.intervals = time.intervals)
+                      time.intervals = time.intervals, begin.time = 2013)
 
 Huggins$results$real %>%
   distinct(estimate, se, lcl, ucl)
@@ -618,9 +653,12 @@ Huggins$results$real %>%
 HugginsRDclosedMSmodeldot <- mark(data = RDproc, ddl = RDddl, model = "CRDMSOHug",
                       time.intervals = time.intervals,
                       model.parameters = list(
-                        # S = list(formula = ~ stratum),
-                        #                       Psi = list(formula = ~ stratum),
-                        #                       Omega = list(formula = ~ stratum),
+                                              # S = list(formula = ~ stratum + Plot),
+                                              # Psi = list(formula = ~ stratum + Plot),
+                                              # Omega = list(formula = ~ stratum + Plot),
+                                              S = list(formula = ~ stratum ),
+                                              Psi = list(formula = ~ stratum ),
+                                              Omega = list(formula = ~ stratum ),
                                               p = list(formula = ~ stratum, fixed = list(index = p.indices, value = p.values)),
                                               c = list(formula = ~ stratum, fixed = list(index = c.indices, value = c.values)))
                       )
@@ -629,11 +667,35 @@ head(summary(HugginsRDclosedMSmodeldot, show.fixed = TRUE))
 HugginsRDclosedMSmodeldot$results$real %>%
   distinct(estimate, se, lcl, ucl)
 
+plotSite <- obsmodel %>%
+  distinct(Plot, Site) %>%
+  rename(plot = Plot) %>%
+  mutate(plot = as.character(plot))
+
+HugginsRDclosedMSmodeldot$results$real %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  separate(dats, into = c("Parameter", "stage","plot")) %>%
+  # mutate(plot = gsub("g","",plot)) %>%
+  # mutate(plot = as.character(plot)) %>%
+  # left_join(plotSite) %>%
+  mutate(Parameter = as.factor(Parameter)) %>%
+  # mutate(Parameter = factor(Parameter, levels = c("S","Phi","Omega","p","c"))) %>%
+ggplot(  aes( estimate, Parameter,color = stage))+
+  geom_point(position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.2),position = position_dodge(width = 0.4))+
+  # geom_errorbar(aes(ymin = lcl, ymax = ucl, width = 0.1),position = position_dodge(width = 0.4))+
+  theme_bw()+
+  ylab("")+
+  scale_color_manual("Stage", values = c("black","black","blue","blue"), 
+                     labels = c("Reproductive", "R to V", "Vegetative", "V to R")) 
+  # facet_wrap(~ Site)
 
 Hugginstime <- mark(data = RDproc, ddl = RDddl, model = "CRDMSOHug",
                       time.intervals = time.intervals,
-                      model.parameters = list(S = list(formula = ~ group),
-                                              Psi = list(formula = ~ group),
+                      model.parameters = list(S = list(formula = ~ Plot),
+                                              Psi = list(formula = ~ Plot),
+                                              Omega = list(formula = ~ stratum),
                                               p = list(formula = ~ stratum, fixed = list(index = p.indices, value = p.values)),
                                               c = list(formula = ~ stratum, fixed = list(index = c.indices, value = c.values)))
                       )
@@ -646,6 +708,17 @@ HugginsRDclosedMSmodeldot$results$real %>%
 
 ```{r}
 
+## To compare
+## Average across two years
+matU <- mean(list(MPM.all$Plot1$Year2013$T,MPM.all$Plot1$Year2014$T))
+matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
+
+MPMparameters <- data.frame(estimate = c(matU[1,1], matU[2,2], matU[2,1], matU[1,2]),
+                            se = NA, lcl = NA, ucl = NA, 
+                            Parameter = c("S","S",  "Psi","Psi"), 
+                            stage = c("sV","sR",  "sVtoR","sRtoV"),
+                            Model = "MPM")
+                            
 
 p1 <- HugginsRDclosedMSmodeldot$results$real %>%
   # distinct(estimate,lcl,ucl) %>%
@@ -653,14 +726,18 @@ p1 <- HugginsRDclosedMSmodeldot$results$real %>%
   mutate(dats = gsub(" to", "to",dats)) %>%
   separate(dats, into = c("Parameter", "stage")) %>%
   filter(estimate != 0) %>%
-  filter(Parameter != "Phi") %>%
-  ggplot(  aes(estimate, Parameter, color = stage))+
+  # filter(Parameter != "Phi") %>%
+  dplyr::select(c(estimate:ucl,Parameter:stage)) %>%
+  mutate(Model = "CRDMSOHug") %>%
+  bind_rows(MPMparameters) %>%
+ ggplot(  aes(estimate, Parameter, color = stage, shape = Model))+
   geom_point(position = position_dodge(width = 0.4)) +
-  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.2),position = position_dodge(width = 0.4))+
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
   theme_bw()+
   ylab("")+
-  scale_color_manual("Stage", values = c("black","black","grey40","grey40"), 
-                     labels = c("Reproductive", "R to V", "Vegetative", "V to R"))
+  scale_color_manual("Stage", values = c("black","black","grey60","grey60"), 
+                     labels = c("Reproductive", "R to V", "Vegetative", "V to R"))+
+  scale_shape_manual(values = c(16,4))
 
   ggsave(p1, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/CRDMSOHugresults.jpg",
          width=140, height=90,units='mm', dpi=300 )
@@ -695,65 +772,3 @@ Model: Robust Design Pradel Lambda Closed Population Estimation  "RDPdlClosed"
 ```
 
 
-
-
-model = "RDHuggins" for Huggins Random emigration, p=c varies by time and session; S by time
-```{r}
-
-# run.robust <- function(){
-  ## 3 primary sessions with secondary sessions all of length 10 ("." for missing surveys)
-  
-  ## Random emigration - sure, well,... p=c varies by time and session
-  S.time=list(formula=~1)
-  p.time.session=list(formula=~ 1, # share=TRUE,  ## TRUE means c and p share same columns of design matrix, can't have fixed and share == TRUE
-                      fixed = list(index = p.indices,
-                      value = p.values))
-  ## fix Fidelity to 1 for all
-  ## fix gamma to zero
-  GammaDoublePrime.random=list(formula=~1,share=TRUE)   ## return rate - not available for detection, dormant
-  model.1=mark(data = RDproc, ddl = RDddl, model = "Robust", 
-               time.intervals=time.intervals,
-               model.parameters=list(S=S.time,
-                                     # GammaDoublePrime=GammaDoublePrime.random,
-                                     p=p.time.session))
-  ## gammaprime: unobservable to unobservable
-  ## gammadoubleprime:observable to unobservable; (1-gammadoubleprime) == was above ground last time and above ground this time
-  ## gammadoubleprime == temporary emmigration
-  
-  ## I assume RDHet is for p != c heterogeneity or just that they vary among???
-  # pi.dot=list(formula=~1)
-  # p.session.mixture=list(formula=~session+mixture, # share=TRUE, 
-  #                     fixed = list(index = p.indices,
-  #                     value = p.values))
-  # model.2.b=mark(data = RDproc, ddl = RDddl, model = "RDHet", 
-  #             time.intervals=time.intervals,
-  #             model.parameters=list(S=S.time,
-  #                                   GammaDoublePrime=GammaDoublePrime.random,
-  #                                   p=p.session.mixture,
-  #             pi=pi.dot))
-  
-  
-  
-#   return(collect.models())
-# }
-
-RDresults <- run.robust()
-RDresults
-
-model.1$results$real
-
-```
-
-<https://cran.r-project.org/web/packages/RMark/RMark.pdf> 
-```{r, eval=FALSE}
-# robust with strata  
-process.data(data, model = "CRDMS", time.interval = t.int, strata.labels = c("V","R")
-## Shange Psi parameters that are obtained by subtraction
-    # something like:
-asmi.ddl <- make.design.data(asmi.proc, parameters = list(Psi = list(subtract.stratum = c("V","V"))))
-  # create grouping index for unobserved p and c (always zero)
-asmi.ddl$p$fix = ifelse(asmi.ddl$p$stratum == "U",0,NA)  ## if one state is unobservable
-asmi.ddl$c$fix = ifelse(asmi.ddl$p$stratum == "U",0,NA)  ## if one state is unobservable
-
-
-```
