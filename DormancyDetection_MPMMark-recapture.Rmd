@@ -22,6 +22,7 @@ library(tidyr)
 library(RMark)
 library(boot)
 library(ggplot2)
+library(devtools)
 
 ## capture histories 2013-2015, secondary capture occasions within in closed periods
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Observations3years.Rdata")
@@ -75,13 +76,67 @@ MPMlamdf <- MPMlam %>%
   filter(!is.na(Lambda)) %>%
   arrange(site,Plot,Year)
 
+## Troubleshoot site 5 and the two plots at 15 that are all but gone
+MPMlamdf %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  filter(Lambda != 0) %>%
+  group_by(Plot) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  dplyr::summarize(meanLambda = mean(logLambda),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - sdLambda,
+                   ucl = meanLambda + sdLambda,
+                   site = unique(site))%>%
+  filter(site == 5) %>%
+  print(n=100)
+
+
+MPMlamdf %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  group_by(Plot) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  filter(Lambda != 0) %>%
+  dplyr::summarize(meanLambda = mean(logLambda, na.rm = TRUE),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - varLambda,
+                   ucl = meanLambda + varLambda,
+                   site = unique(site)) %>%
+ggplot(  aes(Plot, meanLambda))+
+  geom_point(position = position_dodge(width = 1))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1), width = 0.2)+
+  # geom_boxplot()+
+  # geom_jitter(height = 0)+
+  theme_bw()+
+  ylab(expression(lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  facet_wrap(~site, scales = "free_x")
+```
+
+```{r}
 ### Tuljapukar's log stochastic lambda by year across plots in a site , need to change 
   # V <- Conj(solve(W, tol = 1e-300))  add tolerance to make it work 
 # For Pradel comparison, exclude sites 1 and 2, and three plots that are added 1996 and 2004
 
-stochLambda <- lapply(MPM.plots, function(plot){
-  stoch.growth.rate(plot, maxt = 100)
+MPMlamdf[which(MPMlamdf$Lambda == 0),]
+
+lapply(MPM.plots, function(plot){
+  lambdas <- do.call(c, lapply(plot, function(x) lambda(x)))
+  print(plot[lambdas == 0])
 })
+
+
+plt <- MPM.plots[[6]]
+stochLambda <- lapply(MPM.plots, function(plt){
+  lambdas <- do.call(c, lapply(plt, function(x) lambda(x)))
+  ## Remove the zero growth rate ones first!! 
+  isIrr <- do.call(c, lapply(plt, function(x) isIrreducible(x)))
+  print(plt[which(lambdas != 0 & isIrr)])
+  if(length(plt[which(lambdas != 0 & isIrr)]) > 0){
+  stoch.growth.rate(plt[which(lambdas != 0 & isIrr)], maxt = 100000)
+    }
+  })
 
 stoch.log.lam <- do.call(rbind,lapply(stochLambda, function(x){
   data.frame(Approx = x$approx, Sim = x$sim, lcl = x$sim.CI[1], ucl = x$sim.CI[2])
@@ -89,39 +144,62 @@ stoch.log.lam <- do.call(rbind,lapply(stochLambda, function(x){
 
 nrow(stoch.log.lam[is.na(stoch.log.lam$Sim),])
 
-
 ## Just report the CI of the plots within the sites 
 stoch.log.lam %>%
   mutate(plot = row.names(.)) %>%
   mutate(plot = gsub("Plot","",plot)) %>%
   left_join(SitePlot) %>%
-  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
-         lcl = if_else(is.nan(lcl), Approx, lcl),
-         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%  
   filter(site %in% c(5,15,19,26)) %>%
-  # group_by(site) %>%
-  # dplyr::summarize(meanLambda = mean(Approx),
-  #                  marginerror = qt(0.975, df = (n()-1)*sd(Approx)/sqrt(n())),
-  #                  lcl = meanLambda - marginerror,
-  #                  ucl = meanLambda + marginerror) %>%
-ggplot(  aes(site, Approx, color = as.factor(site)))+
-  # geom_point(position = position_dodge(width = 1))+
-  # geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1))+
-  geom_boxplot()+
-  geom_jitter(height = 0)+
+ggplot(  aes(plot, Sim))+
+  geom_point(position = position_dodge(width = 1))+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 1), width = 0.2)+
   theme_bw()+
   ylab(expression(lambda))+
-  geom_hline(yintercept = 0, linetype = "dotted")
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  facet_wrap(~site, scales = "free")
 
 stoch.log.lam_plot <- stoch.log.lam %>%
   mutate(plot = row.names(.)) %>%
   mutate(plot = gsub("Plot","",plot)) %>%
   left_join(SitePlot) %>%
-  mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
-         lcl = if_else(is.nan(lcl), Approx, lcl),
-         ucl = if_else(is.nan(ucl), Approx, ucl)) %>%  
+  # mutate(Sim = if_else(is.nan(Sim), Approx, Sim),
+  #        lcl = if_else(is.nan(lcl), Approx, lcl),
+  #        ucl = if_else(is.nan(ucl), Approx, ucl)) %>%  
   filter(site %in% c(5,15,19,26))
+
+stochLambda <- do.call(rbind,lapply(MPM.plots, function(plt){
+  lambdas <- do.call(c, lapply(plt, function(x) lambda(x)))
+  data.frame(meanLogLambda = mean(log(lambdas), na.rm = TRUE),
+             varLogLambda = var(log(lambdas), na.rm = TRUE))
+  }))
+
+
+
+MPMplot <- stochLambda %>%
+  mutate(plot = row.names(.)) %>%
+  mutate(plot = gsub("Plot","",plot)) %>%
+  left_join(SitePlot) %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  filter(!is.infinite(meanLogLambda)) %>%
+ggplot(  aes(plot, meanLogLambda ))+
+  geom_point(position = position_dodge(width = 1))+
+  geom_errorbar(aes(ymin = meanLogLambda - varLogLambda, 
+                    ymax = meanLogLambda + varLogLambda),
+                position = position_dodge(width = 1), width = 0.3)+
+  theme_bw()+
+  ylab(expression(log~lambda))+
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  facet_wrap(~site, scales = "free_x",
+             nrow = 3)
+
+ggsave(MPMplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lMPMloglambda.jpg",
+         width=75, height=100,units='mm', dpi=300 )
+
+
+
 ```
+
+
 
 
 
@@ -129,6 +207,7 @@ Multi-state model
 ```{r}
 CJS_asmi <- asmi.raw %>%
   filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>%
   filter(!is.na(year)) %>%  
   dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
   group_by(AsMi_tag_id) %>%
@@ -202,10 +281,7 @@ table(multi.ddl.ms$Psi[,c("stratum","tostratum")]) ## R to V is computed by subt
 plotsSite <- CJS_asmi %>%
   distinct(Plot,Site)
 pindex <- multi.ddl.ms$p 
-p.idSite1_2 <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort)))%>%
-  ## Sites 1 and 2 were added in 2014, nothing can start in any of these years, cohort
-  filter((group %in% plotsSite$Plot[plotsSite$Site %in% c(1,2)] & cohort < 2014)) 
+# p.idSite1_2 <- pindex %>%
 p.idAddedlater <- pindex %>%
   mutate(cohort = as.numeric(as.character(cohort)))%>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
@@ -216,13 +292,8 @@ p.idAdded1996 <- pindex %>%
   filter((group %in% c(300,238) & cohort < 1996))  
   
 ## Fixed indices
-p.indices <- c(p.idSite1_2$par.index, p.idAdded1996$par.index, p.idAddedlater$par.index)
+p.indices <- c(p.idAdded1996$par.index, p.idAddedlater$par.index)
 p.values <- rep(0, length(p.indices))
-
-# multi.mark <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, model = "Multistrata",
-#                               model.parameters = list(S = list(formula = ~ 1),
-#                                                 p = list(formula = ~ 1),
-#                                                 Psi = list(formula = ~ 1)))
 
 multi.mark.interaction <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, model = "Multistrata",
                                model.parameters = list(S = list(formula = ~ 1),
@@ -234,9 +305,18 @@ multi.mark.interaction <- mark(multi.proc.ms, multi.ddl.ms, begin.time = 1995, m
 # summary(mymodel,show.fixed=T)
 
 save(multi.mark.interaction, file =  "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/multimarkInteraction.Rdata")
+```
+
+```{r}
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/multimarkInteraction.Rdata")
 
+  multi.mark.interaction$parameters$p
+multi.mark.interaction$results$real
+```
 
+
+
+```{r}
 run.asmi.ms <- function(){
   ## Survival
   S.dot = list(formula =  ~ 1)
@@ -245,6 +325,7 @@ run.asmi.ms <- function(){
   ## Some plots weren't observed all time periods
   p.dot = list(formula =  ~ 1, fixed = list(index = p.indices, value = p.values))
   p.Plot = list(formula = ~ Plot, fixed = list(index = p.indices, value = p.values))
+  p.strata = list(formula = ~ strata, fixed = list(index = p.indices, value = p.values))
   
   Psi.dot = list(formula =  ~ 1)
   # Psi.time = list(formula = ~ time)
@@ -259,6 +340,14 @@ run.asmi.ms <- function(){
 
 asmi.models.ms <- run.asmi.ms()
 save(asmi.models.ms, file =  "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmimodelsms.Rdata")
+
+```
+
+
+
+
+```{r}
+
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmimodelsms.Rdata")
 
 ### Multi-state transition functions
@@ -268,11 +357,11 @@ transition.pairs(asmiMulti$ch)
 asmi.models.ms[[1]]$model.name  # dot model
 
 # get.real to get a list containing all Psi estimates and the v-c matrix
-psilist <- get.real(asmi.models.ms[[2]], "Psi", vcv = TRUE)
-psivalues <- psilist$estimates
-tranmat <- TransitionMatrix(psivalues[psivalues$time == 1,])
+# psilist <- get.real(asmi.models.ms[[2]], "Psi", vcv = TRUE)
+# psivalues <- psilist$estimates
+# tranmat <- TransitionMatrix(psivalues[psivalues$time == 1,])
 ## with se and conf interval
-tranmatseconf <- TransitionMatrix(psivalues[psivalues$time == 1,], vcv.real = psilist$vsv.real)
+# tranmatseconf <- TransitionMatrix(psivalues[psivalues$time == 1,], vcv.real = psilist$vsv.real)
 
 CJS_asmi %>%
   distinct(Site,Plot) %>%
@@ -284,73 +373,12 @@ toMPM <- asmi.models.ms$S.dot.p.Plot.Psi.dot$results$real %>%
   mutate(Parms = sub(" to", "to", Parms)) %>%
   separate(Parms, into = c("parameter","strata","group","year", "age", "occa","time"))%>%
   mutate(year = as.numeric(sub("c","",year)))
+
+toMPM %>%
+  distinct(estimate, se, lcl, ucl)
   
 ggplot(toMPM, aes(year, ))  
 
 ```
 
-
-
-
-# just 
-Pradel model "Pradlambda" with Phi, p, and Lambda   
-When Lambda is part of the likelihood, then need to use a CLogit to make sure survival is less than or equal to Lambda
-```{r, eval = FALSE}
-
-asmiprocL <- process.data(asmiPradel.inp, model = "Pradlambda", groups = "Plot")
-asmiddlL <- make.design.data(asmiprocL)
-
-
-run.asmi <- function(){
-  Phi.dot = list(formula =  ~ 1)
-  Phi.time = list(formula =  ~ time)
-  Phi.Plot = list(formula =  ~ Plot)  ## so each plot is offset
-  Phi.timePlot = list(formula =  ~ time + Plot)
-  
-  p.dot = list(Lambdaormula =  ~ 1)
-  
-  Lambda.dot = list(formula =  ~ 1)
-  Lambda.time = list(formula = ~ time)
-  Lambda.Plot = list(formula = ~ Plot)
-  Lambda.timePlot = list(formula = ~ time + Plot)
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocL, ddl = asmiddlL)
-  
-  return(asmi.results)
-}
-
-asmi.models.lambda <- run.asmi()
-
-asmi.models.lambda
-resultsplot <- asmi.models.lambda$Phi.timePlot.Lambda.timePlot$results$real
-paramsAll <- row.names(asmi.models.lambda$Phi.timePlot.Lambda.timePlot$design.matrix)
-
-SurvLambda <- asmi.models.lambda$Phi.timePlot.Lambda.timePlot$results$real %>%
-  bind_cols(Params = paramsAll) %>%
-  separate(Params, into = c("parameter","plot","age","time")) %>%
-  mutate(time = as.character(time)) %>%
-  mutate(time = gsub("t", "",time)) %>%
-  mutate(time = as.numeric(time))
-
-## Lambda is less than survival in several years
-ggplot(SurvLambda, aes(time, estimate, color = parameter, group = plot))+
-  geom_point(position = position_dodge(width = 0.9))+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
-  theme_bw()
-
-SurvLambda %>%
-  group_by(plot,time) %>%
-  dplyr::summarise(PhiLamDiff = estimate[parameter == "Lambda"]-estimate[parameter == "Phi"]) %>%
-ggplot(  aes(time, PhiLamDiff, color = plot))+
-  geom_point(position = position_dodge(width = 0.9))+
-  # geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9))+
-  theme_bw()+
-  geom_hline(yintercept = 0)+
-  scale_color_discrete(guide = "none")
-  
-
-
-```
 
