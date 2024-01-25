@@ -48,7 +48,7 @@ StagePVA <- function(df,TF = FALSE){
   ## Plot
   for(j in Plots){
     ## stage == year t, fate == t+1, seedlings == t+2
-    years <- unique(df$year[df$plot == j])
+    years <- sort(unique(df$year[df$plot == j]))
 
     ## Years with reproductive adults
     ## Previous of reproduction to assign fecundity, clearly not from individuals that were not reproductive
@@ -58,7 +58,7 @@ StagePVA <- function(df,TF = FALSE){
 
     ## if there was no reproduction in a year, assign seedlings to the first prior year with reproductive adults
     ## cycle through years with reproduction, they get year t+2 and if no reproduction in t+2, then also t+3...
-    if(any(which(reproYN == 0) %in% c(1))) years <- years[-1]
+    # if(any(which(reproYN == 0) %in% c(1))) years <- years[-1]  ## Why did I add this?
 
     for(i in years[-length(years)]){
       ## When no reproduction
