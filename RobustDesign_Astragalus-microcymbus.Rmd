@@ -50,6 +50,15 @@ asmi.allALL <- asmi.all2 %>%
   mutate(plot = 1)
 
 MPM.all <- StagePVA(asmi.allALL, TF = TRUE)
+
+### variance over the four sites
+asmi.3yrs <- asmi.all2 %>%
+  filter(site %in% c(5,15,19,26)) %>%
+  filter(year > 2012 & year < 2016) %>%
+  StagePVA()
+
+asmi.3yrsmu <- mean(do.call(c, asmi.3yrs))
+asmi.3yrssd <- sd(apply(do.call(c, asmi.3yrs)), 
 ```
 
 
@@ -669,9 +678,10 @@ HugginsRDclosedMSmodeldot$results$real %>%
 
 plotSite <- obsmodel %>%
   distinct(Plot, Site) %>%
-  rename(plot = Plot) %>%
+  dplyr::rename(plot = Plot) %>%
   mutate(plot = as.character(plot))
 
+## Fixed to zero for times when not viewed
 HugginsRDclosedMSmodeldot$results$real %>%
   mutate(dats = row.names(.)) %>%
   mutate(dats = gsub(" to", "to",dats)) %>%
@@ -713,10 +723,67 @@ HugginsRDclosedMSmodeldot$results$real %>%
 matU <- mean(list(MPM.all$Plot1$Year2013$T,MPM.all$Plot1$Year2014$T))
 matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
 
-MPMparameters <- data.frame(estimate = c(matU[1,1], matU[2,2], matU[2,1], matU[1,2]),
+colSums(matU)
+
+MPMparameters2 <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2], matU[2,1], matU[1,2], 
+                                         colSums(matU)[3], 
+                                         matU[3,1], matU[3,2],  
+                                         matU[1,3], matU[2,3]),
                             se = NA, lcl = NA, ucl = NA, 
-                            Parameter = c("S","S",  "Psi","Psi"), 
-                            stage = c("sV","sR",  "sVtoR","sRtoV"),
+                            Parameter = c("S","S",    "Psi","Psi",     "S", "Psi", "Psi", "Psi", "Psi"), 
+                            stage =     c("V","R",  "VtoR","RtoV", "D", "VtoD", "RtoD", "DtoV", "DtoR"),
+                            ParameterStage = c("S V", "S R", "Psi VtoR", "Psi RtoV", "S D", 
+                                               "Psi VtoD", "Psi RtoD", "Psi DtoV", "Psi DtoR"),
+                            Model = "MPM")
+                            
+
+p2 <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Omega") %>%
+  dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
+  mutate(Model = "CRDMSOHug") %>%
+  bind_rows(MPMparameters2) %>%
+  mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","c R", "p R",
+                                                            "Psi VtoD","c V","p V",
+                                                            "Psi DtoR", "Psi DtoV", "Psi RtoV",
+                                                            "Psi VtoR","S D", "S R", "S V"))) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+              shape = Model))+
+  geom_point(position = position_dodge(width = 0.4), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
+  theme_bw()+
+  ylab("")+
+  scale_color_manual("Stage", values = c("red","red","red",  "darkmagenta","darkmagenta","darkmagenta",
+                                         "darkseagreen","darkseagreen","darkseagreen"),
+                     labels = c("Dormant","D to R","D to V","Reproductive", "R to D","R to V", "Vegetative", "V to D", "V to R"))+
+  # scale_fill_manual("Stage", values = c("red","darkmagenta","darkseagreen",  "darkmagenta","red","darkseagreen",
+  #                                        "darkseagreen","red","darkmagenta"),
+  #                    labels = c("Dormant","D to R","D to V","Reproductive", "R to D","R to V", "Vegetative", "V to D", "V to R"))+
+  # scale_color_manual("Stage", values = c("black","black","grey60","grey60"), 
+  #                    labels = c("Reproductive", "R to V", "Vegetative", "V to R"))+
+  scale_shape_manual(values = c(20,4)) 
+
+p2
+  
+ggsave(p2, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/CRDMSOHugresultsWdormant.jpg",
+         width=140, height=110,units='mm', dpi=300 )
+  
+
+  
+
+MPMparameters <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2], matU[2,1], matU[1,2]),
+                            se = NA, lcl = NA, ucl = NA, 
+                            Parameter = c("S","S",    "Psi","Psi"), 
+                            stage =     c("sV","sR",  "sVtoR","sRtoV"),
                             Model = "MPM")
                             
 
@@ -726,23 +793,23 @@ p1 <- HugginsRDclosedMSmodeldot$results$real %>%
   mutate(dats = gsub(" to", "to",dats)) %>%
   separate(dats, into = c("Parameter", "stage")) %>%
   filter(estimate != 0) %>%
-  # filter(Parameter != "Phi") %>%
+  filter(Parameter != "Omega") %>%
   dplyr::select(c(estimate:ucl,Parameter:stage)) %>%
   mutate(Model = "CRDMSOHug") %>%
   bind_rows(MPMparameters) %>%
  ggplot(  aes(estimate, Parameter, color = stage, shape = Model))+
-  geom_point(position = position_dodge(width = 0.4)) +
+  geom_point(position = position_dodge(width = 0.4), size = 1.5, stroke = 1.5) +
   geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
   theme_bw()+
   ylab("")+
-  scale_color_manual("Stage", values = c("black","black","grey60","grey60"), 
+  scale_color_manual("Stage", values = c("darkmagenta","darkmagenta",
+                                         "darkseagreen","darkseagreen"),
                      labels = c("Reproductive", "R to V", "Vegetative", "V to R"))+
-  scale_shape_manual(values = c(16,4))
+  scale_shape_manual(values = c(20,4))
 
   ggsave(p1, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/CRDMSOHugresults.jpg",
          width=140, height=90,units='mm', dpi=300 )
-  
-  
+    
 p1TimePlot <- Hugginstime$results$real %>%
   # distinct(estimate,lcl,ucl) %>%
   mutate(dats = row.names(.)) %>%
