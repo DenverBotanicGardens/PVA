@@ -219,7 +219,8 @@ lmer.df.wdorm <- lmer.df.wdorm %>%
   filter(site %in% c(5,15,19,26)) %>%
   mutate(method = "Count with dormant")
 
-PVA.lm.wdorm <- lmer(ySpecies ~ -1 + Year + (1|site), lmer.df.wdorm)
+# PVA.lm.wdorm <- lmer(ySpecies ~ -1 + Year + (1|site), lmer.df.wdorm)
+PVA.lm.wdorm <- lm(ySpecies ~ -1 + Year, lmer.df.wdorm)
 summary(PVA.lm.wdorm)
 ggplot(lmer.df.wdorm, aes(Year, ySpecies, color = plot))+
   geom_point()+
@@ -233,11 +234,11 @@ ggplot(lmer.df.wdorm, aes(Year, ySpecies, color = plot))+
 
 q.wd <- PVA.lm.wdorm$df.residual
 ## CI around mu
-PVA.lm$coefficients-(qt(0.025, q)*2.394e-5)
-PVA.lm$coefficients+(qt(0.025, q)*2.394e-5)
+PVA.lm.wdorm$coefficients-(qt(0.025, q.wd)*2.394e-5)
+PVA.lm.wdorm$coefficients+(qt(0.025, q.wd)*2.394e-5)
 
 ## CI around sigma^2
-(q*summary(PVA.lm)$sigma^2 )/qchisq(c(0.025,0.975), df = PVA.lm$df.residual)
+(q*summary(PVA.lm.wdorm)$sigma^2 )/qchisq(c(0.025,0.975), df = PVA.lm.wdorm$df.residual)
 
 
 
@@ -393,11 +394,17 @@ Pradel_asmi <- asmi.raw %>%
 
 table(Pradel_asmi$Site, Pradel_asmi$Plot)
 
+plotsSite <- Pradel_asmi %>%
+  distinct(Plot,Site)
+
 dmPlot <- model.matrix(~ -1 + Plot, Pradel_asmi)
 dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
 plotPradeldf <- Pradel_asmi %>%
   distinct(Plot)
+```
 
+Takes a long time
+```{r}
 ## without Cebolla Creek
 Pradel_asmi %>%
   dplyr::select(ch) %>%
@@ -416,8 +423,6 @@ asmiproc <- process.data(asmiPradel.inp, model = "Pradrec", groups = "Plot", beg
 asmiddl <- make.design.data(asmiproc)
 
 asmiproc$group.covariates
-plotsSite <- Pradel_asmi %>%
-  distinct(Plot,Site)
 
 ## Fix p to zero when no survey
 pindex <- asmiddl$p
@@ -506,6 +511,9 @@ asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
 # To compare to MPM estimation of fecundity
 asmi.models$Phi.dot.p.dot.f.dot$results$real
 
+asmi.models$Phi.time.p.dot.f.time$results$derived$`log(Lambda) Population Change` %>%
+  distinct(estimate, se, lcl, ucl)
+
 asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
   mutate(prams = row.names(.)) %>%
   tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
@@ -518,6 +526,10 @@ asmi.models$Phi.Plot.p.dot.f.Plot$results$real %>%
   filter(parameter == "p")
   
 
+asmi.models$Phi.dot.p.dot.f.dot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  filter(parameter == "f")
 
 
 asmi.models$Phi.dot.p.dot.f.dot$results$derived$`log(Lambda) Population Change` %>%
@@ -542,12 +554,15 @@ lmdasPlot <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lamb
   left_join(plotsSite) %>%
   mutate(site = as.factor(Site))
 
-Pradel.lm <- lmer(estimate ~ -1 + time + (1|plot), lmdasPlot) 
-summary(Pradel.lm)
+# Pradel.lm <- lmer(estimate ~ -1 + time + (1|plot), lmdasPlot) 
+# summary(Pradel.lm)
 Pradel.lm1 <- lm(estimate ~ -1 + time, lmdasPlot)
 summary(Pradel.lm1)
-Pradel.lm2 <- lmer(estimate ~ -1 + time + (1|site), lmdasPlot) 
-summary(Pradel.lm2)
+
+
+
+# Pradel.lm2 <- lmer(estimate ~ -1 + time + (1|site), lmdasPlot) 
+# summary(Pradel.lm2)
 ggplot(lmdasPlot, aes(time, estimate, color = site))+
   geom_point()+
   stat_smooth(method = "lm", alpha = 0.3)+
