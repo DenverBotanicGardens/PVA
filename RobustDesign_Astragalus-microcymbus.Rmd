@@ -15,6 +15,11 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(RMark)
+library(popbio)
+library(RCurl)
+library(devtools)
+library(HDInterval)
+library(Rage)
 
 load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Robust3years.Rdata")
 
@@ -44,21 +49,58 @@ MPM.plots <- StagePVA(asmi.allSite,TF = FALSE)
 MPM.plotsSplit <- StagePVA(asmi.allSite,TF = TRUE)
 
 ## All together  
-asmi.allALL <- asmi.all2 %>%
-  filter(site %in% c(5,15,19,26)) %>%
-  filter(year > 2012 & year < 2016) %>%
-  mutate(plot = 1)
-
-MPM.all <- StagePVA(asmi.allALL, TF = TRUE)
-
+# asmi.allALL <- asmi.all2 %>%
+#   filter(site %in% c(5,15,19,26)) %>%
+#   filter(year > 2012 & year < 2016) %>%
+#   mutate(plot = 1)
+# 
+# MPM.all <- StagePVA(asmi.allALL, TF = TRUE)
+### No no no no
 ### variance over the four sites
 asmi.3yrs <- asmi.all2 %>%
   filter(site %in% c(5,15,19,26)) %>%
   filter(year > 2012 & year < 2016) %>%
-  StagePVA()
+  StagePVA(TF = TRUE)
 
-asmi.3yrsmu <- mean(do.call(c, asmi.3yrs))
-asmi.3yrssd <- sd(apply(do.call(c, asmi.3yrs)), 
+as.vector(asmi.3yrs[[1]][[1]])
+
+asmi.3yrsmu <- as.vector(mean(lapply(asmi.3yrs, function(x) x[[1]]$T)))
+as.vector(mean(lapply(asmi.3yrs, function(x) x[[1]]$F)))
+
+
+asmi.3yrsFmu <- apply(do.call(cbind,lapply(asmi.3yrs, function(x) as.vector(x[[1]]$F))), 1, mean)
+asmi.3yrsFsd <- apply(do.call(cbind,lapply(asmi.3yrs, function(x) as.vector(x[[1]]$F))), 1, sd)
+
+# as.vector(mean(do.call(c, asmi.3yrs)))
+## each column stacked on top of each other, then column bind, so 
+# 1 [1,1] = veg to veg
+# 2 [2,1] = veg to rep
+# 3 [3,1] = veg to dorm
+# 4 [1,2] = rep to veg + f
+# 5 [2,2] = rep to rep
+# 6 [3,2] = rep to dorm
+# 7 [1,3] = dorm to veg
+# 8 [2,2] = dorm to rep
+# 9 [3,3] = dorm to dorm
+asmi.3yrshdi <- apply( do.call(cbind, lapply(asmi.3yrs,
+                                             function(x) as.vector(x[[1]]$T))), 1, hdi)
+### variance of binomial distribution, variance of Poisson is equal to the mean
+asmi.3yrsvar <- do.call(c,lapply(asmi.3yrsmu, function(x) x*(1-x) ))
+asmi.3yrssd <- apply( do.call(cbind, lapply(asmi.3yrs, function(x) as.vector(x[[1]]$T))), 1, sd) ## nope, need 
+
+plotMPM <- data.frame(estimate = c(asmi.3yrsmu, asmi.3yrsFmu[4]), sd = c(asmi.3yrssd,asmi.3yrsFsd[4]), 
+                      var = c(asmi.3yrsvar, asmi.3yrsFmu[4]),
+                      Parameter = c("Stasis","Growth","Dormancy",
+                                    "Retro", "Stasis", "Dormancy",
+                                    "Growth", "Growth", "Stasis", "f"),
+                      Stage = c("Veg","Veg","Veg",
+                                "Rep", "Rep", "Rep",
+                                "Dorm" , "Dorm", "Dorm", "Rep"))
+ggplot(plotMPM, aes(estimate, Parameter, color = Stage))+
+  geom_point(position = position_dodge(width = 0.4))+
+  geom_errorbar(aes(xmin = estimate - var, xmax = estimate + var),position = position_dodge(width = 0.4))+
+  theme_bw()
+
 ```
 
 
@@ -713,6 +755,12 @@ Hugginstime <- mark(data = RDproc, ddl = RDddl, model = "CRDMSOHug",
 head(summary(HugginsRDclosedMSmodeldot, show.fixed = TRUE))
 HugginsRDclosedMSmodeldot$results$real %>%
   distinct(estimate, se, lcl, ucl)
+
+## Ratio of juvenile to adult
+0.5204678/0.8434238
+  
+
+HugginsRDclosedMSmodeldot$results$derived
 ```
 
 
@@ -720,15 +768,88 @@ HugginsRDclosedMSmodeldot$results$real %>%
 
 ## To compare
 ## Average across two years
-matU <- mean(list(MPM.all$Plot1$Year2013$T,MPM.all$Plot1$Year2014$T))
-matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
+# matU <- mean(list(MPM.all$Plot1$Year2013$T,MPM.all$Plot1$Year2014$T))
+# matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
+## To compare using the average across sites and years
+matU <- mean(lapply(MPM.plotsSplit, function(x) x[[1]]$T))
+matU <- mean(lapply(MPM.plotsSplit, function(x) x[[1]]$F))
 
+log(lambda(matU + matF))
+lambda(matU + matF)
+colSums(sensitivity(matU + matF))
+el <- elasticity(matU + matF)
+mx <- mpm_to_mx(matU, matF, lx_crit = 0.01)   # age from stage, age specific reproduction
+lx <- mpm_to_lx(matU, lx_crit = 0.01) ## age from stage, age-specific survivorship
+convShape <- shape_rep(mx)
+convDegreeItero <- entropy_d(lx, mx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
+gen_time(matU, matF, method = "R0")
+
+## Vital rates are non-zero elements of A, elasticities
+Adf <- data.frame(vr = as.vector(el), logvr = log2(as.vector(el)))
+Adf <- Adf %>%
+  mutate(plnp = vr*logvr)
+Hprime <- -sum(Adf$plnp)
+Hprimemax <- log2(nrow(Adf))
+(EE <- Hprime/Hprimemax)
+
+CH <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0)
+
+SV <- CH$estimate[CH$ParameterStage == "S V"]
+GVR <- CH$estimate[CH$ParameterStage == "Psi VtoR"] 
+SR <- CH$estimate[CH$ParameterStage == "S R"]
+GRV <- CH$estimate[CH$ParameterStage == "Psi RtoV"]
+
+## f from Pradel
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC.Rdata")
+
+f <- asmi.models$Phi.dot.p.dot.f.dot$results$real$estimate[3]
+
+matUMRC <- matrix(c(SV * (1-GVR), SV * GVR, (SR * GRV) + f, SR * (1-GRV) ),
+                     nrow = 2)
+lambda(matUMRC)
+elasticity(matUMRC)
+colSums(sensitivity(matUMRC))
+
+colSums(matUMRC)
 colSums(matU)
 
-MPMparameters2 <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2], matU[2,1], matU[1,2], 
+matU.MR <- matrix(c(SV * (1-GVR), SV * GVR, (SR * GRV), SR * (1-GRV) ),
+                     nrow = 2)
+matF.MR <- matrix(c(0, 0, f, 0 ),
+                     nrow = 2)
+
+lambda(matU.MR + matF.MR)
+el.mr <- elasticity(matU.MR + matF.MR)
+mx.mr <- mpm_to_mx(matU.MR, matF.MR, lx_crit = 0.01)   # age from stage, age specific reproduction
+lx.mr <- mpm_to_lx(matU.MR, lx_crit = 0.01) ## age from stage, age-specific survivorship
+convShape.mr <- shape_rep(mx.mr)
+convDegreeItero <- entropy_d(lx.mr, mx.mr) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
+gen_time(matU.MR, matF.MR, method = "R0")
+
+## Vital rates are non-zero elements of A, elasticities
+Adf.mr <- data.frame(vr = as.vector(el.mr), logvr = log2(as.vector(el.mr)))
+Adf.mr <- Adf.mr %>%
+  mutate(plnp = vr*logvr)
+Hprime.mr <- -sum(Adf.mr$plnp)
+Hprimemax.mr <- log2(nrow(Adf.mr))
+(EE <- Hprime.mr/Hprimemax.mr)
+
+## survival is column sums. Transitions are the cell/survival
+MPMparameters2 <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2],
+                                          matU[2,1]/colSums(matU)[1], matU[1,2]/colSums(matU)[2], 
                                          colSums(matU)[3], 
-                                         matU[3,1], matU[3,2],  
-                                         matU[1,3], matU[2,3]),
+                                         matU[3,1]/colSums(matU)[1], matU[3,2]/colSums(matU)[2],  
+                                         matU[1,3]/colSums(matU)[3], matU[2,3]/colSums(matU)[3]),
                             se = NA, lcl = NA, ucl = NA, 
                             Parameter = c("S","S",    "Psi","Psi",     "S", "Psi", "Psi", "Psi", "Psi"), 
                             stage =     c("V","R",  "VtoR","RtoV", "D", "VtoD", "RtoD", "DtoV", "DtoR"),
