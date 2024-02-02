@@ -763,8 +763,8 @@ HugginsRDclosedMSmodeldot$results$derived
 # matU <- mean(list(MPM.all$Plot1$Year2013$T,MPM.all$Plot1$Year2014$T))
 # matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
 ## To compare using the average across sites and years
-matU <- mean(lapply(MPM.plotsSplit, function(x) x[[1]]$T))
-matU <- mean(lapply(MPM.plotsSplit, function(x) x[[1]]$F))
+matU <- mean(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$T))))
+matF <- mean(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F))))
 
 log(lambda(matU + matF))
 lambda(matU + matF)
