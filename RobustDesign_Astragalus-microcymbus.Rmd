@@ -923,34 +923,31 @@ p2.v2 <- HugginsRDclosedMSmodeldot$results$real %>%
                                                             "first detection V","first detection R",
                                                             "Psi DtoR", "Psi DtoV", "Psi RtoV",
                                                             "Psi VtoR","S D", "S R", "S V"))) %>%
- ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+  mutate(stage1 = substr(stage, start = 1, stop = 1)) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage1,
               shape = Model))+
-  geom_point(position = position_dodge(width = 0.3), size = 2, stroke = 1.5) +
-  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.3))+
+  geom_point(position = position_dodge(width = 0.4), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
   theme_bw()+
   ylab("")+
-  scale_color_manual("Stage", values = c("S D" ="red","Psi DtoR" = "red","Psi DtoV"= "red", 
-                                         "S R" = "darkmagenta","Psi RtoV" = "darkmagenta","Psi DtoV" = "darkmagenta",
-                                         "S V" = "darkseagreen","Psi VtoD" = "darkseagreen","Psi VtoR" = "darkseagreen"),
-                     limits = c("S D", "S R", "S V")
-                     # labels = c(expression(paste("\u03A6", ""["Dormant"])),
-                     #            expression(paste("\u03A8",""["D-R"])),
-                     #            expression(paste("\u03A8",""["D-V"])),
-                     #            expression(paste("\u03A6", ""["Reproductive"])),
-                     #            expression(paste("\u03A8",""["R-D"])),
-                     #            expression(paste("\u03A8",""["R-V"])),
-                     #            expression(paste("\u03A6", ""["Vegetative"])),
-                     #            expression(paste("\u03A8",""["V-D"])),
-                     #            expression(paste("\u03A8",""["V-R"])))
-                     )+
+  scale_color_manual("Stage", values = c("D" ="red","R" = "darkmagenta","V" = "darkseagreen"),
+                     labels = c("Dormant","Reproductive","Vegetative"))+
   annotate("text", x = 0.2, y = 13, label = expression(paste("\u03A6", " survival")), size = 4, parse = TRUE)+
   geom_hline(yintercept = 10.5)+
   annotate("text", x= .67, y = 10, label = expression(paste("\u03A8"," stage transitions")), size = 4, parse=TRUE)+
   geom_hline(yintercept = 6.5)+
-  annotate("text", x = 0.2, y = 6, label = expression(italic("c")), size = 4, parse = TRUE)+
+  annotate("text", x = 0.25, y = 6, label = expression(paste(italic("c"), " first detection")), size = 4, parse = TRUE)+
   geom_hline(yintercept = 4.5)+
   annotate("text", x = 0.25, y = 4, label = expression(paste(italic("p"), " & dormancy")), size = 4, parse = TRUE)+
-  scale_y_discrete(labels = c("S V" = expression(S^"[Vegetative]")))+
+  scale_y_discrete(labels = c("S V" = expression(S^"[Vegetative]"), "S R" = expression(S^"[Reproductive]"),
+                              "S D" = expression(S^"[Dormant]"),
+                              "Psi VtoR" = expression("\u03A8"^"[V,R]"), 
+                              "Psi RtoV" = expression("\u03A8"^"[R,V]"),
+                              "Psi DtoV" = expression("\u03A8"^"[D,V]"),
+                              "Psi DtoR" = expression("\u03A8"^"[D,R]"),
+                              "Psi VtoD" = expression("\u03A8"^"[V,D]"),
+                              "Psi RtoD" = expression("\u03A8"^"[R,D]")) 
+                   )+
   scale_shape_manual(values = c(4,20)) 
 
 p2.v2
