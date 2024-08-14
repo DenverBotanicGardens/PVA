@@ -97,7 +97,7 @@ ggplot(plotMPM, aes(estimate, Parameter, color = Stage))+
 
 
 
-instead of dot notation (robust models and pradel won't accept "." for missing surveys even though Cooch and Laake say they do!!), fix the probabilities of detection to zero for those periods in the ddls. fix p=0 for that occasion
+instead of dot notation (robust models and pradel won't accept "." for missing surveys even though Cooch and Laake say they do!!), fix the probabilities of detection to zero for those periods in the ddls. fix p=0 for that occasion.      
 ```{r}
 
 ## dataCJS
@@ -847,7 +847,7 @@ MPMparameters2 <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2],
                             stage =     c("V","R",  "VtoR","RtoV", "D", "VtoD", "RtoD", "DtoV", "DtoR"),
                             ParameterStage = c("S V", "S R", "Psi VtoR", "Psi RtoV", "S D", 
                                                "Psi VtoD", "Psi RtoD", "Psi DtoV", "Psi DtoR"),
-                            Model = "MPM")
+                            Model = "Conventional")
                             
 
 p2 <- HugginsRDclosedMSmodeldot$results$real %>%
@@ -863,7 +863,7 @@ p2 <- HugginsRDclosedMSmodeldot$results$real %>%
   filter(estimate != 0) %>%
   filter(Parameter != "Omega") %>%
   dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
-  mutate(Model = "CRDMSOHug") %>%
+  mutate(Model = "Mark-recapture") %>%
   bind_rows(MPMparameters2) %>%
   mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","c R", "p R",
                                                             "Psi VtoD","c V","p V",
@@ -877,13 +877,21 @@ p2 <- HugginsRDclosedMSmodeldot$results$real %>%
   ylab("")+
   scale_color_manual("Stage", values = c("red","red","red",  "darkmagenta","darkmagenta","darkmagenta",
                                          "darkseagreen","darkseagreen","darkseagreen"),
-                     labels = c("Dormant","D to R","D to V","Reproductive", "R to D","R to V", "Vegetative", "V to D", "V to R"))+
-  # scale_fill_manual("Stage", values = c("red","darkmagenta","darkseagreen",  "darkmagenta","red","darkseagreen",
-  #                                        "darkseagreen","red","darkmagenta"),
-  #                    labels = c("Dormant","D to R","D to V","Reproductive", "R to D","R to V", "Vegetative", "V to D", "V to R"))+
-  # scale_color_manual("Stage", values = c("black","black","grey60","grey60"), 
-  #                    labels = c("Reproductive", "R to V", "Vegetative", "V to R"))+
-  scale_shape_manual(values = c(20,4)) 
+                     labels = c(expression(paste("\u03A6", ""["Dormant"])),
+                                expression(paste("\u03A8",""["D-R"])),
+                                expression(paste("\u03A8",""["D-V"])),
+                                expression(paste("\u03A6", ""["Reproductive"])),
+                                expression(paste("\u03A8",""["R-D"])),
+                                expression(paste("\u03A8",""["R-V"])),
+                                expression(paste("\u03A6", ""["Vegetative"])),
+                                expression(paste("\u03A8",""["V-D"])),
+                                expression(paste("\u03A8",""["V-R"]))))+
+  annotate("text", x = 0.2, y = 13, label = expression(paste("\u03A6", " survival")), size = 5, parse = TRUE)+
+  geom_hline(yintercept = 10.5)+
+  annotate("text", x= .6, y = 7.5, label = expression(paste("\u03A8"," transitions")), size = 5, parse=TRUE)+
+  geom_hline(yintercept = 6.5)+
+  # scale_y_discrete(labels = c(expression(paste("\u03A6"))))+
+  scale_shape_manual(values = c(4,20)) 
 
 p2
   
@@ -891,7 +899,87 @@ ggsave(p2, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P dri
          width=140, height=110,units='mm', dpi=300 )
   
 
+
+### Separate figures for survival, transitions, dormancy/detection, and reproduction
+p2.v2 <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Omega") %>%
+  dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
+  mutate(Model = "Mark-recapture") %>%
+  bind_rows(MPMparameters2) %>%
+  mutate(ParameterStage = gsub("p ","first detection ", ParameterStage)) %>%
+  mutate(ParameterStage = gsub( "c ","recapture ", ParameterStage)) %>%
+  mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","recapture R", 
+                                                            "Psi VtoD","recapture V",
+                                                            "first detection V","first detection R",
+                                                            "Psi DtoR", "Psi DtoV", "Psi RtoV",
+                                                            "Psi VtoR","S D", "S R", "S V"))) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+              shape = Model))+
+  geom_point(position = position_dodge(width = 0.3), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.3))+
+  theme_bw()+
+  ylab("")+
+  scale_color_manual("Stage", values = c("S D" ="red","Psi DtoR" = "red","Psi DtoV"= "red", 
+                                         "S R" = "darkmagenta","Psi RtoV" = "darkmagenta","Psi DtoV" = "darkmagenta",
+                                         "S V" = "darkseagreen","Psi VtoD" = "darkseagreen","Psi VtoR" = "darkseagreen"),
+                     limits = c("S D", "S R", "S V")
+                     # labels = c(expression(paste("\u03A6", ""["Dormant"])),
+                     #            expression(paste("\u03A8",""["D-R"])),
+                     #            expression(paste("\u03A8",""["D-V"])),
+                     #            expression(paste("\u03A6", ""["Reproductive"])),
+                     #            expression(paste("\u03A8",""["R-D"])),
+                     #            expression(paste("\u03A8",""["R-V"])),
+                     #            expression(paste("\u03A6", ""["Vegetative"])),
+                     #            expression(paste("\u03A8",""["V-D"])),
+                     #            expression(paste("\u03A8",""["V-R"])))
+                     )+
+  annotate("text", x = 0.2, y = 13, label = expression(paste("\u03A6", " survival")), size = 4, parse = TRUE)+
+  geom_hline(yintercept = 10.5)+
+  annotate("text", x= .67, y = 10, label = expression(paste("\u03A8"," stage transitions")), size = 4, parse=TRUE)+
+  geom_hline(yintercept = 6.5)+
+  annotate("text", x = 0.2, y = 6, label = expression(italic("c")), size = 4, parse = TRUE)+
+  geom_hline(yintercept = 4.5)+
+  annotate("text", x = 0.25, y = 4, label = expression(paste(italic("p"), " & dormancy")), size = 4, parse = TRUE)+
+  scale_y_discrete(labels = c("S V" = expression(S^"[Vegetative]")))+
+  scale_shape_manual(values = c(4,20)) 
+
+p2.v2
   
+ggsave(p2.v2, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/CRDMSOHugresultsWdormant_v2.jpg",
+         width=140, height=110,units='mm', dpi=300 )
+  
+
+########################### Survival #####################################
+
+
+
+########################### Reproduction #################################
+conv.f <- mean(unlist(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F[1,2])))))
+conv.hdi <- hdi(unlist(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F[1,2])))))
+conv.sd <- sd(unlist(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F[1,2])))))
+conv.sampsize <- length(unlist(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F[1,2])))))
+conv.margin <- qt(0.975, df=conv.sampsize-1)*conv.sd/sqrt(conv.sampsize)
+
+asmi.models$Phi.dot.p.dot.f.dot$results$real[3,] %>%
+  bind_rows(data.frame(estimate = conv.f, se = NA, lcl = conv.f-conv.margin, ucl = conv.f + conv.margin)) %>%
+  mutate(Model = c("Mark-recapture","Conventional")) %>%
+  ggplot(  aes(estimate, Model)) +
+    geom_point() +
+    geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5)) #,position = position_dodge(width = 0.4))
+    
+
+##########################################################################
+
 
 MPMparameters <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2], matU[2,1], matU[1,2]),
                             se = NA, lcl = NA, ucl = NA, 
@@ -944,6 +1032,126 @@ ggplot(  aes(estimate, Parameter, color = stage))+
 
 
 
+## Dissertation images
+```{r}
+
+pSurvival <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Omega") %>%
+  dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
+  mutate(Model = "Mark-recapture") %>%
+  bind_rows(MPMparameters2) %>%
+  mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","c R", "p R",
+                                                            "Psi VtoD","c V","p V",
+                                                            "Psi DtoR", "Psi DtoV", "Psi RtoV",
+                                                            "Psi VtoR","S D", "S R", "S V"))) %>%
+  filter(Parameter == "S" ) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+              shape = Model))+
+  geom_point(position = position_dodge(width = 0.4), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
+  theme_bw()+
+  ylab("")+
+  scale_color_manual("Stage", values = c("red","darkmagenta","darkseagreen"),
+                     labels = c("Dormant","Reproductive",  "Vegetative"))+
+  scale_shape_manual(values = c(4,20)) +
+  ylab("Survival")
+
+
+ggsave(pSurvival, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/SurvivalOnly.jpg",
+         width=140, height=110,units='mm', dpi=300 )
+
+
+
+pTransition <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Omega") %>%
+  dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
+  mutate(Model = "Mark-recapture") %>%
+  bind_rows(MPMparameters2) %>%
+  mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","c R", "p R",
+                                                            "Psi VtoD","c V","p V",
+                                                            "Psi DtoR", "Psi DtoV", "Psi RtoV",
+                                                            "Psi VtoR","S D", "S R", "S V"))) %>%
+  filter(Parameter == "Psi" ) %>%
+  filter(stage %in% c("RtoV","VtoR")) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+              shape = Model))+
+  geom_point(position = position_dodge(width = 0.4), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
+  theme_bw()+
+  scale_color_manual("Stage", values = c("darkmagenta","darkseagreen"),
+                     labels = c("R to V","V to R"))+
+  scale_shape_manual(values = c(4,20)) +
+  ylab("Transition")
+
+
+ggsave(pTransition, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/TransitionsOnly.jpg",
+         width=140, height=110,units='mm', dpi=300 )
+
+## Detection
+pDetection <- HugginsRDclosedMSmodeldot$results$real %>%
+  distinct(estimate, se, lcl, ucl) %>%
+  mutate(dats = row.names(.)) %>%
+  mutate(dats = gsub(" to", "to",dats)) %>%
+  mutate(dats = gsub(" a0", "", dats)) %>%
+  mutate(dats = gsub(" a1", "", dats)) %>%
+  mutate(dats = gsub(" a2", "", dats)) %>%
+  separate(dats, into = c("Parameter", "stage")) %>% #, "plot", "year")) %>%
+  mutate(stage = gsub("s", "",stage)) %>%
+  mutate(ParameterStage = paste(Parameter, stage, sep = " ")) %>%
+  filter(estimate != 0) %>%
+  filter(Parameter != "Omega") %>%
+  dplyr::select(c(estimate:ucl,Parameter:ParameterStage)) %>%
+  mutate(Model = "Mark-recapture") %>%
+  bind_rows(MPMparameters2) %>%
+  mutate(ParameterStage = factor(ParameterStage, levels = c("Psi RtoD","c R", "p R",
+                                                            "Psi VtoD","c V","p V",
+                                                            "Psi DtoR", "Psi DtoV", "Psi RtoV",
+                                                            "Psi VtoR","S D", "S R", "S V"))) %>%
+  filter(!(Parameter %in% c("S","p"))) %>%
+  filter(!(stage %in% c("RtoV","VtoR","DtoV","DtoR"))) %>%
+ ggplot(  aes(estimate, ParameterStage, color = stage, #fill = stage, 
+              shape = Model))+
+  geom_point(position = position_dodge(width = 0.4), size = 2, stroke = 1.5) +
+  geom_errorbar(aes(xmin = lcl, xmax = ucl, width = 0.5),position = position_dodge(width = 0.4))+
+  theme_bw()+
+  scale_color_manual("Stage", values = c(#"red","red",
+                                         "darkmagenta","darkmagenta",
+                                         "darkseagreen","darkseagreen"),
+                     labels = c(#"D to V","D to R",
+                       "Reproductive - detection","Reproductive - dormancy","Vegetative - dormancy","Vegetative - detection"))+
+  scale_shape_manual(values = c(4,20)) +
+  xlim(c(0,1))+
+  ylab("Detection and Dormancy")
+
+
+ggsave(pDetection, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/DetectionDormancyOnly.jpg",
+         width=160, height=100,units='mm', dpi=300 )
+```
+
+"red","red",
+"D to R","D to V",
+"R to D","R to V",
+, "V to D", "V to R"
 
 Model: Robust Design Pradel Lambda Closed Population Estimation  "RDPdlClosed"
 
