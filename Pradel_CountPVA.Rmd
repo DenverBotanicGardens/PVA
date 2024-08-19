@@ -121,8 +121,9 @@ mean(PVA.lm$residuals^2)/PVA.lm$df.residual
 
 q <- PVA.lm$df.residual
 ## CI around mu
-PVA.lm$coefficients-(qt(0.025, q)*2.394e-5)
-PVA.lm$coefficients+(qt(0.025, q)*2.394e-5)
+SE <- 2.394e-5
+PVA.lm$coefficients-(qt(0.05, q)*SE)
+PVA.lm$coefficients+(qt(0.05, q)*SE)
 
 ## CI around sigma^2
 (q*summary(PVA.lm)$sigma^2 )/qchisq(c(0.025,0.975), df = PVA.lm$df.residual)
@@ -234,8 +235,8 @@ ggplot(lmer.df.wdorm, aes(Year, ySpecies, color = plot))+
 
 q.wd <- PVA.lm.wdorm$df.residual
 ## CI around mu
-PVA.lm.wdorm$coefficients-(qt(0.025, q.wd)*2.394e-5)
-PVA.lm.wdorm$coefficients+(qt(0.025, q.wd)*2.394e-5)
+PVA.lm.wdorm$coefficients-(qt(0.05, q.wd)*2.394e-5)
+PVA.lm.wdorm$coefficients+(qt(0.05, q.wd)*2.394e-5)
 
 ## CI around sigma^2
 (q*summary(PVA.lm.wdorm)$sigma^2 )/qchisq(c(0.025,0.975), df = PVA.lm.wdorm$df.residual)
@@ -502,9 +503,54 @@ asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
   geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.5))+
   theme_bw()
 
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  group_by(time) %>%
+  dplyr::summarise(meanmu = mean(estimate)) %>%
+  ggplot( aes(time, meanmu))+
+  geom_point()+
+  stat_smooth(method = "lm")
+
+## Average recruitment across plots and years
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  dplyr::summarise(meanmu = mean(estimate))
+
+## Highest recruitment 
+asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  group_by(time) %>%
+  dplyr::summarise(meanmu = mean(estimate)) %>%
+  filter(meanmu > 1)
+
 
 asmi.models$Phi.timePlot.p.dot.f.timePlot$results$real %>%
   filter(estimate > 1.5)
+
+asmi.models$Phi.time.p.dot.f.time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  filter(estimate > 0.01) %>%
+  dplyr::summarise(n = n())
+
+asmi.models$Phi.time.p.dot.f.time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  filter(estimate < 0.01) %>%
+  dplyr::summarise(n = n())
 
 
 
@@ -559,7 +605,15 @@ lmdasPlot <- asmi.models$Phi.timePlot.p.dot.f.timePlot$results$derived$`log(Lamb
 Pradel.lm1 <- lm(estimate ~ -1 + time, lmdasPlot)
 summary(Pradel.lm1)
 
+summary(Pradel.lm1)$sigma^2  # mean squared error
+q <- Pradel.lm1$df.residual
+## CI around mu
+SE <- 1.003e-5
+Pradel.lm1$coefficients-(qt(0.05, q)*SE)
+Pradel.lm1$coefficients+(qt(0.05, q)*SE)
 
+## CI around sigma^2
+(q*summary(Pradel.lm1)$sigma^2 )/qchisq(c(0.025,0.975), df = Pradel.lm1$df.residual)
 
 # Pradel.lm2 <- lmer(estimate ~ -1 + time + (1|site), lmdasPlot) 
 # summary(Pradel.lm2)
@@ -593,25 +647,46 @@ PradelMPMlongplot <-
   mutate(Method = "Pradel") %>%
   bind_rows(CountLam) %>%
   bind_rows(CountLamsDorm) %>%
-ggplot(  aes(time, estimate)) + #, 
+ggplot(  aes(time, estimate, color = site)) + #, , color = site
              # color = Method, linetype = Method, 
              # shape = Method, group = interaction(plot,Method))) +
-  stat_smooth(method = "lm", alpha = 0.6)+
-  geom_point(color = "grey50", shape = 20)+
+  geom_point(color = "grey50", shape = 20, alpha = 0.5, size = 1)+
+  stat_smooth(method = "lm", alpha = 0.3, linewidth = 0.25)+
   theme_bw()+
   ylab(expression(log~lambda))+
   xlab("Year")+
   geom_hline(yintercept = 0, linetype = "dotted", color = "black")+
-  facet_grid(Method~site, scales = "free_y")+
-  # scale_color_manual(values = c("black","blue","orange"))+
-  # scale_linetype_manual(values = c("solid","dotted","longdash"))+
+  facet_grid(~Method, scales = "free_y")+
+  # facet_grid(Method~site, scales = "free_y")+
+  scale_color_manual(guide = "none",values = c("red","blue","darkgreen","orange")) +
+  scale_x_continuous(breaks = c( 2000, 2010,  2020))
+  
+  
+ggsave(PradelMPMlongplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasOverTimePradelCountPVA_v2.jpg",
+         # width=125, height=120,units='mm', dpi=300 )
+         width=150, height=70,units='mm', dpi=300 )
+
+
+######################## dodge by plot? #########################
+lmdasPlot %>%
+  dplyr::select(c(plot, estimate, time, site)) %>%
+  mutate(plot = as.factor(plot)) %>%
+  mutate(Method = "Pradel") %>%
+  bind_rows(CountLam) %>%
+  bind_rows(CountLamsDorm) %>%
+ggplot(  aes(time, estimate, group = site)) + #, , color = site
+             # color = Method, linetype = Method, 
+             # shape = Method, group = interaction(plot,Method))) +
+  geom_point(color = "grey50", shape = 20, alpha = 0.2, size = 1, position = position_dodge(width = 0.01))+
+  stat_smooth(method = "lm", alpha = 0.2)+
+  theme_bw()+
+  ylab(expression(log~lambda))+
+  xlab("Year")+
+  geom_hline(yintercept = 0, linetype = "dotted", color = "black")+
+  facet_grid(~Method, scales = "free_y")+
+  # facet_grid(Method~site, scales = "free_y")+
   scale_shape_manual(values = c(18,17,19)) +
   scale_x_continuous(breaks = c(1995, 2005, 2015))
-  
-  
-ggsave(PradelMPMlongplot, filename = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/My Documents/UCDenver_phd/Dissertation/Chapter AsMi/Images/lambdasOverTimePradelCountPVA.jpg",
-         width=125, height=120,units='mm', dpi=300 )
-
 
 get.real(asmi.models$Phi.timePlot.p.dot.f.timePlot, "p", vcv=TRUE)$estimates %>%
   distinct(estimate, se, lcl, ucl)
@@ -1054,6 +1129,12 @@ run.asmi <- function(){
 asmi.models.3yrs <- run.asmi()
 save(asmi.models.3yrs, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC_3yrs.Rdata")
 
+asmi.models.3yrs$Phi.dot.p.dot.f.dot$results$real
+
+```
+
+```{r}
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC_3yrs.Rdata")
 asmi.models.3yrs$Phi.dot.p.dot.f.dot$results$real
 
 ```
