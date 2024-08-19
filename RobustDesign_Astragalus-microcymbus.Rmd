@@ -764,7 +764,16 @@ HugginsRDclosedMSmodeldot$results$derived
 # matF <- mean(list(MPM.all$Plot1$Year2013$F,MPM.all$Plot1$Year2014$F))
 ## To compare using the average across sites and years
 matU <- mean(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$T))))
-matF <- mean(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F))))
+
+##Survival
+## dormant 0.8611111 because sometimes no dormant to start with, should get rid of zeros because need only measures of when there are some? or all die. That's true for vegetative and reproductive, that sometimes they may not be any, sometimes non-survive. 
+apply(data.frame(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) colSums(y$T))))),1,mean)
+surv.nozeros <- data.frame(do.call(rbind,do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) colSums(y$T))))))
+mean(surv.nozeros$dormant[surv.nozeros$dormant > 0])
+mean(surv.nozeros$vegetative[surv.nozeros$vegetative > 0])
+mean(surv.nozeros$reproductive[surv.nozeros$reproductive > 0])
+
+matF <- mean(do.call(c, lapply(asmi.3yrs, function(x) lapply(x, function(y) y$F))))  
 
 log(lambda(matU + matF))
 lambda(matU + matF)
@@ -839,7 +848,7 @@ Hprimemax.mr <- log2(nrow(Adf.mr))
 ## survival is column sums. Transitions are the cell/survival
 MPMparameters2 <- data.frame(estimate = c(colSums(matU)[1], colSums(matU)[2],
                                           matU[2,1]/colSums(matU)[1], matU[1,2]/colSums(matU)[2], 
-                                         colSums(matU)[3], 
+                                         1, # colSums(matU)[3], ## Dormant
                                          matU[3,1]/colSums(matU)[1], matU[3,2]/colSums(matU)[2],  
                                          matU[1,3]/colSums(matU)[3], matU[2,3]/colSums(matU)[3]),
                             se = NA, lcl = NA, ucl = NA, 
@@ -934,19 +943,19 @@ p2.v2 <- HugginsRDclosedMSmodeldot$results$real %>%
                      labels = c("Dormant","Reproductive","Vegetative"))+
   annotate("text", x = 0.2, y = 13, label = expression(paste("\u03A6", " survival")), size = 4, parse = TRUE)+
   geom_hline(yintercept = 10.5)+
-  annotate("text", x= .67, y = 10, label = expression(paste("\u03A8"," stage transitions")), size = 4, parse=TRUE)+
+  annotate("text", x= .67, y = 10, label = expression(paste("\u03C8"," stage transitions")), size = 4, parse=TRUE)+
   geom_hline(yintercept = 6.5)+
-  annotate("text", x = 0.25, y = 6, label = expression(paste(italic("c"), " first detection")), size = 4, parse = TRUE)+
+  annotate("text", x = 0.25, y = 6, label = expression(paste(italic("p"), " first detection")), size = 4, parse = TRUE)+
   geom_hline(yintercept = 4.5)+
-  annotate("text", x = 0.25, y = 4, label = expression(paste(italic("p"), " & dormancy")), size = 4, parse = TRUE)+
+  annotate("text", x = 0.25, y = 4, label = expression(paste(italic("c"), " & dormancy")), size = 4, parse = TRUE)+
   scale_y_discrete(labels = c("S V" = expression(S^"[Vegetative]"), "S R" = expression(S^"[Reproductive]"),
                               "S D" = expression(S^"[Dormant]"),
-                              "Psi VtoR" = expression("\u03A8"^"[V,R]"), 
-                              "Psi RtoV" = expression("\u03A8"^"[R,V]"),
-                              "Psi DtoV" = expression("\u03A8"^"[D,V]"),
-                              "Psi DtoR" = expression("\u03A8"^"[D,R]"),
-                              "Psi VtoD" = expression("\u03A8"^"[V,D]"),
-                              "Psi RtoD" = expression("\u03A8"^"[R,D]")) 
+                              "Psi VtoR" = expression("\u03C8"^"[V,R]"), 
+                              "Psi RtoV" = expression("\u03C8"^"[R,V]"),
+                              "Psi DtoV" = expression("\u03C8"^"[D,V]"),
+                              "Psi DtoR" = expression("\u03C8"^"[D,R]"),
+                              "Psi VtoD" = expression("\u03C8"^"[V,D]"),
+                              "Psi RtoD" = expression("\u03C8"^"[R,D]")) 
                    )+
   scale_shape_manual(values = c(4,20)) 
 
