@@ -338,6 +338,7 @@ asmiSite.inp <- convert.inp("C:/Users/deprengm/OneDrive - Denver Botanic Gardens
                         use.comments = FALSE)
 ```
 
+
 CJS   
 Took out "." notation, need to get index and fix to zero detection
 ```{r}
@@ -444,7 +445,39 @@ p.idAdded1996 <- pindex %>%
 p.indices <- c(#p.idSite1_2$par.index, 
   p.idAdded1996$par.index, p.idAddedlater$par.index)
 p.values <- rep(0, length(p.indices))
+```
 
+First keep survival and recruitment constant and see how detection varies, but will vary by observer, by daily weather - but we didn't record and we don't go out when it's rainy. Each year  
+~ time as a factor, a separate parameter for each occasion   
+~ Time as a trend, a continuous variable with a slope and intercept  (see Laake & Rexstad 2008)
+```{r}
+
+
+run.asmi.det <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  f.dot = list(formula =  ~ 1, fixed = list(index = p.indices, value = p.values))
+
+  p.dot = list(formula =  ~ 1)
+  p.Time = list(formula = ~ time)
+  p.Plot = list(formula = ~ Plot)
+  p.timePlot = list(formula = ~ time + Plot)
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.models <- run.asmi.det()
+
+```
+
+
+
+
+Detection constant
+```{r}
 
 run.asmi <- function(){
   Phi.dot = list(formula =  ~ 1)
@@ -469,6 +502,9 @@ run.asmi <- function(){
 asmi.models <- run.asmi()
 save(asmi.models, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/PradelSBC.Rdata")
 ```
+
+
+
 
 
 ## Examine Pradel models
