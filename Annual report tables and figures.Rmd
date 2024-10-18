@@ -1825,6 +1825,29 @@ convShape <- shape_rep(mx)
 convDegreeItero <- entropy_d(lx, mx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
 gen_time(matU, matF, method = "R0")
 
+## Cebolla Creek
+log(lambda(CCmatU + CCmatF))
+lambda(CCmatU + CCmatF)
+colSums(sensitivity(CCmatU + CCmatF))
+CCel <- elasticity(CCmatU + CCmatF)
+CCmx <- mpm_to_mx(CCmatU, CCmatF, lx_crit = 0.01)   # age from stage, age specific reproduction
+CClx <- mpm_to_lx(CCmatU, lx_crit = 0.01) ## age from stage, age-specific survivorship
+convShape <- shape_rep(CCmx)
+convDegreeItero <- entropy_d(CClx, CCmx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
+gen_time(CCmatU, CCmatF, method = "R0")
+
+## Beaver Creek
+log(lambda(BCmatU + BCmatF))
+lambda(BCmatU + BCmatF)
+colSums(sensitivity(BCmatU + BCmatF))
+BCel <- elasticity(BCmatU + BCmatF)
+BCmx <- mpm_to_mx(BCmatU, BCmatF, lx_crit = 0.01)   # age from stage, age specific reproduction
+BClx <- mpm_to_lx(BCmatU, lx_crit = 0.01) ## age from stage, age-specific survivorship
+convShape <- shape_rep(BCmx)
+convDegreeItero <- entropy_d(BClx, BCmx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
+gen_time(BCmatU, BCmatF, method = "R0")
+
+
 ## Vital rates are non-zero elements of A, elasticities
 Adf <- data.frame(vr = as.vector(el), logvr = log2(as.vector(el)))
 Adf <- Adf %>%
@@ -1832,6 +1855,23 @@ Adf <- Adf %>%
 Hprime <- -sum(Adf$plnp)
 Hprimemax <- log2(nrow(Adf))
 (EE <- Hprime/Hprimemax)
+
+
+# Cebolla
+CCAdf <- data.frame(vr = as.vector(CCel), logvr = log2(as.vector(CCel)))
+CCAdf <- CCAdf %>%
+  mutate(plnp = vr*logvr)
+Hprime <- -sum(CCAdf$plnp)
+Hprimemax <- log2(nrow(CCAdf))
+(CCEE <- Hprime/Hprimemax)
+
+# Beaver
+BCAdf <- data.frame(vr = as.vector(BCel), logvr = log2(as.vector(BCel)))
+BCAdf <- BCAdf %>%
+  mutate(plnp = vr*logvr)
+Hprime <- -sum(BCAdf$plnp)
+Hprimemax <- log2(nrow(BCAdf))
+(BCEE <- Hprime/Hprimemax)
 ```
 
 
@@ -2083,7 +2123,7 @@ p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,],
   scale_shape_manual("Site",
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  scale_x_continuous(breaks = c(2014:currentyr))+
+  # scale_x_continuous(breaks = c(2014:currentyr))+
   theme(legend.position = "inside",legend.justification.inside =c(1,1), legend.position.inside=c(1,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
@@ -2166,8 +2206,8 @@ p3CC <-
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   theme(legend.position = "inside", legend.justification.inside =c(0,1), legend.position.inside =c(0,1),
-        legend.background = element_rect(fill=alpha('white', 0.1)))+
-  scale_x_continuous(breaks = c(2014:currentyr))
+        legend.background = element_rect(fill=alpha('white', 0.1)))
+  # scale_x_continuous(breaks = c(2014:currentyr))
 
 ```
   
@@ -2231,8 +2271,8 @@ p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,],
   scale_shape_manual("Site",
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.position = "inside", legend.justification.inside =c(0,1), legend.position.inside =c(0,1),
+  # scale_x_continuous(breaks = c(2014:currentyr))+
+  theme(legend.position = "inside", legend.justification.inside =c(1,1), legend.position.inside =c(1,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
 ```
@@ -2311,10 +2351,12 @@ noreproductiveyears %>%
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
   ungroup() %>% 
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
+  filter(AsMi_site_id %in% c(5,15,19,26)) %>%
 ggplot(  aes(ppt_winter,flower,colour=as.factor(AsMi_site_id)))+
   geom_point()+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
-  facet_grid(~AsMi_site_id)
+  facet_grid(~AsMi_site_id) +
+  scale_colour_discrete(guide = "none")
 
 
 noreproductiveyears %>%
