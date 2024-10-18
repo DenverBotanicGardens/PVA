@@ -21,6 +21,7 @@ library(tidyr)
 library(ggplot2)
 # library(psych)
 library(popbio)
+library(Rage)
 library(devtools)
 library(sciplot)
 library(plotrix)
@@ -217,6 +218,9 @@ asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 # For the path and start of the name of each file
 savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
 
+## How many plant seen this year?
+nrow(asmi.raw[asmi.raw$year == currentyr & asmi.raw$length > 0,])
+
 
 asmi.raw$length[is.na(asmi.raw$length)] <- 0
 
@@ -326,6 +330,7 @@ HDInterval::hdi(firstagerepro)
 ```
 
 
+### Drop to bottom to download new climate data!! and to make and save annual, seasonal data
 UTM Zone 13 from ArcGIS
 ```{r}
 # asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
@@ -348,7 +353,6 @@ load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllP
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
 
-### Drop to bottom to download new climate data!! and to make and save annual, seasonal data
 ```{r}
 ## I think wants wide instead of long as in asmi.annual
 # asmi.c <- asmi.climate
@@ -424,15 +428,24 @@ ggplot(  aes(Prev12, value, color = site, group = site))+
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1980_2022 = mean(value), sd1980_current = sd(value)) %>%
+  dplyr::summarise(mean1986_current = mean(value), sd1986_current = sd(value)) %>%
   as.data.frame()
 
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   filter(Year > 1994) %>%
   group_by(Creek, variable) %>%
-  dplyr::summarise(mean1995_2022 = mean(value), sd1995_current = sd(value)) %>%
+  dplyr::summarise(mean1995_current = mean(value), sd1995_current = sd(value)) %>%
   as.data.frame()
+
+
+## Annual precipitation
+asmi.c %>%
+  group_by(Prev12) %>%
+  summarise(meanPPT = mean(totalPPT), sdPPT = sd(totalPPT),
+            meanTmax = mean(avgMontmax), sdTmax = sd(avgMontmax),
+            meanTmin = mean(avgMontmin), sdTmin = sd(avgMontmin))
+
 ```
 
 
@@ -676,6 +689,14 @@ names(Table1b_Cebolla) <- c("Site 1 (5 plots)"," ","Site 2 (6 plots)"," ")
 
 write.table(Table1b_Cebolla, file=paste(savepath,"Table1b_CebollaCreek.csv", sep=""), sep=",", row.names=FALSE, col.names = TRUE)
 ```
+
+
+# Cebolla Creek Count  
+```{r}
+length(2014:currentyr)
+```
+
+
 
 #Correlated biotic factors
 
@@ -1158,6 +1179,18 @@ asmi.all <- asmi.raw[order(asmi.raw$AsMi_site_id,
 table(asmi.all$status)
 
 ```
+
+## Multistate CJS models   
+open population capture-recapture model  
+Cannot have dormant stage, just vegetative and reproductive
+```{r}
+library(marked)
+
+## Need capture history (ch) column and a stage column (stage)
+
+
+```
+
 
 
 ## Stage-based PVA prep and running
@@ -1766,6 +1799,42 @@ eigen.analysis(A)
 ```
 
 
+Evenness of elasticities  
+```{r}
+## To compare using the average across sites and years
+
+CC.split <- StagePVA(asmi.all2[asmi.all2$site %in% c(1,2),], TF = TRUE)
+BC.split <- StagePVA(asmi.all2[asmi.all2$site %in% c(5,15,19,26),], TF = TRUE)
+all.pva.split <- StagePVA(asmi.all2, TF = TRUE)
+
+CCmatU <- mean(do.call(c, lapply(CC.split, function(x) lapply(x, function(y) y$T))))
+BCmatU <- mean(do.call(c, lapply(BC.split, function(x) lapply(x, function(y) y$T))))
+matU <- mean(do.call(c, lapply(all.pva.split, function(x) lapply(x, function(y) y$T))))
+
+CCmatF <- mean(do.call(c, lapply(CC.split, function(x) lapply(x, function(y) y$F))))
+BCmatF <- mean(do.call(c, lapply(BC.split, function(x) lapply(x, function(y) y$F))))
+matF <- mean(do.call(c, lapply(all.pva.split, function(x) lapply(x, function(y) y$F))))  
+
+log(lambda(matU + matF))
+lambda(matU + matF)
+colSums(sensitivity(matU + matF))
+el <- elasticity(matU + matF)
+mx <- mpm_to_mx(matU, matF, lx_crit = 0.01)   # age from stage, age specific reproduction
+lx <- mpm_to_lx(matU, lx_crit = 0.01) ## age from stage, age-specific survivorship
+convShape <- shape_rep(mx)
+convDegreeItero <- entropy_d(lx, mx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
+gen_time(matU, matF, method = "R0")
+
+## Vital rates are non-zero elements of A, elasticities
+Adf <- data.frame(vr = as.vector(el), logvr = log2(as.vector(el)))
+Adf <- Adf %>%
+  mutate(plnp = vr*logvr)
+Hprime <- -sum(Adf$plnp)
+Hprimemax <- log2(nrow(Adf))
+(EE <- Hprime/Hprimemax)
+```
+
+
 ```{r}
 grViz("digraph integrated_pop {
       
@@ -1909,7 +1978,9 @@ p2SBC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "SouthBeaver",],
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(0,0), legend.position=c(0,0),  #bottom left
+  theme(legend.justification.inside = c(0,0),
+        legend.position = "inside",
+    # legend.justification=c(0,0), legend.position=c(0,0),  #bottom left
         legend.background = element_rect(fill=alpha('white', 0.1)))
 
 
@@ -1942,7 +2013,7 @@ p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",],
   scale_shape_manual("Site",
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  theme(legend.justification=c(1,1), legend.position=c(0.95,0.99),
+  theme(legend.position = "inside",legend.justification.inside = c(1,1), legend.position.inside = c(0.95,0.99),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 ```
@@ -1978,7 +2049,7 @@ p1SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,],
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(0.35,1),
+  theme(legend.position = "inside",legend.justification.inside =c(1,1), legend.position.inside =c(0.35,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 
@@ -2013,7 +2084,7 @@ p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.justification=c(1,1), legend.position=c(0.75,1),
+  theme(legend.position = "inside",legend.justification.inside =c(1,1), legend.position.inside=c(1,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) 
 
 
@@ -2054,7 +2125,7 @@ p3SBC <-
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(0.15,1), legend.position=c(0.15,1),
+  theme(legend.position = "inside",legend.justification.inside=c(0.15,1), legend.position.inside=c(0.15,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
 ```
@@ -2094,7 +2165,7 @@ p3CC <-
   scale_shape_manual("Site", 
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
-  theme(legend.justification=c(0,1), legend.position=c(0,1),
+  theme(legend.position = "inside", legend.justification.inside =c(0,1), legend.position.inside =c(0,1),
         legend.background = element_rect(fill=alpha('white', 0.1)))+
   scale_x_continuous(breaks = c(2014:currentyr))
 
@@ -2129,7 +2200,7 @@ p4SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Creek == "SouthBeaver",],
                      labels = c("Open","Fenced"))+
   scale_shape_manual(values=c(1,2),
                      labels = c("Open","Fenced"))+
-  theme(legend.justification=c(1,1), legend.position=c(1,1),  #bottom left
+  theme(legend.position = "inside", legend.justification.inside =c(1,1), legend.position.inside =c(1,1),  #bottom left
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
 ```
@@ -2161,7 +2232,7 @@ p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   scale_x_continuous(breaks = c(2014:currentyr))+
-  theme(legend.justification=c(0,1), legend.position=c(0,1),
+  theme(legend.position = "inside", legend.justification.inside =c(0,1), legend.position.inside =c(0,1),
         legend.background = element_rect(fill=alpha('white', 0.1))) #upper right
 
 ```
@@ -2391,6 +2462,11 @@ ggplot(alive.byyear, aes(year,length))+
 
 # Indivdiuals, density at Cebolla from demography compared to point-in-time counts   
 ```{r}
+
+ps.asmi %>%
+  group_by(Site, Plo) %>%
+  summarise()
+
 circleplots <- pi*(3^2)
 
 pit1.north <- 441
