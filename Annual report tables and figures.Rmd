@@ -790,19 +790,44 @@ Can look at these and then work forward to test predictive on new data (like the
 Survival instead of AGG 
 ```{r}
 ## use scaled numbers!
+# asmi.merged <- asmi.raw %>%
+#   group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
+#   left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id")) %>%  ## not working "fence", "year.x" == ("year.y" + 1)
+#   dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
+#   filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
+#   filter(length.x > 0) %>%
+#   filter(!is.na(length.x)) %>%
+#   left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
+#                                       "year.y" = "Prev12")) %>%
+#   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
+#                           length.y == 0 | is.na(length.y) ~ 0)) %>%
+#   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+#                            AsMi_site_id > 3 ~ "South Beaver")) 
+
+## https://stackoverflow.com/questions/75384121/add-multiple-columns-lagged-by-one-year 
 asmi.merged <- asmi.raw %>%
-  group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
-  left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%
-  dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
-  filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
-  filter(length.x > 0) %>%
-  filter(!is.na(length.x)) %>%
+  group_by(year,AsMi_site_id,AsMi_plot_id,fence) %>%
+  mutate(length.y = lag(length),
+         flower.y = lag(flower),
+         fruit.y = lag(fruit),
+         browsing.y = lag(browsing),
+         fate = lag(status),
+         year.y = lag(year),
+         year = as.integer(as.character(year)) - 1) %>%
+  ungroup() %>% #  .y is year t-1
+  dplyr::select(AsMi_tag_id:status, AsMi_plot_id:fence, age:year.y) %>%
+  filter(length > 0) %>%
+  filter(!is.na(length)) %>%
   left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
                                       "year.y" = "Prev12")) %>%
   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
                           length.y == 0 | is.na(length.y) ~ 0)) %>%
   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
                            AsMi_site_id > 3 ~ "South Beaver")) 
+
+asmi.merged %>%
+  dplyr::select(c(year:length,status,fate,age,surv,year.y))
+
 
 asmi.merged %>%
   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
@@ -2506,8 +2531,9 @@ ggplot(alive.byyear, aes(year,length))+
 ```{r}
 
 ps.asmi %>%
-  group_by(Site, Plo) %>%
-  summarise()
+  mutate(PDens = Total.Plants/(pi*(3^2))) %>%
+  group_by(Creek, Site) %>%
+  dplyr::summarise(avgDens = mean(PDens))
 
 circleplots <- pi*(3^2)
 
@@ -2528,6 +2554,11 @@ averageAGG$Total.Alive/circleplots
 
 aggregate(Total.Alive~Creek+Year, ps.asmi, function(x) sum(x))
 
+
+ps.asmi %>%
+  mutate(PDens = Total.Plants/(pi*(3^2))) %>%
+  group_by(Creek) %>%
+  dplyr::summarise(avgDens = mean(PDens))
 ```
 
 # Annual percent of AGG+Dormant in 1996 (Year 2) compared to now, by plot (so compared to second year of plots that were added)   
@@ -2717,9 +2748,17 @@ aggregate(PercentDorm~Year, ps.asmi, function(x) mean(x, na.rm=TRUE))
 
 
 
+## Consecutive years of reproduction
+Reproductive lengths - South Beaver Creek only  
 
-Reproductive lengths - South Beaver Creek only   
 ```{r}
+
+cebolla <- asmi.raw[asmi.raw$AsMi_site_id %in% c(1,2),]
+sbc <- asmi.raw[asmi.raw$AsMi_site_id %in% c(5,15,19,26),]
+
+asmi.1 <- sbc[order(sbc$AsMi_site_id, sbc$AsMi_tag_id, sbc$year),]
+cebolla <- cebolla[order(cebolla$AsMi_site_id, cebolla$AsMi_tag_id, cebolla$year),]
+
 levels(asmi.1$status)
 # [1] "seedling"     "vegetative"   "reproductive" "dormant"      "dead"
 
@@ -2732,9 +2771,31 @@ repros <- do.call(rbind, lapply(split(asmi.1, asmi.1$AsMi_tag_id), function(tag)
   out
 }))
 
+# Consecutive years of reproduction 
 # max(repros$reproslength)
 max(repros$repros) # 8
 repros[repros$repros == max(repros$repros),]
+hdi(repros$repros)
+median(repros$repros)
+
+## Cebolla Creek
+CCrepros <- do.call(rbind, lapply(split(cebolla, cebolla$AsMi_tag_id), function(tag){
+  reprolns <- rle(as.numeric(tag$status))$lengths[rle(as.numeric(tag$status))$values==3]
+  out <- data.frame(Tag=rep(unique(tag$AsMi_tag_id), length(reprolns)), 
+                    Site=rep(unique(tag$AsMi_site_id), length(reprolns)),
+                    Plot=rep(unique(tag$AsMi_plot_id), length(reprolns)),
+                    repros=reprolns)
+  out
+}))
+
+# Consecutive years of reproduction 
+# max(repros$reproslength)
+max(CCrepros$repros) 
+CCrepros[CCrepros$repros == max(CCrepros$repros),]
+hdi(CCrepros$repros)
+median(CCrepros$repros)
+
+
 
 repros[repros$repros == max(repros$repros)-4,]
 
@@ -3186,17 +3247,6 @@ lines(c(145:156), U90, col="red")
 
 ```
 
-
-# Add error and variance to dormancy
-# change dormant to reproductive, seedling???, or vegetative in a given year based on climate   
-```{r, eval=FALSE}
-# relationship of climate and likelyhood of being stage given climate; ppt.springSummer best descriptor of status in July
-season
-
-
-
-
-```
 
 
 Going to skip this after 2016 since know that plants aren't below ground the whole season, not as much a question of using this to figure out how much dormancy - dormancy = not AGG in July   
