@@ -790,45 +790,21 @@ Can look at these and then work forward to test predictive on new data (like the
 Survival instead of AGG 
 ```{r}
 ## use scaled numbers!
-# asmi.merged <- asmi.raw %>%
-#   group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
-#   left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id")) %>%  ## not working "fence", "year.x" == ("year.y" + 1)
-#   dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence, year.y:status.y) %>%
-#   filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
-#   filter(length.x > 0) %>%
-#   filter(!is.na(length.x)) %>%
-#   left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
-#                                       "year.y" = "Prev12")) %>%
-#   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
-#                           length.y == 0 | is.na(length.y) ~ 0)) %>%
-#   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
-#                            AsMi_site_id > 3 ~ "South Beaver")) 
-
-## https://stackoverflow.com/questions/75384121/add-multiple-columns-lagged-by-one-year 
 asmi.merged <- asmi.raw %>%
-  group_by(year,AsMi_site_id,AsMi_plot_id,fence) %>%
-  mutate(length.y = lag(length),
-         flower.y = lag(flower),
-         fruit.y = lag(fruit),
-         browsing.y = lag(browsing),
-         fate = lag(status),
-         year.y = lag(year),
-         year = as.integer(as.character(year)) - 1) %>%
-  ungroup() %>% #  .y is year t-1
-  dplyr::select(AsMi_tag_id:status, AsMi_plot_id:fence, age:year.y) %>%
-  filter(length > 0) %>%
-  filter(!is.na(length)) %>%
+  group_by(AsMi_tag_id, AsMi_plot_id, AsMi_site_id, fence) %>%
+  left_join(asmi.raw, by = c("AsMi_tag_id", "AsMi_plot_id", "AsMi_site_id", "fence")) %>%  ## not working "fence", "year.x" == ("year.y" + 1)
+  dplyr::select(AsMi_tag_id:status.x, AsMi_plot_id:fence.x, year.y:status.y) %>%
+  filter(year.x == year.y-1) %>% # .x is year t, .y is year t+1
+  filter(length.x > 0) %>%
+  filter(!is.na(length.x)) %>%
   left_join(asmi.season.wide,  by = c("AsMi_plot_id" = "Plot",
                                       "year.y" = "Prev12")) %>%
   mutate(surv = case_when(length.y > 0 & !is.na(length.y) ~ 1,
                           length.y == 0 | is.na(length.y) ~ 0)) %>%
   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
-                           AsMi_site_id > 3 ~ "South Beaver")) 
+                           AsMi_site_id > 3 ~ "South Beaver"))
 
-asmi.merged %>%
-  dplyr::select(c(year:length,status,fate,age,surv,year.y))
-
-
+## Survival changing linearly over time
 asmi.merged %>%
   mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
                            AsMi_site_id > 3 ~ "South Beaver")) %>%
@@ -869,8 +845,20 @@ ggplot( aes(length.x, surv, color = site))+
   facet_grid(status.x ~ Creek )+
   ylab("Survival")
 
+Fig4asurvSite <- asmi.merged %>%
+  ## Merge seedling and vegetative
+  mutate(status.x = as.character(status.x)) %>%
+  mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                              TRUE ~ status.x)) %>%
+ggplot( aes(year.x, surv, color = site))+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
+  geom_point(shape = "|")+
+  theme_light()+
+  xlab("Length of longest stem (cm)")+
+  ylab("Survival")
+
 asmi.merged %>%
-ggplot( aes(year.y, surv, color = fence))+
+ggplot( aes(year.y, surv, color = fence.x))+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
   geom_point(shape = "|")+
   theme_light()+
@@ -882,11 +870,11 @@ ggplot( aes(year.y, surv, color = fence))+
 glm1 <- glm(surv ~ year.x, family = binomial, data = asmi.merged)
 glm2 <- glm(surv ~ year.x*as.factor(site), family = binomial, data = asmi.merged)
 glm3 <- glm(surv ~ year.x*Creek, family = binomial, data = asmi.merged) 
-glm4 <- glm(surv ~ year.x*fence, family = binomial, data = asmi.merged)
+glm4 <- glm(surv ~ year.x*fence.x, family = binomial, data = asmi.merged)
 glm5 <- glm(surv ~ 1, family = binomial, data = asmi.merged)
 glm6 <- glm(surv ~ as.factor(site), family = binomial, data = asmi.merged)
 glm7 <- glm(surv ~ Creek, family = binomial, data = asmi.merged) 
-glm8 <- glm(surv ~ fence, family = binomial, data = asmi.merged)
+glm8 <- glm(surv ~ fence.x, family = binomial, data = asmi.merged)
 
 glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
@@ -907,8 +895,41 @@ ggplot(asmi.merged, aes(length.x, length.y, color = site))+
   geom_point()+
   stat_smooth(method="glm")
 
+asmi.merged %>%
+  filter(!(status.x %in% c("dead","dormant"))) %>%
+  mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                              TRUE ~ status.x)) %>%
+  mutate(status.x = factor(status.x, levels = c("vegetative","reproductive"))) %>%
+ggplot(  aes(status.x, length.x, color = Creek ))+
+  geom_boxplot(position = position_dodge(width = 0.1)) +
+  geom_point(position = position_dodge(width = 0.1))+
+  theme_bw()
+
+## I guess so, we could see fruit and flowers when it was browsed to very small
+asmi.merged %>%
+  filter(status.x == "reproductive" & length.x < 8)
+
+asmi.merged %>%
+  ## Merge seedling and vegetative
+  mutate(status.x = as.character(status.x)) %>%
+  mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                              TRUE ~ status.x)) %>%
+  ggplot(   aes(length.x, surv))+ #, color = site))+
+    geom_point(pch="|")+
+    facet_grid(Creek~status.x)+
+    theme_bw()+
+    ylab("survival")+
+    xlab("Length of longest stem (cm)")+
+    scale_color_discrete("")+
+    geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)
+
 ggsave(paste(savepath, "FigureAGGsurv.jpg", sep = ""),
-ggplot(asmi.merged, aes(length.x, surv))+ #, color = site))+
+
+       asmi.merged %>%
+         mutate(status.x = case_when(status.x == "seedling" ~ "vegetative",
+                                     TRUE ~ status.x)) %>%
+         mutate(status.x = factor(status.x, levels = c("vegetative","reproductive"))) %>%
+ggplot( aes(length.x, surv))+ #, color = site))+
   geom_point(pch="|")+
   facet_grid(Creek~status.x)+
   theme_bw()+
@@ -949,7 +970,7 @@ labels4bins <- asmi.merged %>%
   distinct(ppt_winter_bin) %>%
   arrange(ppt_winter_bin)
   
-
+## This is only b, where's the rest? 
 
 Fig4Survabiotic <- asmi.merged %>%
   ungroup() %>% ## but it's not grouped, maybe was taking as each row is a group without this call?
@@ -960,9 +981,9 @@ ggplot(  aes(tmax_springSummer,surv,color = site))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
              labeller = labeller(ppt_winter_bin =
-                                   c("(-1.87,-0.408]" = "low winter precipitation",
-                                     "(-0.408,1.05]"  = "mid winter precipitation",
-                                     "(1.05,2.51]"  = "high winter precipitation"))
+                                   c("(-1.92,-0.423]" = "low winter precipitation",
+                                     "(-0.423,1.07]"  = "mid winter precipitation",
+                                     "(1.07,2.57]"  = "high winter precipitation"))
              )+
   xlab("Summer maximum temperature")+
   ylab("Survival")+
@@ -1024,6 +1045,8 @@ for(i in 2:length(glm.list)){
 ```
 
 ```{r}
+labels4bins
+
 ## Figure 4b reproduction or none
 Fig4bReprodYN <- asmi.reproductive %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
@@ -1032,9 +1055,9 @@ ggplot(  aes(tmax_springSummer,FlYN))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
               labeller = labeller(ppt_winter_bin =
-                                    c("(-1.87,-0.317]" = "low winter precipitation",
-                                      "(-0.317,1.23]"  = "mid winter precipitation",
-                                      "(1.23,2.77]"  = "high winter precipitation"))
+                                    c("(-1.92,-0.423]" = "low winter precipitation",
+                                      "(0.423,1.07]"  = "mid winter precipitation",
+                                      "(1.07,2.57]"  = "high winter precipitation"))
               )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
@@ -1047,9 +1070,9 @@ ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
               labeller = labeller(ppt_winter_bin =
-                                    c("(-1.87,-0.317]" = "low winter precipitation",
-                                      "(-0.317,1.23]"  = "mid winter precipitation",
-                                      "(1.23,2.77]"  = "high winter precipitation"))
+                                    c("(-1.92,-0.423]" = "low winter precipitation",
+                                      "(0.423,1.07]"  = "mid winter precipitation",
+                                      "(1.07,2.57]"  = "high winter precipitation"))
               )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
@@ -1082,6 +1105,25 @@ for(i in 2:length(glm.list)){
 ```
 
 ```{r}
+labels4bins
+
+asmi.fruit %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+  dplyr::select(ppt_winter_bin) %>%
+  distinct(ppt_winter_bin) %>%
+  arrange(ppt_winter_bin)
+
+asmi.fruit %>%
+  ungroup() %>% 
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
+  dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 3)) %>%
+  dplyr::select(tmax_springSummer_bin) %>%
+  distinct(tmax_springSummer_bin) %>%
+  arrange(tmax_springSummer_bin)
+
+
 Fig4Fruit <- asmi.fruit %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
   dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 3)) %>%
@@ -1091,9 +1133,9 @@ ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
   geom_boxplot()+
   facet_grid(~ppt_winter_bin, scales = "free", 
                labeller = labeller(ppt_winter_bin =
-                                     c("(-1.26,0.0843]" = "low winter precipitation",
-                                       "(0.0843,1.43]"  = "mid winter precipitation",
-                                       "(1.43,2.77]"  = "high winter precipitation")))+
+                                     c("(-1.3,0.0784]" = "low winter precipitation",
+                                       "(0.0784,1.45]"  = "mid winter precipitation",
+                                       "(1.45,2.82]"  = "high winter precipitation")))+
   xlab("low, mid, and high summer maximum temperature")+
   ylab("log(Total fruit production)")+
   scale_color_discrete("Site")+
@@ -1106,10 +1148,7 @@ ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
 #AIC for reproductive
 Table 3c and d
 probability of reproduction per individual
-```{r}
-
-# X..Flowered is %; X..Flowered.1 is count of yes
-head(asmi.raw)
+```{r, eval=FALSE}
 
 asmi.raw$Creek <- "SouthBeaver"
 asmi.raw$Creek[asmi.raw$AsMi_site_id < 3] <- "Cebolla" 
@@ -2416,12 +2455,14 @@ mastseeding <- noreproductiveyears %>%
                            AsMi_site_id > 3 ~ "South Beaver")) %>%
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12"))%>%
   ungroup() %>% 
-  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
-  filter(AsMi_site_id > 3) ## as of 2022, no years with no reproduction
+  dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) # %>%
+  # filter(AsMi_site_id > 3) ## as of 2024, no years with no reproduction
+
+table(mastseeding$flower, mastseeding$Creek)  
 
 glm1 <- glm(flower ~ ppt_winter*site, family = binomial, data = mastseeding)
 glm2 <- glm(flower ~ tmax_springSummer*ppt_winter*site, family = binomial, data = mastseeding)
-glm3 <- glm(flower ~ tmin_winter*ppt_winter*site, family = binomial, data = mastseeding) 
+# glm3 <- glm(flower ~ tmin_winter*ppt_winter*site, family = binomial, data = mastseeding) 
 glm4 <- glm(flower ~ ppt_fall*site, family = binomial, data = mastseeding)
 glm5 <- glm(flower ~ 1*site, family = binomial, data = mastseeding)
 glm6 <- glm(flower ~ ppt_springSummer*site, family = binomial, data = mastseeding)
