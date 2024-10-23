@@ -36,7 +36,7 @@ library(prism)
 # library(rgdal) Will go away in 2023 https://r-spatial.org/r/2022/04/12/evolution.html and https://github.com/r-spatial/evolution rgdal: version: 1.6-2, (SVN revision 1183)
 
 library(raster)
-library(Rmisc)
+# library(Rmisc)  ## USES dplyr
 # library(data.table)
 # library(survminer)
 
@@ -2196,6 +2196,15 @@ ggsave(MPMplot, filename = paste(savepath, currentyr, "lMPMloglambda.jpg", colla
 
 ```
 
+To run on DBG0077
+```{r, eval = FALSE}
+save(asmi.raw, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi-raw2024.rdata")
+
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi-raw2024.rdata")
+
+```
+
+
 
 Multi-state model   
 ```{r}
@@ -2215,7 +2224,8 @@ CJS_asmi <- asmi.raw %>%
   mutate(Obs = as.character(Obs)) %>%
   pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
               id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
-  unite(ch, Year1995:Year2022, sep ="") %>%
+  ### UPDATE TO CURRENT YEAR ######
+  unite(ch, Year1995:Year2024, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id)) %>%
@@ -2231,10 +2241,15 @@ CJS_asmi %>%
   dplyr::select(ch) %>%
   bind_cols(dmPlot) %>%
   mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
-  write.table(file = paste(savepath, "Multi_asmi_mark.inp", sep = ""), sep = " ", 
+   ### FOR DBG0077
+  # write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp", 
+  #             # sep = " ", 
+  write.table(file = paste(savepath, "Multi_asmi_mark.inp", sep = ""), sep = " ",
               col.names = FALSE, row.names = FALSE)
 
-asmiMulti <- convert.inp(paste(savepath, "Multi_asmi_mark.inp", sep = ""), 
+asmiMulti <- convert.inp(
+  # "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp", 
+  paste(savepath, "Multi_asmi_mark.inp", sep = ""),
                         group.df = plotdf,
                         covariates = NULL,
                         use.comments = FALSE)
@@ -2267,39 +2282,75 @@ asmiMulti.ddl$Psi$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year
 # ps.asmi <- ps.asmi[!(ps.asmi$Plot == 300 & ps.asmi$Year < 1996),]
 # ps.asmi <- ps.asmi[!(ps.asmi$Plot == 238 & ps.asmi$Year < 1996),]
 
-
+## Should this have been time?! not cohort?? No, cohort and time? 
 plotsSite <- CJS_asmi %>%
   distinct(Plot,Site)
 pindex <- asmiMulti.ddl$p 
 p.idAddedlater <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort)))%>%
+  mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
   filter((group %in% c(598) & cohort < 2004))
 p.idAdded1996 <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort)))%>%
+  mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
   filter((group %in% c(300,238) & cohort < 1996))  
 p.Cebolla <- pindex %>%
   mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
   filter((group %in% c(1,22,32,42,52,16,58,89,90,96,98) & 
-            cohort > 2013))
+            cohort < 2013))
+## Need to stop at '2018'to 2019 because no 2020
 p.Cebolla89 <- pindex %>%
   mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
   filter((group %in% c(89) & 
-            cohort < 2020))
+            cohort >= 2019))
+## None of them will be 2024 because it's going into 2024, need to be the 2023? And get rid of the '2024' to 2025
+p.Cebolla.missing2024 <- pindex %>%
+  mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
+  filter((group %in% c("52") &
+            cohort %in% c(2024)))
+p.Cebolla.missing2024_time <- pindex %>%
+  mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
+  filter((group %in% c(52) & time %in% c("2024")))
   
 ## Fixed indices
-p.indices <- c(p.idAdded1996$par.index, p.idAddedlater$par.index)
+p.indices <- 
+  unique(c(p.idAdded1996$par.index, p.idAddedlater$par.index,
+               p.Cebolla$par.index, p.Cebolla89$par.index,
+               p.Cebolla.missing2024$par.index,p.Cebolla.missing2024_time$par.index))
 p.values <- rep(0, length(p.indices))
+## 10 repeats
+length(p.indices) -
+length(unique(p.indices))
 
+## All the plot 52 in 2024 times! Oh, from the ones where the cohort was 1995:2012 (which is through year 2013)
+## Added unique above to fix
+pindex %>%
+  filter(par.index %in% p.indices[which(duplicated(p.indices))])
+
+# nest tostratum within stratum and fence within tostratum
+# multi.mark <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
+#                    model.parameters = list(S = list(formula = ~ fence),
+#                                            p = list(formula = ~ 1,
+#                                                     fixed = list(index = p.indices, value = p.values)),
+#                                            Psi = list(formula = ~ -1 + stratum:tostratum:fence)))
 
 multi.mark <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ fence),
+                   model.parameters = list(S = list(formula = ~ 1),
                                            p = list(formula = ~ 1,
                                                     fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ fence + stratum:tostratum)))
+                                           Psi = list(formula = ~ -1 + stratum:tostratum)))
 
+## To save from DBG0077
+save(multi.mark, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimark2024.rdata")
 
+## Look at Fletcher c-hat in section 5.8 Chapter 5
+## c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
 ```
 
 
