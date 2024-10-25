@@ -36,7 +36,7 @@ library(prism)
 # library(rgdal) Will go away in 2023 https://r-spatial.org/r/2022/04/12/evolution.html and https://github.com/r-spatial/evolution rgdal: version: 1.6-2, (SVN revision 1183)
 
 library(raster)
-# library(Rmisc)  ## USES dplyr
+library(Rmisc)  ## USES dplyr
 # library(data.table)
 # library(survminer)
 
@@ -519,6 +519,11 @@ Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek
 alive <-aggregate(length ~ AsMi_plot_id + year + AsMi_site_id + fence, 
                   data = asmi.raw, function(x) length(x[x>0 & !is.na(x)])) 
 
+alive <- alive %>%
+  filter(!(AsMi_plot_id == 89 & year > 2019)) %>%
+  filter(!(AsMi_plot_id == 52 & year == 2024))
+
+## Not fair comparison since lost plot in Site 2 and lost data at plot 52 in year 2024 due to tablets and excel
 totalyr <- aggregate(length~AsMi_site_id, data = alive[alive$year == currentyr,], sum)
 sum(totalyr$length[1:2])
 sum(totalyr$length[3:6])
@@ -555,9 +560,17 @@ aggregate(AGG.1 ~ Site, data = outdata, sum)
 #AGG and dormant
 aggdorm <- aggregate(status ~ AsMi_plot_id +year + AsMi_site_id  + fence,
                      data = asmi.raw, function(x) length(x[x != "dead" & !is.na(x)]))
-
+aggdorm <- aggdorm %>%
+  filter(!(AsMi_plot_id == 89 & year > 2019)) %>%
+  filter(!(AsMi_plot_id == 52 & year == 2024))
 
 ## Figure 2: Number of AsMi with AGG
+# Need to exclude Plot 52 at site 1
+
+alive %>%
+  filter(length == 0)
+asmi.raw %>%
+  filter(AsMi_plot_id == 16 & year %in% c(2021,2022))
 
 ggsave(paste(savepath, "Fig2AGG.jpg", sep = ""),
 (alive %>%
@@ -1098,12 +1111,13 @@ asmi.reproductive %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3))  %>%
   dplyr::select(ppt_winter_bin) %>%
   distinct(ppt_winter_bin) %>%
-  arrange(ppt_winter_bin)
+  arrange(ppt_winter_bin) 
   
 
 ## Figure 4b reproduction or none
 Fig4bReprodYN <- asmi.reproductive %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+  filter(!(Plot == 52 & Year == 2024)) %>%
 ggplot(  aes(tmax_springSummer,FlYN))+
   geom_point()+
   theme_bw()+
@@ -1119,6 +1133,7 @@ ggplot(  aes(tmax_springSummer,FlYN))+
 
 Fig4bReprodYN_site <- asmi.reproductive %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
+  filter(!(Plot == 52 & Year == 2024)) %>%
 ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
   geom_point()+
   theme_bw()+
@@ -1181,10 +1196,11 @@ asmi.fruit %>%
 Fig4Fruit <- asmi.fruit %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 3)) %>%
   dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 3)) %>%
+  filter(!(Plot == 52 & Year == 2024)) %>%
 ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
-  geom_point()+
   theme_bw()+
-  geom_boxplot()+
+  geom_boxplot(position = position_dodge(width = 0.9))+
+  geom_point(position = position_dodge(width = 0.9))+
   facet_grid(~ppt_winter_bin, scales = "free", 
                labeller = labeller(ppt_winter_bin =
                                      c("(-1.3,0.0784]" = "low winter precipitation",
@@ -1969,6 +1985,25 @@ BCAdf <- BCAdf %>%
 Hprime <- -sum(BCAdf$plnp)
 Hprimemax <- log2(nrow(BCAdf))
 (BCEE <- Hprime/Hprimemax)
+
+x <- unique(asmi.all$AsMi_site_id)[1]
+## By Site
+pva.split.bysite <- lapply(unique(asmi.all$AsMi_site_id), function(x){
+  sitesplit <- StagePVA(asmi.all2[asmi.all2$site == x,], TF = TRUE)
+  SitematU <- mean(do.call(c, lapply(sitesplit, function(s) lapply(s, function(q) q$T))))
+  SitematF <- mean(do.call(c, lapply(sitesplit, function(s) lapply(s, function(q) q$F))))
+  el <- elasticity(SitematU + SitematF)
+  ## Vital rates are non-zero elements of A, elasticities
+  Adf <- data.frame(vr = as.vector(el), logvr = log2(as.vector(el)))
+  Adf <- Adf %>%
+    mutate(plnp = vr*logvr)
+  Hprime <- -sum(Adf$plnp)
+  Hprimemax <- log2(nrow(Adf))
+  EE <- Hprime/Hprimemax
+  gt <- gen_time(SitematU, SitematF, method = "R0")
+  data.frame(Site = x, EE = EE, gentime = gt)
+})
+
 ```
 
 
@@ -2072,6 +2107,7 @@ MPMlamdf <- MPMlam %>%
   mutate(Year = gsub("Year","",Year)) %>%
   mutate(Plot = gsub("Plot","",Plot)) %>%
   filter(!(Plot == 89 & Year > 2018)) %>%
+  filter(!(Plot == 52 & Year %in% c(2023,2024))) %>%
   dplyr::mutate(Plot = as.factor(Plot)) %>%
   dplyr::left_join(SitePlot, by = c("Plot" = "plot")) %>%
   filter(!is.na(Lambda)) %>%
@@ -2082,10 +2118,13 @@ MPMlamdf %>%
   filter(Plot == 89)
 MPMlamdf %>%
   filter(Plot == 1)
+## Correct, missing plot 52 in 2024
+MPMlamdf %>%
+  filter(Plot == 52)
 
 ## Troubleshoot site 5 and the two plots at 15 that are all but gone
 MPMlamdf %>%
-  filter(site %in% c(5,15,19,26)) %>%
+  # filter(site %in% c(5,15,19,26)) %>%
   filter(Lambda != 0) %>%
   group_by(Plot) %>%
   mutate(logLambda = log(Lambda)) %>%
@@ -2095,7 +2134,7 @@ MPMlamdf %>%
                    lcl = meanLambda - sdLambda,
                    ucl = meanLambda + sdLambda,
                    site = unique(site))%>%
-  filter(site == 5) %>%
+  # filter(site == 5) %>%
   print(n=100)
 
 
@@ -2119,6 +2158,43 @@ ggplot(  aes(Plot, meanLambda))+
   ylab(expression(log(lambda)))+
   geom_hline(yintercept = 0, linetype = "dotted")+
   facet_wrap(~site, scales = "free_x")
+
+MPMlamdf %>%
+  mutate(Creek = case_when(site %in% c("5","15","19","26") ~ "SouthBeaver",
+                           site %in% c("1","2") ~ "Cebolla")) %>%
+  group_by(Plot) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  filter(Lambda != 0) %>%
+  dplyr::summarize(meanLambda = mean(logLambda, na.rm = TRUE),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - varLambda,
+                   ucl = meanLambda + varLambda,
+                   site = unique(site)) 
+
+MPMlamdf %>%
+  mutate(Creek = case_when(site %in% c("5","15","19","26") ~ "SouthBeaver",
+                           site %in% c("1","2") ~ "Cebolla")) %>%
+  group_by(Creek) %>%
+  # mutate(logLambda = log(Lambda)) %>%
+  filter(Lambda != 0) %>%
+  dplyr::summarize(meanLambda = mean(Lambda, na.rm = TRUE),
+                   sdLambda = sd(Lambda),
+                   varLambda = var(Lambda),
+                   lcl = meanLambda - varLambda,
+                   ucl = meanLambda + varLambda) 
+
+MPMlamdf %>%
+  mutate(Creek = case_when(site %in% c("5","15","19","26") ~ "SouthBeaver",
+                           site %in% c("1","2") ~ "Cebolla")) %>%
+  group_by(site) %>%
+  # mutate(logLambda = log(Lambda)) %>%
+  filter(Lambda != 0) %>%
+  dplyr::summarize(meanLambda = mean(Lambda, na.rm = TRUE),
+                   sdLambda = sd(Lambda),
+                   varLambda = var(Lambda),
+                   lcl = meanLambda - varLambda,
+                   ucl = meanLambda + varLambda) 
 
 
 ```
@@ -2172,19 +2248,27 @@ stochLambda <- do.call(rbind,lapply(MPM.plots, function(plt){
   }))
 
 
+plotFence <- asmi.raw %>%
+  distinct(AsMi_plot_id, fence) %>%
+  mutate(plot = as.factor(AsMi_plot_id)) %>%
+  dplyr::select(plot, fence)
+
 MPMplot <- stochLambda %>%
   mutate(plot = row.names(.)) %>%
+  mutate(plot = as.factor(plot)) %>%
   mutate(plot = gsub("Plot","",plot)) %>%
+  mutate(plot = as.factor(plot)) %>%
   left_join(SitePlot) %>%
+  left_join(plotFence) %>%
   # filter(site %in% c(5,15,19,26)) %>%
   filter(!is.infinite(meanLogLambda)) %>%
-ggplot(  aes(plot, meanLogLambda ))+
+ggplot(  aes(plot, meanLogLambda, color= fence ))+
   geom_point(position = position_dodge(width = 1))+
   geom_errorbar(aes(ymin = meanLogLambda - varLogLambda, 
                     ymax = meanLogLambda + varLogLambda),
                 position = position_dodge(width = 1), width = 0.3)+
   theme_bw()+
-  ylab(expression(log~lambda))+
+  ylab(expression(lambda))+
   geom_hline(yintercept = 0, linetype = "dotted")+
   facet_wrap(~site, scales = "free_x",
              nrow = 3)
@@ -2208,11 +2292,12 @@ load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcym
 
 Multi-state model   
 ```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
+
+
 CJS_asmi <- asmi.raw %>%
-  # filter(!(AsMi_tag_id %in% c(1177,1171,2746,3903))) %>%
-  # filter(AsMi_site_id %in% c(5,15,19,26)) %>%
   filter(!is.na(year)) %>%  
-  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence,Creek)) %>%
   group_by(AsMi_tag_id) %>%
   filter(any(length > 0)) %>%
   mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
@@ -2223,13 +2308,40 @@ CJS_asmi <- asmi.raw %>%
   arrange(year) %>%
   mutate(Obs = as.character(Obs)) %>%
   pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
-              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage)) %>%
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage, Creek)) %>%
   ### UPDATE TO CURRENT YEAR ######
   unite(ch, Year1995:Year2024, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
-         Plot = as.factor(AsMi_plot_id)) %>%
+         Plot = as.factor(AsMi_plot_id),
+         Creek = as.factor(Creek)) %>%
+  relocate(Creek, .after = Plot) %>%
   filter((grepl("R",ch) | grepl("V",ch)))
+
+
+# Any factor is a group variable, any numeric can be a covariate
+plotSiteCreek <- CJS_asmi %>%
+  distinct(Plot,Site,Creek)
+dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
+dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
+dmCreek <- model.matrix(~ -1 + Creek, CJS_asmi)
+dimnames(dmCreek)[[2]][length(dimnames(dmCreek)[[2]])] ## CreekSouthBeaver
+
+# CJS_asmi %>%
+#   dplyr::select(ch) %>%
+#   bind_cols(dmPlot) %>%
+#   bind_cols(dmSite) %>%
+#   bind_cols(dmCreek) %>%
+#   mutate(CreekSouthBeaver = paste(CreekSouthBeaver, ";", sep = "")) %>%
+#   write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_markPSC.inp",
+#               sep = " ",
+#               col.names = FALSE, row.names = FALSE)
+# 
+# ## Plot Site Creek
+# asmiMultiPSC <- convert.inp("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_markPSC.inp", 
+#                             group.df = plotSiteCreek,
+#                             covariates = NULL,
+#                             use.comments = FALSE)
 
 ## Need to split by plot because different time frames and different times having fencing
 plotdf <- CJS_asmi %>%
@@ -2242,14 +2354,13 @@ CJS_asmi %>%
   bind_cols(dmPlot) %>%
   mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
    ### FOR DBG0077
-  # write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp", 
-  #             # sep = " ", 
-  write.table(file = paste(savepath, "Multi_asmi_mark.inp", sep = ""), sep = " ",
+  write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp",sep = " ",
+  # write.table(file = paste(savepath, "Multi_asmi_mark.inp", sep = ""), sep = " ",
               col.names = FALSE, row.names = FALSE)
 
 asmiMulti <- convert.inp(
-  # "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp", 
-  paste(savepath, "Multi_asmi_mark.inp", sep = ""),
+  "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp",
+  # paste(savepath, "Multi_asmi_mark.inp", sep = ""),
                         group.df = plotdf,
                         covariates = NULL,
                         use.comments = FALSE)
@@ -2257,20 +2368,68 @@ asmiMulti <- convert.inp(
 ## By plot, needed since plots have different lengths 
 asmiMulti.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot")
 asmiMulti.ddl <- make.design.data(asmiMulti.proc)
+```
 
 
+Don't have to do this 
+```{r}
+# Add groups
+asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
+  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
+  mutate(Site = as.factor(Site)) %>%
+  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
+                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
+  mutate(Creek = as.factor(Creek))
+
+asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
+  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
+  mutate(Site = as.factor(Site)) %>%
+  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
+                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
+  mutate(Creek = as.factor(Creek))
+asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
+  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
+                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
+  mutate(Site = as.factor(Site)) %>%
+  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
+                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
+  mutate(Creek = as.factor(Creek))
+
+```
+    
+```{r}
+# Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
+PlotSiteYrFence <- asmi.all2 %>%
+  distinct(year,plot,site,fenced)
 ### Use PlotSiteYrFence to specify years when a plot was fenced
 PlotSiteYrFence %>%
   filter(fenced == "y")
-## Time varying fencing
+## Time varying fencing; as a dummy variable, not a factor
 asmiMulti.ddl$S$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                   asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMulti.ddl$S$fence <- as.factor(asmiMulti.ddl$S$fence) ## Should be numeric, and it is.
 
-asmiMulti.ddl$S %>%
-  filter(fence == 1)
-asmiMulti.ddl$Psi$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
-                                  asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMulti.ddl$Psi$fence <- ifelse(asmiMulti.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                                  asmiMulti.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMulti.ddl$Psi$fence <- as.factor(asmiMulti.ddl$Psi$fence)
 
+asmiMulti.ddl$p$fence <- ifelse(asmiMulti.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                                  asmiMulti.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMulti.ddl$p$fence <- as.factor(asmiMulti.ddl$p$fence)
 
 
 ### Need to note, no surveys for some plots 1995, before 2004, before 2014, and after 2019
@@ -2282,7 +2441,7 @@ asmiMulti.ddl$Psi$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year
 # ps.asmi <- ps.asmi[!(ps.asmi$Plot == 300 & ps.asmi$Year < 1996),]
 # ps.asmi <- ps.asmi[!(ps.asmi$Plot == 238 & ps.asmi$Year < 1996),]
 
-## Should this have been time?! not cohort?? No, cohort and time? 
+## Should this have been time?! not cohort?? No, cohort and time 
 plotsSite <- CJS_asmi %>%
   distinct(Plot,Site)
 pindex <- asmiMulti.ddl$p 
@@ -2334,24 +2493,100 @@ pindex %>%
   filter(par.index %in% p.indices[which(duplicated(p.indices))])
 
 # nest tostratum within stratum and fence within tostratum
-# multi.mark <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-#                    model.parameters = list(S = list(formula = ~ fence),
-#                                            p = list(formula = ~ 1,
-#                                                     fixed = list(index = p.indices, value = p.values)),
-#                                            Psi = list(formula = ~ -1 + stratum:tostratum:fence)))
+## Make a function to compare multiple models
 
-multi.mark <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
+## First check best model for detection 
+multi.asmi <- function(){
+  S.dot = list(formula = ~1)
+  # S.time = list(formula = ~ time)
+  # S.fence = list(formula = ~ fence)
+  # S.creek = list(formula = ~ Creek)
+  # S.creektime = list(formula = ~ Creek + time)
+  # S.fence = list(formula = fence + time)
+  # S.fenceCreek = list(formula = ~ fence + Creek)
+  
+  p.dot = list(formula = ~1,
+               fixed = list(index = p.indices, value = p.values))
+  p.time = list(formula = ~ time,
+               fixed = list(index = p.indices, value = p.values))
+  p.fence = list(formula = ~ -1 + fence,
+               fixed = list(index = p.indices, value = p.values))
+  p.creek = list(formula = ~ -1 + Creek,
+               fixed = list(index = p.indices, value = p.values))
+  p.creektime = list(formula = ~ -1 + Creek + time,
+               fixed = list(index = p.indices, value = p.values))
+  p.fence = list(formula = -1 + fence + time,
+               fixed = list(index = p.indices, value = p.values))
+  # p.fenceCreek = list(formula = ~ fence + Creek,
+  #              fixed = list(index = p.indices, value = p.values))
+  p.strata = list(formula = ~ -1 + stratum,
+               fixed = list(index = p.indices, value = p.values))
+  p.stratafence = list(formula = ~ -1 + stratum:fence,
+               fixed = list(index = p.indices, value = p.values))
+  p.stratafenceCreek = list(formula = ~ -1 + stratum:fence:Creek,
+               fixed = list(index = p.indices, value = p.values))
+  
+  Psi.dot = liPsit(formula = ~1)
+  # Psi.time = liPsit(formula = ~ time)
+  # Psi.fence = liPsit(formula = ~ fence)
+  # Psi.creek = liPsit(formula = ~ Creek)
+  # Psi.creektime = liPsit(formula = ~ Creek + time)
+  # Psi.fence = liPsit(formula = fence + time)
+  # Psi.fenceCreek = liPsit(formula = ~ fence + Creek)
+  
+  asmi.model.list <- create.model.list("Multistrata")
+  asmi.results <- mark.wrapper(asmi.model.list, 
+                               data = asmiMulti.proc, 
+                               ddl = asmiMulti.ddl)
+  
+  return(asmi.results)
+}
+
+asmi.modelsMulti <- multi.asmi()
+
+save(asmi.modelsMulti, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkDetection2024.rdata")
+
+
+###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
+multi.mark2 <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
+                   model.parameters = list(S = list(formula = ~ -1 + stratum:fence),
+                                           p = list(formula = ~ -1 + stratum:fence,
+                                                    fixed = list(index = p.indices, value = p.values)),
+                                           Psi = list(formula = ~ -1 + stratum:tostratum:fence)))
+
+save(multi.mark2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkStratumFence2024.rdata")
+
+multi.mark.nofence <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
                    model.parameters = list(S = list(formula = ~ 1),
                                            p = list(formula = ~ 1,
                                                     fixed = list(index = p.indices, value = p.values)),
                                            Psi = list(formula = ~ -1 + stratum:tostratum)))
 
 ## To save from DBG0077
-save(multi.mark, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimark2024.rdata")
+save(multi.mark.nofence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
+
 
 ## Look at Fletcher c-hat in section 5.8 Chapter 5
 ## c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
 ```
+
+```{r}
+
+## Would need time for year when the climate was and can add climate variables
+foo <- asmiMulti.ddl
+foo$p <- merge_design.covariates(foo$p, plotSiteCreek)
+
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
+multi.mark.nofence$results$beta
+
+
+## multi.mark
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkFence2024.rdata")
+multi.mark$results$real %>%
+  distinct()
+
+```
+
 
 
 ## If do site all together, need to split out into sites with similar length surveys
@@ -2746,12 +2981,18 @@ chisq.test(table(fencing_ind_dorm$Dorm, fencing_ind_dorm$Fence))
 AIC for annual fruit production: none or a mast year
 #Episodic fruit production paragraph   
 ```{r}
-noreproductiveyears <- aggregate(flower~AsMi_site_id+year, data=asmi.raw,
-                                 function(x) if(sum(x)>0){
-                                   1
-                                 } else {
-                                   0
-                                 })
+# noreproductiveyears <- aggregate(flower~AsMi_site_id+year, data=asmi.raw,
+#                                  function(x) if(sum(x)>0){
+#                                    1
+#                                  } else {
+#                                    0
+#                                  })
+noreproductiveyears <- asmi.raw %>%
+  filter(!(AsMi_plot_id == 52 & year == 2024)) %>%
+  group_by(AsMi_site_id, year) %>%
+  dplyr::summarise(flower = if_else(sum(flower) > 0, 1,0))
+
+
 noreproductiveyears %>%
   mutate(site = case_when(AsMi_site_id == 1 ~ "Cebolla Mid",
                           AsMi_site_id == 2 ~ "Cebolla North",
@@ -2762,7 +3003,7 @@ noreproductiveyears %>%
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
   ungroup() %>% 
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
-  filter(AsMi_site_id %in% c(5,15,19,26)) %>%
+  # filter(AsMi_site_id %in% c(5,15,19,26)) %>%
 ggplot(  aes(ppt_winter,flower,colour=as.factor(AsMi_site_id)))+
   geom_point()+
   geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE)+
@@ -2777,9 +3018,7 @@ noreproductiveyears %>%
                           AsMi_site_id == 15 ~ "Site 15",
                           AsMi_site_id == 19 ~ "Site 19",
                           AsMi_site_id == 26 ~ "Site 26")) %>%
-  # mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
-  #                          AsMi_site_id > 3 ~ "South Beaver")) %>%
-  filter(AsMi_site_id > 3) %>% ## as of 2022, no years with no reproduction
+  # filter(AsMi_site_id > 3) %>% ## as of 2022, no years with no reproduction
   left_join(asmi.season.wide, by = c("site" = "site","year" = "Prev12")) %>%
   ungroup() %>% 
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>%
