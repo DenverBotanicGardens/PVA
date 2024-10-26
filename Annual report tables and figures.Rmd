@@ -2092,6 +2092,8 @@ Site 15
 ```
 
 Multi-stage mark-recapture
+
+Table 5 results
 ```{r}
 MPM.plots <- StagePVA(asmi.all2)
 
@@ -2099,6 +2101,11 @@ SitePlot <- asmi.all2 %>%
   distinct(plot,site) %>%
   mutate(plot = as.factor(plot))%>%
   mutate(site = as.factor(site))
+
+plotFence <- asmi.raw %>%
+  distinct(AsMi_plot_id, fence) %>%
+  mutate(Plot = as.factor(AsMi_plot_id)) %>%
+  dplyr::select(Plot, fence)
 
 MPMlam <- data.frame(Lambda = do.call(c,lapply(MPM.plots, function(x) do.call(c, lapply(x, function(y) lambda(y))))))
 MPMlamdf <- MPMlam %>%
@@ -2110,6 +2117,7 @@ MPMlamdf <- MPMlam %>%
   filter(!(Plot == 52 & Year %in% c(2023,2024))) %>%
   dplyr::mutate(Plot = as.factor(Plot)) %>%
   dplyr::left_join(SitePlot, by = c("Plot" = "plot")) %>%
+  dplyr::left_join(plotFence) %>%
   filter(!is.na(Lambda)) %>%
   arrange(site,Plot,Year)
 
@@ -2126,16 +2134,71 @@ MPMlamdf %>%
 MPMlamdf %>%
   # filter(site %in% c(5,15,19,26)) %>%
   filter(Lambda != 0) %>%
-  group_by(Plot) %>%
+  group_by(Plot,fence) %>%
   mutate(logLambda = log(Lambda)) %>%
-  dplyr::summarize(meanLambda = mean(logLambda),
+  dplyr::summarize(lambda = exp(mean(logLambda)),
+                   meanLambda = mean(logLambda),
                    sdLambda = sd(logLambda),
                    varLambda = var(logLambda),
                    lcl = meanLambda - sdLambda,
-                   ucl = meanLambda + sdLambda,
-                   site = unique(site))%>%
-  # filter(site == 5) %>%
+                   ucl = meanLambda + sdLambda)%>%
   print(n=100)
+
+
+## By site ignoring fencing
+MPMlamdf %>%
+  filter(Lambda != 0) %>%
+  group_by(site) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  dplyr::summarize(lambda = exp(mean(logLambda)),
+                   meanLambda = mean(logLambda),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - sdLambda,
+                   ucl = meanLambda + sdLambda)
+
+## Overall site
+MPMlamdf %>%
+  # filter(site %in% c(5,15,19,26)) %>%
+  filter(Lambda != 0) %>%
+  group_by(site,fence) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  dplyr::summarize(lambda = exp(mean(logLambda)),
+                   meanLambda = mean(logLambda),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - sdLambda,
+                   ucl = meanLambda + sdLambda)
+
+
+## By Creek
+MPMlamdf %>%
+  filter(Lambda != 0) %>%
+  mutate(Creek = case_when(site %in% c(5,15,19,26) ~ "South Beaver",
+                           site %in% c(1,2) ~ "Cebolla")) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  group_by(Creek) %>%
+  dplyr::summarize(lambda = exp(mean(logLambda)),
+                   meanLambda = mean(logLambda),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - sdLambda,
+                   ucl = meanLambda + sdLambda)
+
+MPMlamdf %>%
+  # filter(site %in% c(5,15,19,26)) %>%
+  filter(Lambda != 0) %>%
+  mutate(Creek = case_when(site %in% c(5,15,19,26) ~ "South Beaver",
+                           site %in% c(1,2) ~ "Cebolla")) %>%
+  mutate(logLambda = log(Lambda)) %>%
+  group_by(Creek, fence) %>%
+  dplyr::summarize(lambda = exp(mean(logLambda)),
+                   meanLambda = mean(logLambda),
+                   sdLambda = sd(logLambda),
+                   varLambda = var(logLambda),
+                   lcl = meanLambda - sdLambda,
+                   ucl = meanLambda + sdLambda)
+
 
 
 MPMlamdf %>%
