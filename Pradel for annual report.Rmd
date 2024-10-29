@@ -1,0 +1,467 @@
+---
+title: "Pradel for annual report"
+author: "Michelle DePrenger-Levin"
+date: "2024-10-28"
+output: html_document
+---
+
+
+```{r}
+
+userpath <- "C:/Users/DePrengm/"
+savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
+
+
+library(dplyr)
+library(tidyr)
+library(RMark)
+library(boot)
+library(ggplot2)
+library(lme4)
+
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+userpath <- "C:/Users/DePrengm/"
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+# need to remove all plot 89, site 1 in 2020 and beyond
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+# Need to remove all plot 52 in 2024, data from tablet was lost, didn't save 
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 52 & asmi.raw$year == 2024),]
+
+
+# In a Stage-Fate format. stage is year t, fate is year t+1; asmi.all2
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate",currentyr,".Rdata",
+           sep=""))
+
+asmi.raw %>%
+  filter(is.na(year))
+
+asmi.raw <- asmi.raw %>%
+  filter(!is.na(year))
+
+```
+
+
+
+```{r}
+CJS_asmi <- asmi.raw %>%
+  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
+  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+                           AsMi_site_id > 4 ~ "SouthBeaver")) %>%
+  # group_by(AsMi_tag_id) %>%
+  # filter(any(length > 0)) %>%
+  # mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  ungroup() %>%
+  mutate(Obs = case_when(length > 0 ~ 1, 
+                         length == 0 ~ 0,
+                         is.na(length) ~ 0)) %>%
+  arrange(year) %>%
+  mutate(Obs = as.character(Obs)) %>%
+  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
+              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence)) %>%
+  unite(ch, Year1995:Year2024, sep ="") %>%
+  mutate(Tag = as.factor(AsMi_tag_id),
+         Site = as.factor(AsMi_site_id),
+         Plot = as.factor(AsMi_plot_id)) %>%
+  filter(grepl("1",ch))
+
+dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)  
+dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
+finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+```
+
+
+Mark-recapture by plot    
+```{r}
+finalplot
+
+CJS_asmi %>%
+  dplyr::select(ch) %>%
+  bind_cols(dmPlot) %>%
+  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  write.table(file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+                           currentyr,
+                           "CJS_asmi_mark.inp",sep=""),
+              sep = " ", 
+              col.names = FALSE, row.names = FALSE)
+
+plotdf <- CJS_asmi %>%
+  distinct(Site,Plot)
+
+## Convert for MARK  
+asmi.inp <- convert.inp(paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",currentyr,"CJS_asmi_mark.inp",sep=""), 
+                        group.df = plotdf,
+                        covariates = NULL,
+                        use.comments = FALSE)
+
+
+asmiproc <- process.data(asmi.inp, model = "Pradrec",
+                         groups = "Plot",
+                         begin.time = 1995)
+
+asmiddl <- make.design.data(asmiproc)
+
+## Fix detection, p, to zero when no survey
+pindex <- asmiddl$p %>%
+  left_join(plotdf)
+p.indexCebolla <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2014
+  filter((Site %in% c(1,2) & time < 2014))
+p.indexCebolla52 <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Lost 52 data in 2024
+  filter((Plot %in% c(52) & time == 2024))
+p.idAddedlater <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(598) & time < 2004))
+p.idAdded1996 <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(300,238) & time < 1996))  
+
+## Fixed indices
+p.indices <- c(p.indexCebolla$par.index, p.indexCebolla52$par.index,
+               p.idAdded1996$par.index, p.idAddedlater$par.index)
+p.values <- rep(0, length(p.indices))
+
+
+
+```
+
+Add climate variables, time varying  
+Add fencing as a factor
+```{r}
+
+load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+
+
+##Winter precipitation, summer maximum temp
+WinterPPT <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "ppt" & season == "winter") %>%
+  rename(WinterPPT = Value) %>%
+  dplyr::select(Plot, Prev12, WinterPPT) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiddl$Phi <- asmiddl$Phi %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$p <- asmiddl$p %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$f <- asmiddl$f %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+SummerMax <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "tmax" & season == "springSummer") %>%
+  rename(SummerMax = Value) %>%
+  dplyr::select(Plot, Prev12, SummerMax) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiddl$Phi <- asmiddl$Phi %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$p <- asmiddl$p %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$f <- asmiddl$f %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+
+# Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
+PlotSiteYrFence <- asmi.all2 %>%
+  distinct(year,plot,site,fenced)
+### Use PlotSiteYrFence to specify years when a plot was fenced
+PlotSiteYrFence %>%
+  filter(fenced == "y")
+
+asmiddl$Phi$fence <-  ifelse(asmiddl$Phi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiddl$Phi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiddl$Phi$fence <- as.factor(asmiddl$Phi$fence)
+
+asmiddl$p$fence <-  ifelse(asmiddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiddl$p$fence <- as.factor(asmiddl$p$fence)
+
+  
+asmiddl$f$fence <-  ifelse(asmiddl$f$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiddl$f$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiddl$f$fence <- as.factor(asmiddl$f$fence)
+```
+
+
+First keep survival and recruitment constant and see how detection varies  
+~ time as a factor, a separate parameter for each occasion   
+~ Time as a trend, a continuous variable with a slope and intercept  (see Laake & Rexstad 2008)
+```{r}
+
+run.asmi.det <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  f.dot = list(formula =  ~ 1)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.indices, value = p.values))
+  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  # p.Plot = list(formula = ~ -1 + Plot,
+  #              fixed = list(index = p.indices, value = p.values))
+  # p.timePlot = list(formula = ~ -1 + Time:Plot,
+  #              fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmiPradelmodels <- run.asmi.det()
+save(asmiPradelmodels, file = paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
+
+```
+
+
+```{r}
+load(paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
+
+
+asmiPradelmodels$model.table
+## Changed over time
+asmiPradelmodels$Phi.dot.p.Time.f.dot$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "p") %>%
+  filter(fixed != "Fixed") %>%
+ggplot(   aes(time, estimate)) +
+  geom_point()  +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl))
+  
+
+
+
+```
+
+
+### Let detection increase over time  
+See if trend of survival or reproduction or if depends on winter ppt, summer tmax, or interaction of the two
+```{r}
+run.asmi.Phif <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  Phi.Time = list(formula = ~ Time)
+  Phi.winterppt = list(formula = ~ WinterPPT)
+  Phi.summermax = list(formula = ~ SummerMax)
+  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+    
+  f.dot = list(formula =  ~ 1)
+  f.Time = list(formula = ~ Time)
+  f.winterppt = list(formula = ~ WinterPPT)
+  f.summermax = list(formula = ~ SummerMax)
+  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+
+  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmiSurvRep <- run.asmi.Phif()
+save(asmiSurvRep, file = paste(savepath, currentyr, "asmiSurvRep.rdata", sep=""))
+```
+
+
+```{r}
+
+asmiSurvRep$model.table
+
+asmiSurvRep$Phi.Time.p.Time.f.Time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "Phi") %>%
+  filter(fixed != "Fixed") %>%
+ggplot(   aes(time, estimate)) +
+  geom_point()  +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
+  xlab("Year")+
+  ylab("Survival") +
+  theme_bw()
+
+
+asmiSurvRep$Phi.Time.p.Time.f.Time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  filter(fixed != "Fixed") %>%
+ggplot(   aes(time, estimate)) +
+  geom_point()  +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
+  xlab("Year")+
+  ylab("recruitment") +
+  theme_bw()
+
+
+
+
+```
+
+
+### Let detection increase over time  
+See if survival or reproduction change each year and if depends on winter ppt, summer tmax, or interaction of the two
+```{r}
+run.asmi.Phif2<- function(){
+  Phi.dot = list(formula = 1)
+  Phi.fence = list(formula = ~ -1 + fence)
+  Phi.fencetime = list(formula = ~ -1 +time:fence)
+  Phi.time = list(formula = ~ time)
+  Phi.plot = list(formula = ~ Plot)
+  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
+  Phi.winterppt = list(formula = ~ WinterPPT)
+  Phi.summermax = list(formula = ~ SummerMax)
+  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+    
+  f.dot = list(formula = 1)
+  f.fence = list(formula = ~ -1 + fence)
+  f.fencetime = list(formula = ~ -1 +time:fence)
+  f.time = list(formula = ~ time)
+  f.plot = list(formula = ~ Plot)
+  f.plotfence = list(formula = ~ -1 + Plot:fence)
+  f.winterppt = list(formula = ~ WinterPPT)
+  f.summermax = list(formula = ~ SummerMax)
+  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+
+  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmiSurvRep2 <- run.asmi.Phif2()
+save(asmiSurvRep2, file = paste(savepath, currentyr, "asmiSurvRep2.rdata", sep=""))
+```
+
+
+
+```{r}
+asmiSurvRep2$model.table
+
+asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "f") %>%
+  filter(fixed != "Fixed") %>%
+ggplot(   aes(time, estimate)) +
+  geom_point()  +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
+  xlab("Year")+
+  ylab("recruitment") +
+  theme_bw()
+
+
+asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real %>%
+  mutate(prams = row.names(.)) %>%
+  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
+  mutate(time = as.numeric(gsub("t", "", time))) %>%
+  filter(parameter == "Phi") %>%
+  filter(fixed != "Fixed") %>%
+  mutate(group = case_when(group == "g1" ~ "Open",
+                           group == "g238" ~ "Fenced")) %>%
+ggplot(   aes(time, estimate, color = group)) +
+  geom_point(position = position_dodge(width = 0.9))  +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9)) +
+  xlab("Year")+
+  ylab("Survival") +
+  theme_bw()
+
+## 870 rows   
+## 38 distinct rows
+asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lambda) Population Change` %>%
+  distinct()
+
+### There are 10 years with fencing
+require(plotrix)
+
+p.table <- get.real(asmiSurvRep2$Phi.fencetime.p.Time.f.time, "p", se = TRUE)
+## Missing 2024
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  mutate(plot = as.factor(plot),
+         year = as.factor(year),
+         fenced = as.factor(fenced),
+         site = as.factor(site))
+p.table <- p.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
+  mutate(fenced = case_when(fenced == "NA" ~ "n",
+                            TRUE ~ fenced))
+  # mutate(fenced = case_when(time == "2024" ~ "n",
+  #                           TRUE ~ fenced))
+estimates <- by(p.table$estimate, p.table$Time, mean)
+lcl <- by(p.table$lcl, p.table$Time, mean)
+ucl <- by(p.table$ucl, p.table$Time, mean)
+plotCI(c(1:length(estimates)), estimates, ucl-estimates, estimates-lcl, 
+         xlab = "Year",
+         ylab = "Capture probability")
+
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(time,fenced) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes( time,estimates, color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()
+
+## Lambda = phi + f
+
+
+
+
+
+paramsAll <- row.names(asmiSurvRep2$Phi.fencetime.p.Time.f.time$model.parameters)
+params <- paramsAll[grepl("Phi", paramsAll)]
+length(paramsAll[grepl("g1", paramsAll)]) ## 1 row for fixed p at zero, 29 Phi rows, one for each year
+length(paramsAll[grepl("g238", paramsAll)]) ## 10 Phi rows, one for each year of fencing
+
+
+nrow(asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real)
+
+lambdaPlot <- asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lambda) Population Change` %>%
+  bind_cols(Params = params) %>%
+  separate(Params, into = c("parameter","plot","age","time")) %>%
+  mutate(time = as.character(time)) %>%
+  mutate(time = gsub("t", "",time)) %>%
+  mutate(time = as.numeric(time)) %>%
+  mutate(plot = gsub("g","", plot)) %>%
+  mutate(Plot = as.factor(plot)) %>%
+  left_join(plotsSite) %>%
+  mutate(site = as.factor(Site))
+
+```
+

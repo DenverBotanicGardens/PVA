@@ -1,0 +1,22 @@
+---
+title: "Multistate CJS for annual analysis"
+output: html_document
+date: "2024-10-28"
+---
+
+
+```{r}
+library(RMark)
+```
+
+
+```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkDetection2024.rdata")
+
+asmi.modelsMulti$model.table
+```
+
+
+## Really, detection should depend on observers - but we have so many different people, didn't record well who did what, we semi-changed the strategy of digging around with metal detector or just digging in the dirt to find every tag. As plants died, tags might not mean there is a plant so we switched to looking for plants, then figuring out which tag they are associated with... So maybe time is a good proxy for 'trap' measures.   
+
+
