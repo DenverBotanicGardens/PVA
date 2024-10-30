@@ -439,9 +439,41 @@ ggplot(  aes( time,estimates, color = fenced) ) +
   theme_bw()
 
 ## Lambda = phi + f
+phi.table <-  get.real(asmiSurvRep2$Phi.fencetime.p.Time.f.time, "Phi", se = TRUE)
+phi.table <- phi.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) 
+phi.table %>%
+  filter(fixed != "Fixed") %>%
+  filter(group != "NA") %>%
+  filter(fenced != "NA") %>%
+  group_by(time,fenced) %>%
+  summarise(Survival = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(Survival != 0) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes( time,Survival, color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.7)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
+  theme_bw()
 
-
-
+f.table <-  get.real(asmiSurvRep2$f.fencetime.p.Time.f.time, "f", se = TRUE)
+f.table <- f.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) 
+f.table %>%
+  filter(fixed != "Fixed") %>%
+  filter(group != "NA") %>%
+  filter(fenced != "NA") %>%
+  group_by(time,fenced) %>%
+  summarise(Recruit = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(Recruit != 0) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes( time,Recruit, color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.7)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
+  theme_bw()
 
 
 paramsAll <- row.names(asmiSurvRep2$Phi.fencetime.p.Time.f.time$model.parameters)
@@ -462,6 +494,55 @@ lambdaPlot <- asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lamb
   mutate(Plot = as.factor(plot)) %>%
   left_join(plotsSite) %>%
   mutate(site = as.factor(Site))
+
+```
+
+
+
+Pradlambda
+```{r}
+
+run.asmi.lambda <- function(){
+  Phi.timeplot = list(formula =  ~ -1 + time:Plot)
+  f.timeplot = list(formula =  ~ -1 + time:Plot)
+
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.lambdaresults <- run.asmi.lambda()
+
+lam.table <- get.real(asmi.lambdaresults$Phi.plot.p.Time, "f", se = TRUE)
+lam.table <- lam.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
+  mutate(fenced = case_when(fenced == "NA" ~ "n",
+                            TRUE ~ fenced))
+
+
+lam.table %>%
+  filter(fixed != "Fixed") %>%
+  filter(fenced != "NA") %>%
+  group_by(time,fenced) %>%
+  summarise(f_recruit = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(f_recruit != 0) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes( time,f_recruit, color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()
+
+
+
+
 
 ```
 
