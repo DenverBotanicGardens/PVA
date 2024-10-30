@@ -8,6 +8,7 @@ output: html_document
 
 ```{r}
 
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 userpath <- "C:/Users/DePrengm/"
 savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
 
@@ -19,7 +20,6 @@ library(boot)
 library(ggplot2)
 library(lme4)
 
-currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 userpath <- "C:/Users/DePrengm/"
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 asmi.raw <- read.csv(rawdatapath, na.strings = "na")
@@ -180,6 +180,26 @@ asmiddl$f <- asmiddl$f %>%
   left_join(SummerMax, join_by("time" == "Prev12", 
                               "Plot" == "Plot"))
 
+SummerPPT <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "ppt" & season == "springSummer") %>%
+  rename(SummerPPT = Value) %>%
+  dplyr::select(Plot, Prev12, SummerPPT) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiddl$Phi <- asmiddl$Phi %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$p <- asmiddl$p %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiddl$f <- asmiddl$f %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
   distinct(year,plot,site,fenced)
@@ -213,13 +233,47 @@ run.asmi.det <- function(){
 
   p.dot = list(formula =  ~ 1,
                fixed = list(index = p.indices, value = p.values))
-  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
   p.Time = list(formula = ~ Time,
                fixed = list(index = p.indices, value = p.values))
   # p.Plot = list(formula = ~ -1 + Plot,
   #              fixed = list(index = p.indices, value = p.values))
   # p.timePlot = list(formula = ~ -1 + Time:Plot,
   #              fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmiPradelmodels <- run.asmi.det()
+save(asmiPradelmodels, file = paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
+
+
+## Compare models
+run.asmi.det <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  f.dot = list(formula =  ~ 1)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.indices, value = p.values))
+  ## Something else other than climate variables, just different every year, maybe surveyers 
+  p.time = list(formula = ~ -1 + time,
+               fixed = list(index = p.indices, value = p.values))
+  # Climate that might influence surrounding vegetation
+  p.winterppt = list(formula = ~ WinterPPT,
+               fixed = list(index = p.indices, value = p.values))
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  p.Plot = list(formula = ~ -1 + Plot,
+               fixed = list(index = p.indices, value = p.values))
+  p.TimePlot = list(formula = ~ -1 + Time:Plot,
+               fixed = list(index = p.indices, value = p.values))
+  p.timePlot = list(formula = ~ -1 + time:Plot,
+               fixed = list(index = p.indices, value = p.values))
   
   asmi.model.list <- create.model.list("Pradrec")
   
@@ -248,7 +302,10 @@ asmiPradelmodels$Phi.dot.p.Time.f.dot$results$real %>%
   filter(fixed != "Fixed") %>%
 ggplot(   aes(time, estimate)) +
   geom_point()  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl))
+  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
+  theme_bw() +
+  xlab("Year") +
+  ylab("Probability of Detection")
   
 
 
@@ -542,6 +599,85 @@ ggplot(  aes( time,f_recruit, color = fenced) ) +
 
 
 
+
+
+```
+
+
+
+```{r}
+
+
+run.asmi.lambda2 <- function(){
+  Phi.dot = list(formula = 1)
+  Phi.fence = list(formula = ~ -1 + fence)
+  Phi.fencetime = list(formula = ~ -1 +time:fence)
+  Phi.time = list(formula = ~ time)
+  Phi.plot = list(formula = ~ Plot)
+  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
+  Phi.winterppt = list(formula = ~ WinterPPT)
+  Phi.summermax = list(formula = ~ SummerMax)
+  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+    
+  f.dot = list(formula = 1)
+  f.fence = list(formula = ~ -1 + fence)
+  f.fencetime = list(formula = ~ -1 +time:fence)
+  f.time = list(formula = ~ time)
+  f.plot = list(formula = ~ Plot)
+  f.plotfence = list(formula = ~ -1 + Plot:fence)
+  f.winterppt = list(formula = ~ WinterPPT)
+  f.summermax = list(formula = ~ SummerMax)
+  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
+
+  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+    
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.lambdaresults2 <- run.asmi.lambda2()
+save(asmi.lambdaresults2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_lambdaresults2.rdata")
+
+```
+
+```{r}
+
+load( "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_lambdaresults2.rdata")
+asmi.lambdaresults2$model.table
+
+
+```
+
+
+## Just change in lambda over years allowed to vary by year 'time', Plot, and fence while detection incraeses over time  
+```{r}
+
+
+run.detTimePlottimefence <- function(){
+  Phi.dot = list(formula = 1)
+  Phi.plotfence = list(formula = ~ -1 + time:Plot:fence)
+  
+  f.dot = list(formula = 1)
+  f.plotfence = list(formula = ~ -1 + time:Plot:fence)
+
+  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+    
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.detTimePlottimefence <- run.detTimePlottimefence()
+save(asmi.detTimePlottimefence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_detTimePlottimefence.rdata")
 
 
 ```
