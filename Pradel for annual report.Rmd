@@ -345,6 +345,54 @@ save(asmiSurvRep, file = paste(savepath, currentyr, "asmiSurvRep.rdata", sep="")
 ```
 
 
+## Compare models  
+```{r}
+
+
+run.asmi.det2 <- function(){
+  Phi.dot = list(formula =  ~ 1)
+  f.dot = list(formula =  ~ 1)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.indices, value = p.values))
+  # Climate that might influence surrounding vegetation
+  p.winterppt = list(formula = ~ WinterPPT,
+               fixed = list(index = p.indices, value = p.values))
+  p.summerMax = list(formula = ~ SummerMax,
+               fixed = list(index = p.indices, value = p.values))
+  p.summerppt = list(formula = ~ SummerPPT,
+               fixed = list(index = p.indices, value = p.values))
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+  p.Plot = list(formula = ~ -1 + Plot,
+               fixed = list(index = p.indices, value = p.values))
+  p.TimePlot = list(formula = ~ -1 + Time:Plot,
+               fixed = list(index = p.indices, value = p.values))
+  
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmiPradeldetection <- run.asmi.det2()
+save(asmiPradeldetection, file = paste(savepath, currentyr, "asmiPradeldetection.rdata", sep=""))
+
+
+```
+
+```{r}
+
+load( paste(savepath, currentyr, "asmiPradeldetection.rdata", sep=""))
+
+asmiPradeldetection$model.table
+
+```
+
+
+
 ```{r}
 
 asmiSurvRep$model.table
