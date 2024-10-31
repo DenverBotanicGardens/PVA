@@ -7,6 +7,60 @@ date: "2024-10-28"
 
 ```{r}
 library(RMark)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(ggplot2)
+```
+
+
+```{r}
+currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
+
+##To change if someone other than Michelle is running code
+userpath <- "C:/Users/DePrengm/"
+
+rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+
+asmi.raw <- read.csv(rawdatapath, na.strings = "na")
+
+# need to remove all plot 89, site 1 in 2020 and beyond
+asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
+
+
+# For the path and start of the name of each file
+savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
+
+# Need to change all the seedling in 2014 for sites 1 and 2 to appropriate vegetative or reproductive 
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 0] <- "vegetative"
+asmi.raw$status[asmi.raw$AsMi_site_id<3 & asmi.raw$year == 2014 & asmi.raw$flower == 1] <- "reproductive"
+
+# No longer adding climate data to the database
+asmi.raw <- asmi.raw[,grep(paste(c("Temp","Rain","Snow","Aug.Jul"),collapse="|"), names(asmi.raw),
+                           value = TRUE, invert = TRUE)]
+
+asmi.raw$Browsing...Status[asmi.raw$Browsing...Status == "mammal" ] <- "Mammal"
+asmi.raw$status <- factor(asmi.raw$status)
+asmi.raw$length[asmi.raw$length == 921] <- 21
+
+# If there are fruit, it flowered and needs to be reproductive, not vegetative
+asmi.raw[asmi.raw$status=="vegetative" & asmi.raw$fruit>0,] # 5 times in 2020
+wrongAsMidataid <- asmi.raw$AsMi_data_id[asmi.raw$status=="vegetative" & asmi.raw$fruit>0]
+asmi.raw$flower[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- 1
+asmi.raw$status[asmi.raw$AsMi_data_id %in% wrongAsMidataid] <- "reproductive"
+
+asmi.raw <- asmi.raw %>%
+  mutate(status = as.character(status)) %>%
+  dplyr::mutate(status = case_when((AsMi_tag_id == 2551 & year == 2015) ~ "vegetative",
+                            TRUE ~ status)) %>%
+  mutate(status = as.factor(status))
+
+## Add Creek
+
+asmi.raw$Creek <- "SouthBeaver"
+asmi.raw$Creek[asmi.raw$AsMi_site_id < 3] <- "Cebolla" 
+asmi.raw$Creek <- as.factor(asmi.raw$Creek)
+
 ```
 
 
@@ -14,6 +68,7 @@ library(RMark)
 Multi-state model   
 ```{r}
 load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
+
 
 
 CJS_asmi <- asmi.raw %>%
@@ -48,21 +103,6 @@ dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
 dmCreek <- model.matrix(~ -1 + Creek, CJS_asmi)
 dimnames(dmCreek)[[2]][length(dimnames(dmCreek)[[2]])] ## CreekSouthBeaver
 
-# CJS_asmi %>%
-#   dplyr::select(ch) %>%
-#   bind_cols(dmPlot) %>%
-#   bind_cols(dmSite) %>%
-#   bind_cols(dmCreek) %>%
-#   mutate(CreekSouthBeaver = paste(CreekSouthBeaver, ";", sep = "")) %>%
-#   write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_markPSC.inp",
-#               sep = " ",
-#               col.names = FALSE, row.names = FALSE)
-# 
-# ## Plot Site Creek
-# asmiMultiPSC <- convert.inp("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_markPSC.inp", 
-#                             group.df = plotSiteCreek,
-#                             covariates = NULL,
-#                             use.comments = FALSE)
 
 ## Need to split by plot because different time frames and different times having fencing
 plotdf <- CJS_asmi %>%
@@ -92,7 +132,7 @@ asmiMulti.ddl <- make.design.data(asmiMulti.proc)
 ```
 
 
-Don't have to do this 
+If want to get estimates by Site or Creek, need to add this
 ```{r}
 # Add groups
 asmiMulti.ddl$S <- asmiMulti.ddl$S %>%

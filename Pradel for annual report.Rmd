@@ -206,6 +206,11 @@ PlotSiteYrFence <- asmi.all2 %>%
 ### Use PlotSiteYrFence to specify years when a plot was fenced
 PlotSiteYrFence %>%
   filter(fenced == "y")
+add2024 <- PlotSiteYrFence %>%
+  filter(year == 2023) %>%
+  mutate(year = 2024)
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  bind_rows(add2024)
 
 asmiddl$Phi$fence <-  ifelse(asmiddl$Phi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiddl$Phi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
@@ -391,6 +396,26 @@ asmiPradeldetection$model.table
 
 ```
 
+
+```{r}
+
+## Need to merge climate
+p.table <- get.real(asmiPradeldetection$Phi.dot.p.winterppt, "p", se = TRUE)
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
+  group_by(WinterPPT) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(WinterPPT, estimates)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()
+
+
+```
 
 
 ```{r}
@@ -707,13 +732,12 @@ asmi.lambdaresults2$model.table
 
 
 run.detTimePlottimefence <- function(){
-  Phi.dot = list(formula = 1)
-  Phi.plotfence = list(formula = ~ -1 + time:Plot:fence)
   
-  f.dot = list(formula = 1)
-  f.plotfence = list(formula = ~ -1 + time:Plot:fence)
+  Phi.plottimefence = list(formula = ~ -1 + time:Plot:fence)
 
-  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
+  f.plottimefence = list(formula = ~ -1 + time:Plot:fence)
+
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
   p.Time = list(formula = ~ Time,
                fixed = list(index = p.indices, value = p.values))
     
@@ -724,9 +748,127 @@ run.detTimePlottimefence <- function(){
   return(asmi.results)
 }
 
-asmi.detTimePlottimefence <- run.detTimePlottimefence()
-save(asmi.detTimePlottimefence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_detTimePlottimefence.rdata")
+asmi.detTimePlottimefence2 <- run.detTimePlottimefence()
+save(asmi.detTimePlottimefence2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_detTimePlottimefence2.rdata")
 
 
 ```
 
+
+
+```{r}
+
+
+run.Pradrec <- function(){
+  
+  Phi.plottimefence = list(formula = ~ -1 + time:Plot:fence)
+
+  f.plottimefence = list(formula = ~ -1 + time:Plot:fence)
+
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+    
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.Pradrec <- run.Pradrec()
+save(asmi.Pradrec, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_Pradrec.rdata")
+
+
+```
+
+```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_Pradrec.rdata")
+
+Phi.table <- get.real(asmi.Pradrec$Phi.plottimefence.p.Time.f.plottimefence, "Phi", se = TRUE)
+
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  mutate(plot = as.factor(plot),
+         year = as.factor(year),
+         fenced = as.factor(fenced),
+         site = as.factor(site))
+
+Phi.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
+  filter(fixed != "Fixed") %>%filter(group != "NA") %>%
+  filter(fenced != "NA") %>%
+  group_by(time,fenced) %>%
+  summarise(Survival = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(Survival != 0) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes( time,Survival, color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.7)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
+  theme_bw()
+  
+
+### Recruitment, negative recruitment?!?! What now?!
+f.table <- get.real(asmi.Pradrec$Phi.plottimefence.p.Time.f.plottimefence, "f", se = TRUE)
+
+f.table %>%
+  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
+  filter(fixed != "Fixed") %>%filter(group != "NA") %>%
+  filter(fenced != "NA") %>%
+  group_by(time,fenced) %>%
+  summarise(Recruitment = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%Or 
+  filter(Recruitment != 0) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes( time,log(Recruitment), color = fenced) ) +
+  geom_point(position = position_dodge(width = 0.7)) +
+  # geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
+  theme_bw()
+  
+
+```
+
+
+
+## Let detection increase over time (Time)
+## Too meaningless to allow survival and reproduction to just vary year to year. Need to have it be a function of climate and fencing and Plot is ok
+```{r}
+
+
+run.Pradrec <- function(){
+  
+  Phi.winterppt = list(formula = ~ WinterPPT)
+  Phi.summerppt = list(formula = ~ SummerPPT)
+  Phi.summertmax = list(formula = ~ SummerMax)
+  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
+  Phi.plotfenceWinterPPT = list(formula = ~ -1 + WinterPPT:Plot:fence)
+  Phi.plotfenceSummerppt = list(formula = ~ -1 + SummerPPT:Plot:fence)
+  Phi.plotfenceSummerMax = list(formula = ~ -1 + SummerMax:Plot:fence)
+
+
+  f.winterppt = list(formula = ~ WinterPPT)
+  f.summerppt = list(formula = ~ SummerPPT)
+  f.summertmax = list(formula = ~ SummerMax)
+  f.plotfence = list(formula = ~ -1 + Plot:fence)
+  f.plotfenceWinterPPT = list(formula = ~ -1 + WinterPPT:Plot:fence)
+  f.plotfenceSummerppt = list(formula = ~ -1 + SummerPPT:Plot:fence)
+  f.plotfenceSummerMax = list(formula = ~ -1 + SummerMax:Plot:fence)
+
+  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
+  p.Time = list(formula = ~ Time,
+               fixed = list(index = p.indices, value = p.values))
+    
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  
+  return(asmi.results)
+}
+
+asmi.PradrecClimate <- run.Pradrec()
+save(asmi.PradrecClimate, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_PradrecClimate.rdata")
+
+
+```
