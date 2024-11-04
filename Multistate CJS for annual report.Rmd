@@ -132,6 +132,105 @@ asmiMulti.ddl <- make.design.data(asmiMulti.proc)
 ```
 
 
+
+
+Add climate variables, time varying  
+Add fencing as a factor
+```{r}
+
+load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+
+
+##Winter precipitation, summer maximum temp
+WinterPPT <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "ppt" & season == "winter") %>%
+  rename(WinterPPT = Value) %>%
+  dplyr::select(Plot, Prev12, WinterPPT) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+SummerMax <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "tmax" & season == "springSummer") %>%
+  rename(SummerMax = Value) %>%
+  dplyr::select(Plot, Prev12, SummerMax) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
+  left_join(SummerMax, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+
+SummerPPT <- asmi.season %>%
+  ungroup() %>%
+  filter(Variable == "ppt" & season == "springSummer") %>%
+  rename(SummerPPT = Value) %>%
+  dplyr::select(Plot, Prev12, SummerPPT) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+  
+asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
+  left_join(SummerPPT, join_by("time" == "Prev12", 
+                              "Plot" == "Plot"))
+
+# Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
+PlotSiteYrFence <- asmi.all2 %>%
+  distinct(year,plot,site,fenced)
+### Use PlotSiteYrFence to specify years when a plot was fenced
+PlotSiteYrFence %>%
+  filter(fenced == "y")
+add2024 <- PlotSiteYrFence %>%
+  filter(year == 2023) %>%
+  mutate(year = 2024)
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  bind_rows(add2024)
+
+asmiMulti.ddl$S$Psience <-  ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
+                               asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
+asmiMulti.ddl$S$Psience <- as.factor(asmiMulti.ddl$S$Psience)
+
+asmiMulti.ddl$p$Psience <-  ifelse(asmiMulti.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
+                               asmiMulti.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
+asmiMulti.ddl$p$Psience <- as.factor(asmiMulti.ddl$p$Psience)
+
+  
+asmiMulti.ddl$Psi$Psience <-  ifelse(asmiMulti.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
+                               asmiMulti.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
+asmiMulti.ddl$Psi$Psience <- as.factor(asmiMulti.ddl$Psi$Psience)
+```
+
+
 If want to get estimates by Site or Creek, need to add this
 ```{r}
 # Add groups
@@ -176,9 +275,12 @@ asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
   distinct(year,plot,site,fenced)
-### Use PlotSiteYrFence to specify years when a plot was fenced
-PlotSiteYrFence %>%
-  filter(fenced == "y")
+## Add last year
+addLast <- PlotSiteYrFence %>%
+  filter(year == (currentyr-1))
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  bind_rows(addLast)
+
 ## Time varying fencing; as a dummy variable, not a factor
 asmiMulti.ddl$S$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                   asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
@@ -253,48 +355,41 @@ length(unique(p.indices))
 pindex %>%
   filter(par.index %in% p.indices[which(duplicated(p.indices))])
 
+```
+
+
+Should detection be consistent across strata, fencing, Creeks? 
+```{r}
+
 # nest tostratum within stratum and fence within tostratum
 ## Make a function to compare multiple models
 
 ## First check best model for detection 
 multi.asmi <- function(){
-  S.dot = list(formula = ~1)
-  # S.time = list(formula = ~ time)
-  # S.fence = list(formula = ~ fence)
-  # S.creek = list(formula = ~ Creek)
-  # S.creektime = list(formula = ~ Creek + time)
-  # S.fence = list(formula = fence + time)
-  # S.fenceCreek = list(formula = ~ fence + Creek)
+  S.dot = list(formula = ~ stratum)
   
   p.dot = list(formula = ~1,
                fixed = list(index = p.indices, value = p.values))
-  p.time = list(formula = ~ time,
+  p.fence = list(formula = ~ fence,
                fixed = list(index = p.indices, value = p.values))
-  p.fence = list(formula = ~ -1 + fence,
+  p.creek = list(formula = ~ Creek,
                fixed = list(index = p.indices, value = p.values))
-  p.creek = list(formula = ~ -1 + Creek,
+  p.strata = list(formula = ~ stratum,
                fixed = list(index = p.indices, value = p.values))
-  p.creektime = list(formula = ~ -1 + Creek + time,
+  p.stratafence = list(formula = ~ stratum*fence,
                fixed = list(index = p.indices, value = p.values))
-  ## This one ended up as ~ -1 + fence:time
-  p.fence = list(formula = -1 + fence + time,
+  p.stratafenceCreek = list(formula = ~ stratum*fence*Creek,
                fixed = list(index = p.indices, value = p.values))
-  # p.fenceCreek = list(formula = ~ fence + Creek,
-  #              fixed = list(index = p.indices, value = p.values))
-  p.strata = list(formula = ~ -1 + stratum,
+  p.Time = list(formula = ~ Time,
                fixed = list(index = p.indices, value = p.values))
-  p.stratafence = list(formula = ~ -1 + stratum:fence,
+  p.Timestrata = list(formula = ~ stratum*Time,
                fixed = list(index = p.indices, value = p.values))
-  p.stratafenceCreek = list(formula = ~ -1 + stratum:fence:Creek,
+  p.TimeCreek = list(formula = ~ Time*Creek,
+               fixed = list(index = p.indices, value = p.values))
+  p.TimeStrataCreek = list(formula = ~ Time*stratum*Creek,
                fixed = list(index = p.indices, value = p.values))
   
-  Psi.dot = list(formula = ~1)
-  # Psi.time = list(formula = ~ time)
-  # Psi.fence = list(formula = ~ fence)
-  # Psi.creek = list(formula = ~ Creek)
-  # Psi.creektime = list(formula = ~ Creek + time)
-  # Psi.fence = list(formula = fence + time)
-  # Psi.fenceCreek = list(formula = ~ fence + Creek)
+  Psi.dot = list(formula = ~ -1 + stratum:tostratum)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -304,13 +399,139 @@ multi.asmi <- function(){
   return(asmi.results)
 }
 
-asmi.modelsMulti <- multi.asmi()
+asmi.modelsMulti20241031 <- multi.asmi()
 
-save(asmi.modelsMulti, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkDetection2024.rdata")
+save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241031.rdata")
+```
 
 
-asmi.modelsMulti$model.table
+```{r}
 
+## Took 4 days to run
+# load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241031.rdata")
+# save(asmi.modelsMulti20241031, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmi_modelsMulti20241031.Rdata")
+load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmi_modelsMulti20241031.Rdata")
+
+asmi.modelsMulti20241031$model.table
+
+p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "p", se = TRUE)
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  left_join(plotSiteCreek) %>%
+  group_by(Time,Creek,stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Time, estimates, color = stratum)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")
+
+
+p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.strata.Psi.dot, "p", se = TRUE)
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  left_join(plotSiteCreek) %>%
+  group_by(Time,Creek,stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Time, estimates, color = stratum)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")
+
+
+S.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "S", se = TRUE)
+S.table %>%
+  filter(fixed != "Fixed") %>%
+  left_join(plotSiteCreek) %>%
+  group_by(Time,Creek,stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Time, estimates, color = stratum)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")
+
+
+## R to V, and V to R
+Psi.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "Psi", se = TRUE)
+Psi.table %>%
+  filter(fixed != "Fixed") %>%
+  left_join(plotSiteCreek) %>%
+  group_by(Time,Creek,stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Time, estimates, color = stratum)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  facet_wrap(~Creek, scales = "free")
+
+
+
+```
+
+
+
+### Annual building of matrix models
+These are factors that should influence survival and transitions, less so detection. Just have detection vary by strata, check factors for the rest, account for fencing in all
+```{r}
+
+starttime <- Sys.Date()
+
+run.Multi <- function(){
+  p.strata = list(formula = ~ stratum,
+                  fixed = list(index = p.indices, value = p.values))
+  
+  S.strata = list(formula = ~ stratum)
+  S.strataCreek = list(formula = ~ -1 + stratum*Creek)
+  S.strataCreekFence = list(formula = ~ -1 + stratum*Creek*fence)
+  S.strataCreekWinterPPT = list(formula = ~ -1 + stratum*Creek*WinterPPT )
+  S.strataCreekSummerPPT = list(formula = ~ -1 + stratum*Creek*SummerPPT )
+  S.strataCreekSummerMax = list(formula = ~ -1 + stratum*Creek*SummerMax )
+  S.strataCreekSummerMaxWinterPPT = list(formula = ~ -1 + stratum*Creek*SummerMax*WinterPPT )
+  
+  
+  Psi.strata = list(formula = ~ -1 + stratum:tostratum)
+  Psi.strataCreek = list(formula = ~ -1 + stratum:tostratum*Creek)
+  Psi.strataCreekFence = list(formula = ~ -1 + stratum:tostratum*Creek*fence)
+  Psi.strataCreekWinterPPT = list(formula = ~ -1 + stratum:tostratum*Creek*WinterPPT )
+  Psi.strataCreekSummerPPT = list(formula = ~ -1 + stratum:tostratum*Creek*SummerPPT )
+  Psi.strataCreekSummerMax = list(formula = ~ -1 + stratum:tostratum*Creek*SummerMax )
+  Psi.strataCreekSummerMaxWinterPPT = list(formula = ~ -1 + stratum:tostratum*Creek*SummerMax*WinterPPT )
+  
+
+  asmi.model.list <- create.model.list("Multistrata")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiMulti.proc, ddl = asmiMulti.ddl)
+  
+  return(asmi.results)
+}
+
+asmiMultimodels <- run.Multi()
+endtime <- Sys.Date()
+
+save(asmiMultimodels, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+                           starttime, "to", endtime,
+                           "multistrata.Rdata",sep=""))
+
+```
+
+
+
+
+```{r}
 ###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
 multi.mark2 <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
                    model.parameters = list(S = list(formula = ~ -1 + stratum:fence),
