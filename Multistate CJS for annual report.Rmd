@@ -532,27 +532,83 @@ save(asmiMultimodels, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic 
 
 
 ```{r}
+
+
+starttime <- Sys.Date()
 ###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
 multi.mark2 <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ -1 + stratum:fence),
-                                           p = list(formula = ~ -1 + stratum:fence,
+                   model.parameters = list(S = list(formula = ~ stratum + fence),
+                                           p = list(formula = ~ stratum*Time,
                                                     fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum:fence)))
+                                           Psi = list(formula = ~ -1 + stratum:tostratum + fence)))
 
-save(multi.mark2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkStratumFence2024.rdata")
 
-multi.mark.nofence <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ 1),
-                                           p = list(formula = ~ 1,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum)))
+endtime <- Sys.Date()
 
-## To save from DBG0077
-save(multi.mark.nofence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
+save(multi.mark2, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
+                               starttime, "multimarkStratumFence",
+                               endtime, ".rdata", sep=""))
+
+# multi.mark.nofence <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
+#                    model.parameters = list(S = list(formula = ~ 1),
+#                                            p = list(formula = ~ 1,
+#                                                     fixed = list(index = p.indices, value = p.values)),
+#                                            Psi = list(formula = ~ -1 + stratum:tostratum)))
+# 
+# ## To save from DBG0077
+# save(multi.mark.nofence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
 
 
 ## Look at Fletcher c-hat in section 5.8 Chapter 5
 ## c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
+```
+
+
+```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkStratumFence2024.rdata")
+
+
+## Doesn't seem correct that reproductive so low, vegetative so high but with huge confidence interval
+p.table <- get.real(multi.mark2, "p", se = TRUE)
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) 
+
+
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(stratum, Time) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+ggplot( aes(Time, estimates, color = stratum))+
+  geom_point()+
+  geom_errorbar(aes(ymin = lcl, ymax = ucl))
+
+
+
+```
+
+
+
+```{r}
+starttime <- Sys.Date()
+###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
+multi.mark2WinSum <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
+                   model.parameters = list(S = list(formula = ~ stratum*WinterPPT*SummerMax + fence),
+                                           p = list(formula = ~ stratum*Time,
+                                                    fixed = list(index = p.indices, value = p.values)),
+                                           Psi = list(formula = ~ -1 + stratum:tostratum*WinterPPT*SummerMax + fence)))
+
+
+endtime <- Sys.Date()
+
+save(multi.mark2WinSum, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
+                               starttime, "multimarkStratumFenceWinterSummer",
+                               endtime, ".rdata", sep=""))
 ```
 
 
