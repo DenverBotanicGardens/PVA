@@ -426,17 +426,9 @@ multi.asmi <- function(){
                fixed = list(index = p.indices, value = p.values))
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.indices, value = p.values))
-  p.stratafence = list(formula = ~ stratum*fence,
+  p.stratafence = list(formula = ~ stratum:fence,
                fixed = list(index = p.indices, value = p.values))
-  p.stratafenceCreek = list(formula = ~ stratum*fence*Creek,
-               fixed = list(index = p.indices, value = p.values))
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-  p.Timestrata = list(formula = ~ stratum*Time,
-               fixed = list(index = p.indices, value = p.values))
-  p.TimeCreek = list(formula = ~ Time*Creek,
-               fixed = list(index = p.indices, value = p.values))
-  p.TimeStrataCreek = list(formula = ~ Time*stratum*Creek,
+  p.stratafenceCreek = list(formula = ~ stratum:Creek:fence,
                fixed = list(index = p.indices, value = p.values))
   
   Psi.dot = list(formula = ~ -1 + stratum:tostratum)
@@ -451,7 +443,7 @@ multi.asmi <- function(){
 
 asmi.modelsMulti20241031 <- multi.asmi()
 
-save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241031.rdata")
+save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
 ```
 
 
@@ -464,16 +456,16 @@ load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitP
 
 asmi.modelsMulti20241031$model.table
 
-p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "p", se = TRUE)
+p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "p", se = TRUE)
 p.table %>%
   filter(fixed != "Fixed") %>%
   left_join(plotSiteCreek) %>%
-  group_by(Time,Creek,stratum) %>%
+  group_by(Creek,stratum, Age) %>%
   summarise(estimates = mean(estimate),
             lcl = mean(lcl),
             ucl = mean(ucl)) %>%
   filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
+ggplot(  aes(Age, estimates, color = stratum)) +
   geom_point(position = position_dodge(width = 0.9)) +
   geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
   theme_bw()+
@@ -496,33 +488,32 @@ ggplot(  aes(Time, estimates, color = stratum)) +
   facet_wrap(~Creek, scales = "free")
 
 
-S.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "S", se = TRUE)
+S.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "S", se = TRUE)
 S.table %>%
   filter(fixed != "Fixed") %>%
   left_join(plotSiteCreek) %>%
-  group_by(Time,Creek,stratum) %>%
+  group_by(Creek,stratum) %>%
   summarise(estimates = mean(estimate),
             lcl = mean(lcl),
             ucl = mean(ucl)) %>%
   filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
+ggplot(  aes(stratum, estimates, color = stratum)) +
   geom_point(position = position_dodge(width = 0.9)) +
   geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
   theme_bw()+
-  facet_wrap(~Creek, scales = "free")
-
+  ylab("Survival")
 
 ## R to V, and V to R
-Psi.table <- get.real(asmi.modelsMulti20241031$S.dot.p.TimeStrataCreek.Psi.dot, "Psi", se = TRUE)
+Psi.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "Psi", se = TRUE)
 Psi.table %>%
   filter(fixed != "Fixed") %>%
   left_join(plotSiteCreek) %>%
-  group_by(Time,Creek,stratum) %>%
+  group_by(Creek,stratum,tostratum) %>%
   summarise(estimates = mean(estimate),
             lcl = mean(lcl),
             ucl = mean(ucl)) %>%
   filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
+ggplot(  aes(stratum, estimates, color = tostratum)) +
   geom_point(position = position_dodge(width = 0.9)) +
   geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
   theme_bw()+
@@ -536,51 +527,8 @@ ggplot(  aes(Time, estimates, color = stratum)) +
 
 ### Annual building of matrix models
 These are factors that should influence survival and transitions, less so detection. Just have detection vary by strata, check factors for the rest, account for fencing in all
-```{r}
 
-starttime <- Sys.Date()
-
-run.Multi <- function(){
-  p.strata = list(formula = ~ stratum,
-                  fixed = list(index = p.indices, value = p.values))
-  
-  S.strata = list(formula = ~ stratum)
-  S.strataCreek = list(formula = ~ -1 + stratum*Creek)
-  S.strataCreekFence = list(formula = ~ -1 + stratum*Creek*fence)
-  S.strataCreekWinterPPT = list(formula = ~ -1 + stratum*Creek*WinterPPT )
-  S.strataCreekSummerPPT = list(formula = ~ -1 + stratum*Creek*SummerPPT )
-  S.strataCreekSummerMax = list(formula = ~ -1 + stratum*Creek*SummerMax )
-  S.strataCreekSummerMaxWinterPPT = list(formula = ~ -1 + stratum*Creek*SummerMax*WinterPPT )
-  
-  
-  Psi.strata = list(formula = ~ -1 + stratum:tostratum)
-  Psi.strataCreek = list(formula = ~ -1 + stratum:tostratum*Creek)
-  Psi.strataCreekFence = list(formula = ~ -1 + stratum:tostratum*Creek*fence)
-  Psi.strataCreekWinterPPT = list(formula = ~ -1 + stratum:tostratum*Creek*WinterPPT )
-  Psi.strataCreekSummerPPT = list(formula = ~ -1 + stratum:tostratum*Creek*SummerPPT )
-  Psi.strataCreekSummerMax = list(formula = ~ -1 + stratum:tostratum*Creek*SummerMax )
-  Psi.strataCreekSummerMaxWinterPPT = list(formula = ~ -1 + stratum:tostratum*Creek*SummerMax*WinterPPT )
-  
-
-  asmi.model.list <- create.model.list("Multistrata")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiMulti.proc, ddl = asmiMulti.ddl)
-  
-  return(asmi.results)
-}
-
-asmiMultimodels <- run.Multi()
-endtime <- Sys.Date()
-
-save(asmiMultimodels, file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
-                           starttime, "to", endtime,
-                           "multistrata.Rdata",sep=""))
-
-```
-
-
-
-
+SKIP
 ```{r}
 
 
@@ -598,15 +546,6 @@ endtime <- Sys.Date()
 save(multi.mark2, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
                                starttime, "multimarkStratumFence",
                                endtime, ".rdata", sep=""))
-
-# multi.mark.nofence <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-#                    model.parameters = list(S = list(formula = ~ 1),
-#                                            p = list(formula = ~ 1,
-#                                                     fixed = list(index = p.indices, value = p.values)),
-#                                            Psi = list(formula = ~ -1 + stratum:tostratum)))
-# 
-# ## To save from DBG0077
-# save(multi.mark.nofence, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
 
 
 ## Look at Fletcher c-hat in section 5.8 Chapter 5
@@ -644,22 +583,6 @@ ggplot( aes(Time, estimates, color = stratum))+
 
 
 Detection of vegetative would be high because after finding a new individual, more likely that it survived and was tagged and we look more closely for those that were alive sometime in the recent past. Maybe don't differentiate strata for detection? 
-```{r}
-starttime <- Sys.Date()
-###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
-multi.mark2WinSumadditive <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ stratum + WinterPPT + SummerMax + fence),
-                                           p = list(formula = ~ Time,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum + fence)))
-
-
-endtime <- Sys.Date()
-
-save(multi.mark2WinSumadditive, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimarkStratumFenceWinterSummerAdditive",
-                               endtime, ".rdata", sep=""))
-```
 
 
 Warning: "One or more encounter histories have probabilities not in interval 0-1. "    
@@ -738,6 +661,8 @@ save(multi.mark2climateinter, file = paste("Q:/Research/All_Projects_by_Species/
 
 
 ```{r}
+
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/2024-11-13multimarkStratumFenceWinterSummerinteraction2024-11-13.rdata")
 multi.mark2climateinter
 
 p.table <- get.real(multi.mark2climateinter, "p", se = TRUE)
@@ -849,11 +774,10 @@ if there are more than 2 states then want to use ~ -1 time:stratum:tostratum
 starttime <- Sys.Date()
 ###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
 multi.marktest <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ stratum * WinterPPT*SummerMax + fence),
+                   model.parameters = list(S = list(formula = ~ (stratum * WinterPPT*SummerMax * Creek):fence),
                                            p = list(formula = ~ stratum,
                                                     fixed = list(index = p.indices, value = p.values)),
-                                           # Psi = list(formula = ~ -1 + stratum:tostratum + fence)
-                                           Psi = list(formula = ~ stratum)))
+                                           Psi = list(formula = ~ -1 + stratum:tostratum:Creek:fence)))
 
 
 endtime <- Sys.Date()
@@ -879,6 +803,61 @@ Psi A to B = exp(intercept/  (1+exp(intercept) / exp(intercept))  )   = exp(inte
 Psi A to A = 1/exp(intercept)
 
 Not in the model but after getting the estimate    
+
+
+Delta method to calculate standard error    
+<http://www.phidot.org/forum/viewtopic.php?f=21&t=4158>   
+You provide the set of indices for the parameters that you want and it provides the real estimates and the var-cov matrix. So for example, you might provide the indices for time 1 for S in stratum A and the Psi for time 1 for stratum A to all the other strata. It would return the real values and their var-cov matrix. From there you would have to use deltamethod and specify the formula for the products. Now this gets messy because the formula for staying is 1-sum of moving to other strata. As an example, if you pass deltamethod a vector (SA,PsiAB,PsiAC) for strata A,B,C then you would specify list(~x1*x2,~x1*x3,~x1*(1-x2-x3)). This list will get longer as the number of strata increase but it is quite plausible to do it this way. As long as you don't need covariances between all of your calculations, it would be easiest to loop over time and strata and store the results.   
+### AMDEND THIS FOR STAYING IN ASMI!!
+```{r}
+library(RMark)
+library(msm)
+data(mstrata)
+mstrata.proc=process.data(mstrata,model="Multistrata")
+mstrata.ddl=make.design.data(mstrata.proc)
+model=mark(mstrata.proc,mstrata.ddl)
+
+compute_Phi_stay=function(ddl,model)
+  {
+   nstrata=length(levels(ddl$S$stratum))
+   Srep=do.call("rbind",lapply(split(ddl$S,ddl$S$stratum),
+     function(x) x[rep(1:nrow(x),nstrata-1),]))
+   ddl$Psi$SIndex=Srep$model.index
+   x=ddl$Psi
+   x=split(x,x$SIndex)
+   est=lapply(x, function(x){
+        covariate.predictions(model,indices=c(x$SIndex[1],x$model.index))})
+  
+   deltaformula=as.formula(paste("~x1*(1-",paste(paste("x",(2:length(levels(ddl$S$stratum))),sep=""),collapse="-"),")",sep=""))
+  
+   x=do.call("rbind",lapply(1:length(est), function(i) {
+    data.frame(estimate=as.vector(est[[i]]$estimates$estimate[1]*(1-sum(est[[i]]$estimates$estimate[2:nrow(est[[i]]$estimates)]))),
+                                                              se=as.vector(deltamethod(deltaformula,est[[i]]$estimates$estimate,est[[i]]$vcv) ) )}))
+   return(cbind(ddl$S,x))
+  }
+
+compute_Phi_stay(mstrata.ddl,model)
+```
+
+
+
+```{r}
+## get covariance between survival and transitions
+?covariate.predictions
+
+
+## Delta method for z by hand:
+## 1.  Get variance of product z=xy  
+## 2.  then compute log(z/(1-z)) and apply delta method to compute variance of z, conf interval, back transform end points to get confidence interval for z
+
+## Notes:
+### get.real gives you one parameter
+### covariate.predictions to extract both S and Psi together and get covariances between S and Psi. (even if you don't have covariates)
+### 1. pride the set of indicies for teh parameters you want, it provies the real estimates and the var-cov matrix. 
+### formula for staying (remaining in a strata) is 1-sum of moving to other strata. 
+
+?deltamethod.special
+```
 
 
 
@@ -925,6 +904,37 @@ TransitionMatrix(Psivalues[Psivalues$time== 2020,],vcv.real=Psilist$vcv.real)
 ```
 
 
+
+```{r}
+p.table <- get.real(multi.marktest, "p", vcv = FALSE)
+
+multi.marktest$results
+p.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(stratum) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(stratum, estimates)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Nest fencing, now using subtract.strata "v"  "R"  
 ```{r}
 starttime <- Sys.Date()
@@ -951,6 +961,8 @@ x:y means that nests the y within x, so for a given x, what is the y. So should 
 Not all plots (or Creek) or year, have fence, so that should be the last one.  
 Let's see if it makes a difference   
 ```{r}
+
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/2024-11-15multimark2stateSubtractStrata2024-11-15.rdata")
 ## First check best model for detection 
 multi.asmi.v2 <- function(){
   S.dot = list(formula = ~1)
@@ -1018,48 +1030,12 @@ multi.mark$results$real %>%
 
 
 
-## If do site all together, need to split out into sites with similar length surveys
-```{r}
-sitedf <- CJS_asmi %>%
-  distinct(Site)
-dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
-dimnames(dmSite)[[2]][length(dimnames(dmSite)[[2]])]
-
-CJS_asmi %>%
-  dplyr::select(ch) %>%
-  bind_cols(dmSite) %>%
-  mutate(Site26 = paste(Site26, ";", sep = "")) %>%
-  write.table(file = paste(savepath, "Multi_asmi_mark_site.inp", sep = ""), sep = " ", 
-              col.names = FALSE, row.names = FALSE)
-
-asmiMultisite <- convert.inp(paste(savepath, "Multi_asmi_mark_site.inp", sep = ""), 
-                        group.df = sitedf,
-                        covariates = NULL,
-                        use.comments = FALSE)
-
-
-asmiMultisite
-
-
-```
 
 
 
 
 
 
-
-
-
-
-
-```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkDetection2024.rdata")
-
-asmi.modelsMulti.v2$model.table
-# Oy, detection changes with each year, that's not super useful.
-
-```
 
 
 ## Really, detection should depend on observers - but we have so many different people, didn't record well who did what, we semi-changed the strategy of digging around with metal detector or just digging in the dirt to find every tag. As plants died, tags might not mean there is a plant so we switched to looking for plants, then figuring out which tag they are associated with... So maybe time is a good proxy for 'trap' measures.   
