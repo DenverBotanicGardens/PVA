@@ -138,14 +138,18 @@ strata.labels=c("1","U"))
 #change Psi parameters that are obtained by subtraction
 crdms.ddl<-make.design.data(crdms.data,
 parameters=list(Psi=list(subtract.stratum=c("1","1"))))
+levels are R then V because alphabetical
 
+By default the remain in stratum are calculated by subtraction. (One minus sum of point estimates of other transitions)   
+Computing the standard error and CI is harder. Instead, use TransitionMatrix for that. 
 ```{r}
 ## By plot, needed since plots have different lengths 
 asmiMulti.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot",
-                               strata.labels = c("V","R"))
-## Avector of strata (one for each strata) that is the tostratum that is computed by subtraction
-asmiMulti.ddl <- make.design.data(asmiMulti.proc,
-                                  parameters = list(Psi=list(subtract.stratum=c("V","R"))))
+                               strata.labels = c("R","V"))
+## A vector of strata (one for each strata) that is the tostratum that is computed by subtraction
+asmiMulti.ddl <- make.design.data(asmiMulti.proc)
+                                  # ,
+                                  # parameters = list(Psi=list(subtract.stratum=c("R","V"))))
 ```
 
 
@@ -414,7 +418,6 @@ Should detection be consistent across strata, fencing, Creeks?
 # nest tostratum within stratum and fence within tostratum
 ## Make a function to compare multiple models
 
-## First check best model for detection 
 multi.asmi <- function(){
   S.dot = list(formula = ~ stratum)
   
@@ -641,6 +644,42 @@ ggplot(  aes(SummerMax, estimates, color = stratum)) +
 
 
 
+
+```{r}
+multi.asmi <- function(){
+  S.dot = list(formula = ~ stratum)
+
+  p.strata = list(formula = ~ stratum,
+               fixed = list(index = p.indices, value = p.values))
+  Psi.dot = list(formula = ~ -1 + stratum:tostratum)
+  
+  asmi.model.list <- create.model.list("Multistrata")
+  asmi.results <- mark.wrapper(asmi.model.list, 
+                               data = asmiMulti.proc, 
+                               ddl = asmiMulti.ddl)
+  
+  return(asmi.results)
+}
+
+asmi.modelsMulti20241031 <- multi.asmi()
+
+save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Try once more before adding new individuals with more than 2 years of dormancy  
 ```{r}
 starttime <- Sys.Date()
@@ -769,7 +808,9 @@ ggplot(  aes(SummerMax, estimates, color = stratum)) +
 ```
 
 ### Do I need to fix detection of the final transition to 1?  
-if there are more than 2 states then want to use ~ -1 time:stratum:tostratum
+if there are more than 2 states then want to use ~ -1 time:stratum:tostratum   
+
+With subtract stratum gives a V and R covariate??? 
 ```{r}
 starttime <- Sys.Date()
 ###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
@@ -783,7 +824,7 @@ multi.marktest <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model =
 endtime <- Sys.Date()
 
 save(multi.marktest, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimark2state",
+                               starttime, "multimark2statenested",
                                endtime, ".rdata", sep=""))
 ```
 
@@ -803,61 +844,6 @@ Psi A to B = exp(intercept/  (1+exp(intercept) / exp(intercept))  )   = exp(inte
 Psi A to A = 1/exp(intercept)
 
 Not in the model but after getting the estimate    
-
-
-Delta method to calculate standard error    
-<http://www.phidot.org/forum/viewtopic.php?f=21&t=4158>   
-You provide the set of indices for the parameters that you want and it provides the real estimates and the var-cov matrix. So for example, you might provide the indices for time 1 for S in stratum A and the Psi for time 1 for stratum A to all the other strata. It would return the real values and their var-cov matrix. From there you would have to use deltamethod and specify the formula for the products. Now this gets messy because the formula for staying is 1-sum of moving to other strata. As an example, if you pass deltamethod a vector (SA,PsiAB,PsiAC) for strata A,B,C then you would specify list(~x1*x2,~x1*x3,~x1*(1-x2-x3)). This list will get longer as the number of strata increase but it is quite plausible to do it this way. As long as you don't need covariances between all of your calculations, it would be easiest to loop over time and strata and store the results.   
-### AMDEND THIS FOR STAYING IN ASMI!!
-```{r}
-library(RMark)
-library(msm)
-data(mstrata)
-mstrata.proc=process.data(mstrata,model="Multistrata")
-mstrata.ddl=make.design.data(mstrata.proc)
-model=mark(mstrata.proc,mstrata.ddl)
-
-compute_Phi_stay=function(ddl,model)
-  {
-   nstrata=length(levels(ddl$S$stratum))
-   Srep=do.call("rbind",lapply(split(ddl$S,ddl$S$stratum),
-     function(x) x[rep(1:nrow(x),nstrata-1),]))
-   ddl$Psi$SIndex=Srep$model.index
-   x=ddl$Psi
-   x=split(x,x$SIndex)
-   est=lapply(x, function(x){
-        covariate.predictions(model,indices=c(x$SIndex[1],x$model.index))})
-  
-   deltaformula=as.formula(paste("~x1*(1-",paste(paste("x",(2:length(levels(ddl$S$stratum))),sep=""),collapse="-"),")",sep=""))
-  
-   x=do.call("rbind",lapply(1:length(est), function(i) {
-    data.frame(estimate=as.vector(est[[i]]$estimates$estimate[1]*(1-sum(est[[i]]$estimates$estimate[2:nrow(est[[i]]$estimates)]))),
-                                                              se=as.vector(deltamethod(deltaformula,est[[i]]$estimates$estimate,est[[i]]$vcv) ) )}))
-   return(cbind(ddl$S,x))
-  }
-
-compute_Phi_stay(mstrata.ddl,model)
-```
-
-
-
-```{r}
-## get covariance between survival and transitions
-?covariate.predictions
-
-
-## Delta method for z by hand:
-## 1.  Get variance of product z=xy  
-## 2.  then compute log(z/(1-z)) and apply delta method to compute variance of z, conf interval, back transform end points to get confidence interval for z
-
-## Notes:
-### get.real gives you one parameter
-### covariate.predictions to extract both S and Psi together and get covariances between S and Psi. (even if you don't have covariates)
-### 1. pride the set of indicies for teh parameters you want, it provies the real estimates and the var-cov matrix. 
-### formula for staying (remaining in a strata) is 1-sum of moving to other strata. 
-
-?deltamethod.special
-```
 
 
 
@@ -906,7 +892,7 @@ TransitionMatrix(Psivalues[Psivalues$time== 2020,],vcv.real=Psilist$vcv.real)
 
 
 ```{r}
-p.table <- get.real(multi.marktest, "p", vcv = FALSE)
+p.table <- get.real(multi.marktest, "p", se = TRUE)
 
 multi.marktest$results
 p.table %>%
