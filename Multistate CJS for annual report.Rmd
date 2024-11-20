@@ -450,6 +450,17 @@ save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astra
 ```
 
 
+
+
+```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
+
+asmi.modelsMulti20241031
+```
+
+
+
+
 ```{r}
 
 ## Took 4 days to run
@@ -530,60 +541,8 @@ ggplot(  aes(stratum, estimates, color = tostratum)) +
 
 ### Annual building of matrix models
 These are factors that should influence survival and transitions, less so detection. Just have detection vary by strata, check factors for the rest, account for fencing in all
-
-SKIP
-```{r}
-
-
-starttime <- Sys.Date()
-###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
-multi.mark2 <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ stratum + fence),
-                                           p = list(formula = ~ stratum*Time,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum + fence)))
-
-
-endtime <- Sys.Date()
-
-save(multi.mark2, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimarkStratumFence",
-                               endtime, ".rdata", sep=""))
-
-
-## Look at Fletcher c-hat in section 5.8 Chapter 5
-## c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
-```
-
-
-```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkStratumFence2024.rdata")
-
-
-## Doesn't seem correct that reproductive so low, vegetative so high but with huge confidence interval
-p.table <- get.real(multi.mark2, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) 
-
-
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(stratum, Time) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-ggplot( aes(Time, estimates, color = stratum))+
-  geom_point()+
-  geom_errorbar(aes(ymin = lcl, ymax = ucl))
-
-
-
-```
-
+ Look at Fletcher c-hat in section 5.8 Chapter 5
+ c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
 
 Detection of vegetative would be high because after finding a new individual, more likely that it survived and was tagged and we look more closely for those that were alive sometime in the recent past. Maybe don't differentiate strata for detection? 
 
@@ -646,12 +605,12 @@ ggplot(  aes(SummerMax, estimates, color = stratum)) +
 
 
 ```{r}
-multi.asmi <- function(){
-  S.dot = list(formula = ~ stratum)
+asmiTimeFenceCreek <- function(){
+  S.dot = list(formula = ~ stratum:time:Creek:fence)
 
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.indices, value = p.values))
-  Psi.dot = list(formula = ~ -1 + stratum:tostratum)
+  Psi.dot = list(formula = ~ -1 + stratum:tostratum:time:Creek:fence)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -661,14 +620,22 @@ multi.asmi <- function(){
   return(asmi.results)
 }
 
-asmi.modelsMulti20241031 <- multi.asmi()
+asmi.modelFenceCreek <- asmiTimeFenceCreek()
 
-save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
+save(asmi.modelFenceCreek, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_timecreekfence.rdata")
 
 ```
 
+#### 
+```{r}
+load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_timecreekfence.rdata")
+
+asmi.modelFenceCreek
 
 
+
+
+```
 
 
 
