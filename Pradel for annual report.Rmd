@@ -490,9 +490,6 @@ CJS_asmi_Southbeaver %>%
               sep = " ", 
               col.names = FALSE, row.names = FALSE)
 
-CJS_asmi_Southbeaver %>%
-  filter(Plot == 581)
-
 plotdfSouthBeaver <- CJS_asmi_Southbeaver %>%
   distinct(Site,Plot) %>%
   arrange(Plot) 
@@ -531,6 +528,10 @@ p.idAdded1996 <- pindexSouthBeaver %>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
   filter((group %in% c(300,238) & time < 1996))  
 
+p.SouthBeaverindicies <- c(p.idAdded1996$par.index, 
+                           p.idAddedlater$par.index)
+p.SouthBeavervalues <- rep(0, length(p.SouthBeaverindicies))
+
 
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
@@ -560,6 +561,136 @@ asmiddlSouthBeaver$f$fence <- as.factor(asmiddlSouthBeaver$f$fence)
 
 ```
 
+```{r}
+
+run.PradrecSBC <- function(){
+  Phi.dot = list(formula =  ~ Site)
+  f.dot = list(formula =  ~ Site)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaver, ddl = asmiddlSouthBeaver)
+  
+  return(asmi.results)
+}
+
+asmiPradelmodelsSBC <- run.PradrecSBC()
+save(asmiPradelmodelsSBC, file = paste(savepath, currentyr, "asmiPradelmodelsSBC.rdata", sep=""))
+```
+
+```{r}
+
+f.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(f.estimates = estimate,
+         f.lcl = lcl,
+         f.ucl = ucl) %>%
+  select(group, Plot,f.estimates, f.lcl, f.ucl)
+
+Phi.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(Phi.estimates = estimate,
+         Phi.lcl = lcl,
+         Phi.ucl = ucl) %>%
+  select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl)
+
+
+f.tableSBCPradrec %>%
+  left_join(Phi.tableSBCPradrec) %>%
+  left_join(plotdfSouthBeaver) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates)
+  
+
+```
+
+## Get site based confidence intervals on lambda
+```{r}
+asmiprocSouthBeaverpradlambda <- process.data(asmi.inpSouthBeaver, model = "Pradlambda",
+                         groups = "Plot",
+                         begin.time = 1995)
+
+asmiddlSouthBeaverPradlambda <- make.design.data(asmiprocSouthBeaverpradlambda)
+
+## Add site to ddl
+asmiddlSouthBeaverPradlambda$Phi <- asmiddlSouthBeaverPradlambda$Phi %>%
+  left_join(plotdfSouthBeaver)
+asmiddlSouthBeaverPradlambda$Lambda <- asmiddlSouthBeaverPradlambda$Lambda %>%
+  left_join(plotdfSouthBeaver)
+
+
+
+## Fix detection, p, to zero when no survey
+pindexSouthBeaverPradlambda <- asmiddlSouthBeaverPradlambda$p %>%
+  left_join(plotdfSouthBeaver)
+
+identical(pindexSouthBeaver, pindexSouthBeaverPradlambda)
+
+
+run.PradlambdaSBC <- function(){
+  Phi.dot = list(formula =  ~ Site)
+  Lambda.dot = list(formula =  ~ Site)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.SouthBeaverindices, value = p.SouthBeavervalues))
+  
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaverpradlambda, ddl = asmiddlSouthBeaverPradlambda)
+  
+  return(asmi.results)
+}
+
+asmiPradellambdaSouthBeaver <- run.PradlambdaSBC()
+save(asmiPradellambdaSouthBeaver, file = paste(savepath, currentyr, "asmiPradellambdaSouthBeaver.rdata", sep=""))
+
+lambda.table <- get.real(asmiPradellambdaSouthBeaver$Phi.dot.p.dot.Lambda.dot, "Lambda", se = TRUE)
+lambda.table  %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(Lambda.estimates = estimate,
+         Lambda.lcl = lcl,
+         Lambda.ucl = ucl) %>%
+  select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl)
+
+
+
+## Annual
+run.Pradlambdaann <- function(){
+  Phi.timesite = list(formula =  ~ time:Site)
+  Lambda.timesite = list(formula =  ~ time:Site)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.SouthBeaverindices, value = p.SouthBeavervalues))
+  
+  asmi.model.list <- create.model.list("Pradlambda")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaverpradlambda, ddl = asmiddlSouthBeaverPradlambda)
+  
+  return(asmi.results)
+}
+
+asmiPradellambdaannSouthBeaver <- run.Pradlambdaann()
+
+lambda.table <- get.real(asmiPradellambdaannSouthBeaver$Phi.timesite.p.dot.Lambda.timesite, "Lambda", se = TRUE)
+
+SouthBeaverLambdaPlot <- lambda.table %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes(time, log(estimate), color = group)) +
+  geom_point(position = position_dodge(width = 0.2)) +
+  geom_errorbar(position = position_dodge(width = 0.2), aes(ymin = log(lcl), ymax = log(ucl)), width = 0.1) +
+  stat_smooth(method = "lm") +
+  theme_bw() +
+  scale_color_manual("",
+                     values = c("cyan3", "darkslategrey"), # hcl.colors(2,palette = "RedOr"),
+                     labels = c("1" = "SouthBeaver Mid", "16" = "SouthBeaver North")) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  ylab(expression(log(frac(N[t+1],N[t])))) +
+  xlab("Year t")
+  
+```
 
 #########################################################################################################################
 #########################################################################################################################
