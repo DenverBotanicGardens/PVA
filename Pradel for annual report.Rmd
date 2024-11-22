@@ -42,15 +42,13 @@ asmi.raw <- asmi.raw %>%
 ```
 
 
-
+# Cebolla Creek
 ```{r}
-CJS_asmi <- asmi.raw %>%
+CJS_asmi_Cebolla <- asmi.raw %>%
   dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
-  mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
-                           AsMi_site_id > 4 ~ "SouthBeaver")) %>%
-  # group_by(AsMi_tag_id) %>%
-  # filter(any(length > 0)) %>%
-  # mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
+  # mutate(Creek = case_when(AsMi_site_id < 3 ~ "Cebolla",
+  #                          AsMi_site_id > 4 ~ "SouthBeaver")) %>%
+  filter(AsMi_site_id < 3) %>%
   ungroup() %>%
   mutate(Obs = case_when(length > 0 ~ 1, 
                          length == 0 ~ 0,
@@ -59,77 +57,98 @@ CJS_asmi <- asmi.raw %>%
   mutate(Obs = as.character(Obs)) %>%
   pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
               id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence)) %>%
-  unite(ch, Year1995:Year2024, sep ="") %>%
+  unite(ch, Year2014:Year2024, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id)) %>%
   filter(grepl("1",ch))
 
-dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)  
-dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
-finalplot <- dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
+dmPlot_Cebolla <- model.matrix(~ -1 + Plot, CJS_asmi_Cebolla)  
+dimnames(dmPlot_Cebolla)[[2]][length(dimnames(dmPlot_Cebolla)[[2]])]  # Plot98
 ```
 
 
 Mark-recapture by plot    
 ```{r}
-finalplot
 
-CJS_asmi %>%
+CJS_asmi_Cebolla %>%
   dplyr::select(ch) %>%
-  bind_cols(dmPlot) %>%
-  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
+  bind_cols(dmPlot_Cebolla) %>%
+  mutate(Plot98 = paste(Plot98, ";", sep = "")) %>%
   write.table(file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
                            currentyr,
-                           "CJS_asmi_mark.inp",sep=""),
+                           "CJS_asmi_markPradelCebolla.inp",sep=""),
               sep = " ", 
               col.names = FALSE, row.names = FALSE)
 
-plotdf <- CJS_asmi %>%
+plotdfCebolla <- CJS_asmi_Cebolla %>%
   distinct(Site,Plot)
 
 ## Convert for MARK  
-asmi.inp <- convert.inp(paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",currentyr,"CJS_asmi_mark.inp",sep=""), 
-                        group.df = plotdf,
+asmi.inpCebolla <- convert.inp(paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+                              currentyr,
+                              "CJS_asmi_markPradelCebolla.inp",sep=""), 
+                        group.df = plotdfCebolla,
                         covariates = NULL,
                         use.comments = FALSE)
 
 
-asmiproc <- process.data(asmi.inp, model = "Pradrec",
+asmiprocCebolla <- process.data(asmi.inpCebolla, model = "Pradrec",
                          groups = "Plot",
-                         begin.time = 1995)
+                         begin.time = 2014)
 
-asmiddl <- make.design.data(asmiproc)
+asmiddlCebolla <- make.design.data(asmiprocCebolla)
+
+## Add site to ddl
+asmiddlCebolla$Phi <- asmiddlCebolla$Phi %>%
+  left_join(plotdfCebolla)
+asmiddlCebolla$f <- asmiddlCebolla$f %>%
+  left_join(plotdfCebolla)
+
+
 
 ## Fix detection, p, to zero when no survey
-pindex <- asmiddl$p %>%
+pindexCebolla <- asmiddlCebolla$p %>%
   left_join(plotdf)
-p.indexCebolla <- pindex %>%
-  mutate(time = as.numeric(as.character(time)))%>%
-  ## Added in 2014
-  filter((Site %in% c(1,2) & time < 2014))
-p.indexCebolla52 <- pindex %>%
-  mutate(time = as.numeric(as.character(time)))%>%
-  ## Lost 52 data in 2024
-  filter((Plot %in% c(52) & time == 2024))
-p.idAddedlater <- pindex %>%
-  mutate(time = as.numeric(as.character(time)))%>%
-  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(598) & time < 2004))
-p.idAdded1996 <- pindex %>%
-  mutate(time = as.numeric(as.character(time)))%>%
-  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(300,238) & time < 1996))  
 
-## Fixed indices
-p.indices <- c(p.indexCebolla$par.index, p.indexCebolla52$par.index,
-               p.idAdded1996$par.index, p.idAddedlater$par.index)
-p.values <- rep(0, length(p.indices))
+p.Cebolla89 <- pindexCebolla %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
+  filter((group %in% c(89) & 
+            time >= 2019))
+
+p.Cebolla.missing2024 <- pindexCebolla %>%
+  filter((group %in% c("52") &
+            time %in% c("2024")))
+
+p.Cebollaindices <- unique(c(p.Cebolla89$par.index, 
+                             p.Cebolla.missing2024$par.index)) 
+
+p.Cebollavalues <- rep(0, length(p.Cebollaindices))
+
+########################################################################################################
+### Fix detection to 1 for the final survey
+## Just for 2024
+## All the 89s are already zeros for 2019 and later so make them 1 in 2018
+
+p.OneinfinalCebolla <- pindexCebolla %>%
+  filter(group == "89" & time == "2018" | 
+           time == "2024" & !( group %in% c("89","52") )| 
+           group == "52" & time == "2023" )
+
+p1.Cebollaindices <- p.OneinfinalCebolla$par.index
+p1.Cebollavalues <- rep(1, length(p1.Cebollaindices))
+
+## put the zeros and ones together
+p.Cebollaindices <- c(p.Cebollaindices, p1.Cebollaindices)
+p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
 
 
 
 ```
 
+
+### HAVEN'T UPDATED YET
 Add climate variables, time varying  
 Add fencing as a factor
 ```{r}
@@ -200,6 +219,132 @@ asmiddl$f <- asmiddl$f %>%
   left_join(SummerPPT, join_by("time" == "Prev12", 
                               "Plot" == "Plot"))
 
+### By Site and Creek
+asmiddl$Phi <- asmiddl$Phi %>%
+  left_join(plotSiteCreek)
+
+asmiddl$p <- asmiddl$p %>%
+  left_join(plotSiteCreek)
+
+asmiddl$f <- asmiddl$f %>%
+  left_join(plotSiteCreek)
+
+```
+
+
+```{r}
+
+run.Pradrec <- function(){
+  Phi.dot = list(formula =  ~ Site)
+  f.dot = list(formula =  ~ Site)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocCebolla, ddl = asmiddlCebolla)
+  
+  return(asmi.results)
+}
+
+asmiPradelmodelsCebolla <- run.Pradrec()
+save(asmiPradelmodelsCebolla, file = paste(savepath, currentyr, "asmiPradelmodelsCebolla.rdata", sep=""))
+```
+
+```{r}
+asmiPradelmodelsCebolla
+
+f.table <- get.real(asmiPradelmodelsCebolla$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(f.estimates = estimate,
+         f.lcl = lcl,
+         f.ucl = ucl) %>%
+  select(group, Plot,f.estimates, f.lcl, f.ucl)
+
+Phi.table <- get.real(asmiPradelmodelsCebolla$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(Phi.estimates = estimate,
+         Phi.lcl = lcl,
+         Phi.ucl = ucl) %>%
+  select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl)
+
+f.table %>%
+  left_join(Phi.table) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates)
+```
+
+## Annual
+```{r}
+
+run.Pradrecann <- function(){
+  Phi.dot = list(formula =  ~ time:Site)
+  f.dot = list(formula =  ~ time:Site)
+
+  p.dot = list(formula =  ~ 1,
+               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
+  
+  asmi.model.list <- create.model.list("Pradrec")
+  
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocCebolla, ddl = asmiddlCebolla)
+  
+  return(asmi.results)
+}
+
+asmiPradelmodelsCebollaann <- run.Pradrecann()
+save(asmiPradelmodelsCebollaann, file = paste(savepath, currentyr, "asmiPradelmodelsCebollaann.rdata", sep=""))
+```
+
+```{r}
+f.tableann <- get.real(asmiPradelmodelsCebollaann$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(f.estimates = estimate,
+         f.lcl = lcl,
+         f.ucl = ucl) %>%
+  select(group, time, Plot,f.estimates, f.lcl, f.ucl)
+
+Phi.tableann <- get.real(asmiPradelmodelsCebollaann$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(Phi.estimates = estimate,
+         Phi.lcl = lcl,
+         Phi.ucl = ucl) %>%
+  select(group, time,  Plot,Phi.estimates, Phi.lcl, Phi.ucl)
+
+f.tableann %>%
+  left_join(Phi.tableann) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes(time, Lambda.estimate, color = group)) +
+  geom_point() +
+  stat_smooth(method = "lm")
+
+```
+
+
+First keep survival and recruitment constant and see how detection varies  
+Good if we had variables where we'd expect detection to change, like observer or habitat. Could test plot
+~ time as a factor, a separate parameter for each occasion   
+~ Time as a trend, a continuous variable with a slope and intercept  (see Laake & Rexstad 2008)
+
+
+
+
+
+### South Beaver Creek  
+
+```{r}
+p.idAddedlater <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(598) & time < 2004))
+p.idAdded1996 <- pindex %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(300,238) & time < 1996))  
+
+
+
+
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
   distinct(year,plot,site,fenced)
@@ -224,118 +369,37 @@ asmiddl$p$fence <- as.factor(asmiddl$p$fence)
 asmiddl$f$fence <-  ifelse(asmiddl$f$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiddl$f$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
 asmiddl$f$fence <- as.factor(asmiddl$f$fence)
-```
-
-
-First keep survival and recruitment constant and see how detection varies  
-~ time as a factor, a separate parameter for each occasion   
-~ Time as a trend, a continuous variable with a slope and intercept  (see Laake & Rexstad 2008)
-```{r}
-
-run.asmi.det <- function(){
-  Phi.dot = list(formula =  ~ 1)
-  f.dot = list(formula =  ~ 1)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.indices, value = p.values))
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-  # p.Plot = list(formula = ~ -1 + Plot,
-  #              fixed = list(index = p.indices, value = p.values))
-  # p.timePlot = list(formula = ~ -1 + Time:Plot,
-  #              fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmiPradelmodels <- run.asmi.det()
-save(asmiPradelmodels, file = paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
-
-
-## Compare models
-run.asmi.det <- function(){
-  Phi.dot = list(formula =  ~ 1)
-  f.dot = list(formula =  ~ 1)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.indices, value = p.values))
-  ## Something else other than climate variables, just different every year, maybe surveyers 
-  p.time = list(formula = ~ -1 + time,
-               fixed = list(index = p.indices, value = p.values))
-  # Climate that might influence surrounding vegetation
-  p.winterppt = list(formula = ~ WinterPPT,
-               fixed = list(index = p.indices, value = p.values))
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-  p.Plot = list(formula = ~ -1 + Plot,
-               fixed = list(index = p.indices, value = p.values))
-  p.TimePlot = list(formula = ~ -1 + Time:Plot,
-               fixed = list(index = p.indices, value = p.values))
-  p.timePlot = list(formula = ~ -1 + time:Plot,
-               fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmiPradelmodels <- run.asmi.det()
-save(asmiPradelmodels, file = paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
-
-```
-
-
-```{r}
-load(paste(savepath, currentyr, "asmiPradelmodels.rdata", sep=""))
-
-
-asmiPradelmodels$model.table
-## Changed over time
-asmiPradelmodels$Phi.dot.p.Time.f.dot$results$real %>%
-  mutate(prams = row.names(.)) %>%
-  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
-  mutate(time = as.numeric(gsub("t", "", time))) %>%
-  filter(parameter == "p") %>%
-  filter(fixed != "Fixed") %>%
-ggplot(   aes(time, estimate)) +
-  geom_point()  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
-  theme_bw() +
-  xlab("Year") +
-  ylab("Probability of Detection")
-  
-
 
 
 ```
 
 
-### Let detection increase over time  
+#########################################################################################################################
+#########################################################################################################################
+#########################################################################################################################
+
+
+
+
+### Let detection differ by site 
 See if trend of survival or reproduction or if depends on winter ppt, summer tmax, or interaction of the two
 ```{r}
 run.asmi.Phif <- function(){
   Phi.dot = list(formula =  ~ 1)
-  Phi.Time = list(formula = ~ Time)
+  Phi.age = list(formula = ~ Age)
+  Phi.creek = list(formula = ~ Creek)
   Phi.winterppt = list(formula = ~ WinterPPT)
   Phi.summermax = list(formula = ~ SummerMax)
   Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
     
   f.dot = list(formula =  ~ 1)
-  f.Time = list(formula = ~ Time)
+  f.age = list(formula = ~ Age)
+  f.creek = list(formula = ~ Creek)
   f.winterppt = list(formula = ~ WinterPPT)
   f.summermax = list(formula = ~ SummerMax)
   f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
 
-  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
+  p.Plot = list(formula = ~ Plot,
                fixed = list(index = p.indices, value = p.values))
   
   asmi.model.list <- create.model.list("Pradrec")
@@ -348,6 +412,109 @@ run.asmi.Phif <- function(){
 asmiSurvRep <- run.asmi.Phif()
 save(asmiSurvRep, file = paste(savepath, currentyr, "asmiSurvRep.rdata", sep=""))
 ```
+
+```{r}
+
+load(paste(savepath, currentyr, "asmiSurvRep.rdata", sep=""))
+asmiSurvRep
+
+Phi.table <- get.real(asmiSurvRep$Phi.age.p.Plot.f.age, "Phi", se = TRUE)
+Phi.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(Age) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Age, estimates)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  ylab("Survival")
+
+
+f.table <- get.real(asmiSurvRep$Phi.age.p.Plot.f.age, "f", se = TRUE)
+f.table %>%
+  filter(fixed != "Fixed") %>%
+  group_by(Age) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(Age, estimates)) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
+  theme_bw()+
+  ylab("Recruitment")
+
+
+## Need ~ time
+## Lambda 
+Phi.table2 <- get.real(asmiSurvRep$Phi.winpptsummax.p.Plot.f.age, "Phi", se = TRUE)
+f.table2 <- get.real(asmiSurvRep$Phi.winpptsummax.p.Plot.f.age, "f", se = TRUE)
+Phi.table2 %>%
+  select(estimate:Plot) %>%
+  rename(Phi.estimate = estimate,
+         Phi.se = se,
+         Phi.lcl = lcl,
+         Phi.ucl = ucl) %>%
+  left_join(f.table2) %>%
+  left_join(plotdf) %>%
+  mutate(lambda = estimate + Phi.estimate) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+  mutate(Creek = case_when(Site %in% c(5,15,19,26) ~ "South Beaver",
+                           TRUE ~ "Cebolla")) %>%
+  group_by(Creek,time) %>%
+  summarise(mean.lambda = mean(lambda)) %>%
+  filter(Creek == "South Beaver" | (Creek == "Cebolla" & time > 2013)) %>%
+ggplot(  aes(time, log(mean.lambda))) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  theme_bw() +
+  facet_wrap(~Creek, scales = "free")
+  
+
+### Is it that there are more individuals as precipitation increases so per capita recruitment goes down? 
+f.table2 <- get.real(asmiSurvRep$Phi.age.p.Plot.f.winpptsummax, "f", se = TRUE)
+f.table2 %>%
+  filter(fixed != "Fixed") %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
+  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
+  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 3)) %>%
+  group_by(Age,ppt_winter_bin, SummerMax) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(SummerMax, estimates, color = Age)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9) +
+  theme_bw()+
+  facet_wrap(~ppt_winter_bin) +
+  ylab("Recruitment")
+
+f.table2 %>%
+  filter(fixed != "Fixed") %>%
+  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
+  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
+  mutate(max_summer_bin = cut(SummerMax, breaks = 3)) %>%
+  group_by(max_summer_bin, WinterPPT) %>%
+  summarise(estimates = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) %>%
+  filter(estimates != 0) %>%
+ggplot(  aes(WinterPPT, estimates)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9) +
+  theme_bw()+
+  facet_wrap(~max_summer_bin) +
+  ylab("Recruitment")
+
+## No population size from this, need closed estimates to get population size
+asmiSurvRep$Phi.age.p.Plot.f.age$results$derived$`log(Lambda) Population Change`
+```
+
+
 
 
 ## Compare models  
@@ -455,7 +622,7 @@ ggplot(   aes(time, estimate)) +
 ```
 
 
-### Let detection increase over time  
+### Let detection increase over time  !! No, don't
 See if survival or reproduction change each year and if depends on winter ppt, summer tmax, or interaction of the two
 ```{r}
 run.asmi.Phif2<- function(){
@@ -497,6 +664,8 @@ save(asmiSurvRep2, file = paste(savepath, currentyr, "asmiSurvRep2.rdata", sep="
 
 
 ```{r}
+
+load(paste(savepath, currentyr, "asmiSurvRep2.rdata", sep=""))
 asmiSurvRep2$model.table
 
 asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real %>%
@@ -632,28 +801,42 @@ lambdaPlot <- asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lamb
 Pradlambda
 ```{r}
 
-run.asmi.lambda <- function(){
-  Phi.timeplot = list(formula =  ~ -1 + time:Plot)
-  f.timeplot = list(formula =  ~ -1 + time:Plot)
+asmiprocPradlambda <- process.data(asmi.inp, model = "Pradlambda",
+                         groups = "Plot",
+                         begin.time = 1995)
+asmiddlPradlambda <- make.design.data(asmiprocPradlambda)
 
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
+
+run.asmi.lambda <- function(){
+  Phi.timePlot = list(formula =  ~ time:Plot)
+  Lambda.timeplot = list(formula =  ~ time:Plot)
+
+  p.plot = list(formula = ~ Plot,
                fixed = list(index = p.indices, value = p.values))
   
   asmi.model.list <- create.model.list("Pradlambda")
   
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocPradlambda, ddl = asmiddlPradlambda)
   
   return(asmi.results)
 }
 
 asmi.lambdaresults <- run.asmi.lambda()
+save(asmi.lambdaresults, file = "C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmiLambda.Rdata")
 
-lam.table <- get.real(asmi.lambdaresults$Phi.plot.p.Time, "f", se = TRUE)
-lam.table <- lam.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
-  mutate(fenced = case_when(fenced == "NA" ~ "n",
-                            TRUE ~ fenced))
+```
+
+```{r}
+
+load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmiLambda.Rdata")
+
+lam.table <- get.real(asmi.lambdaresults$Phi.timePlot.p.plot.Lambda.timeplot, "Lambda", se = TRUE)
+lam.table %>%
+  left_join(plotdf) %>%
+  group_by(Site, Plot) %>%
+  summarise(lambda = mean(estimate),
+            lcl = mean(lcl),
+            ucl = mean(ucl)) 
 
 
 lam.table %>%
@@ -766,7 +949,7 @@ run.Pradrec <- function(){
   f.plottimefence = list(formula = ~ -1 + time:Plot:fence)
 
   ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
+  p.Time = list(formula = ~ 1,
                fixed = list(index = p.indices, value = p.values))
     
   asmi.model.list <- create.model.list("Pradrec")
@@ -832,7 +1015,7 @@ ggplot(  aes( time,log(Recruitment), color = fenced) ) +
 
 
 
-## Let detection increase over time (Time)
+## 
 ## Too meaningless to allow survival and reproduction to just vary year to year. Need to have it be a function of climate and fencing and Plot is ok
 ```{r}
 
@@ -857,7 +1040,7 @@ run.Pradrec <- function(){
   f.plotfenceSummerMax = list(formula = ~ -1 + SummerMax:Plot:fence)
 
   ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
+  p.Time = list(formula = ~ 1,
                fixed = list(index = p.indices, value = p.values))
     
   asmi.model.list <- create.model.list("Pradrec")
