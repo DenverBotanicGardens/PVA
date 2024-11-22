@@ -318,6 +318,47 @@ ggplot(  aes(time, Lambda.estimate, color = group)) +
   geom_point() +
   stat_smooth(method = "lm")
 
+
+f.tableann %>%
+  left_join(Phi.tableann) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
+  left_join(WinterPPT, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  left_join(SummerMax, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
+  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes(SummerMax, Lambda.estimate, color = group)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  facet_wrap(~ ppt_winter_bin)
+
+f.tableann %>%
+  left_join(WinterPPT, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  left_join(SummerMax, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
+  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes(SummerMax, f.estimates, color = group)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  facet_wrap(~ ppt_winter_bin)
+
+Phi.tableann %>%
+  left_join(WinterPPT, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  left_join(SummerMax, join_by("time" == "Prev12",
+                               "Plot" == "Plot")) %>%
+  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
+  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+ggplot(  aes(SummerMax, Phi.estimates, color = group)) +
+  geom_point() +
+  stat_smooth(method = "lm") 
+
 ```
 
 
