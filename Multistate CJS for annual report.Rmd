@@ -70,64 +70,6 @@ Multi-state model
 load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
 
 
-
-CJS_asmi <- asmi.raw %>%
-  filter(!is.na(year)) %>%  
-  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence,Creek)) %>%
-  group_by(AsMi_tag_id) %>%
-  filter(any(length > 0)) %>%
-  mutate(first.cap.stage = status[which.min(year[length>0])]) %>%
-  ungroup() %>%
-  mutate(Obs = case_when(status %in% c("seedling","vegetative") ~ "V",
-                         status == "reproductive" ~ "R",
-                         status %in% c("dormant","dead") ~ "0",
-                         TRUE ~ "0")) %>%
-  arrange(year) %>%
-  mutate(Obs = as.character(Obs)) %>%
-  pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
-              id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence,first.cap.stage, Creek)) %>%
-  ### UPDATE TO CURRENT YEAR ######
-  unite(ch, Year1995:Year2024, sep ="") %>%
-  mutate(Tag = as.factor(AsMi_tag_id),
-         Site = as.factor(AsMi_site_id),
-         Plot = as.factor(AsMi_plot_id),
-         Creek = as.factor(Creek)) %>%
-  relocate(Creek, .after = Plot) %>%
-  filter((grepl("R",ch) | grepl("V",ch)))
-
-CJS_asmi %>%
-  filter(!(grepl("V",ch) & grepl("R", ch)) & !grepl("R", ch) & !grepl("V", ch) )
-
-# Any factor is a group variable, any numeric can be a covariate
-plotSiteCreek <- CJS_asmi %>%
-  distinct(Plot,Site,Creek)
-dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
-dmSite <- model.matrix(~ -1 + Site, CJS_asmi)
-dmCreek <- model.matrix(~ -1 + Creek, CJS_asmi)
-dimnames(dmCreek)[[2]][length(dimnames(dmCreek)[[2]])] ## CreekSouthBeaver
-
-
-## Need to split by plot because different time frames and different times having fencing
-plotdf <- CJS_asmi %>%
-  distinct(Plot)
-dmPlot <- model.matrix(~ -1 + Plot, CJS_asmi)
-dimnames(dmPlot)[[2]][length(dimnames(dmPlot)[[2]])]
-
-CJS_asmi %>%
-  dplyr::select(ch) %>%
-  bind_cols(dmPlot) %>%
-  mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
-   ### FOR DBG0077
-  write.table(file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp",sep = " ",
-  # write.table(file = paste(savepath, "Multi_asmi_mark.inp", sep = ""), sep = " ",
-              col.names = FALSE, row.names = FALSE)
-
-asmiMulti <- convert.inp(
-  "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/Multi_asmi_mark.inp",
-  # paste(savepath, "Multi_asmi_mark.inp", sep = ""),
-                        group.df = plotdf,
-                        covariates = NULL,
-                        use.comments = FALSE)
 ```
 
 
@@ -142,400 +84,11 @@ levels are R then V because alphabetical
 
 By default the remain in stratum are calculated by subtraction. (One minus sum of point estimates of other transitions)   
 Computing the standard error and CI is harder. Instead, use TransitionMatrix for that. 
-```{r}
-## By plot, needed since plots have different lengths 
-asmiMulti.proc <- process.data(asmiMulti, begin.time = 1995, model = "Multistrata", groups = "Plot",
-                               strata.labels = c("R","V"))
-## A vector of strata (one for each strata) that is the tostratum that is computed by subtraction
-asmiMulti.ddl <- make.design.data(asmiMulti.proc)
-                                  # ,
-                                  # parameters = list(Psi=list(subtract.stratum=c("R","V"))))
-```
-
 
 
 
 Add climate variables, time varying  
 Add fencing as a factor
-```{r}
-
-load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
-
-
-##Winter precipitation, summer maximum temp
-WinterPPT <- asmi.season %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "winter") %>%
-  rename(WinterPPT = Value) %>%
-  dplyr::select(Plot, Prev12, WinterPPT) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-SummerMax <- asmi.season %>%
-  ungroup() %>%
-  filter(Variable == "tmax" & season == "springSummer") %>%
-  rename(SummerMax = Value) %>%
-  dplyr::select(Plot, Prev12, SummerMax) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
-  left_join(SummerMax, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
-  left_join(SummerMax, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
-  left_join(SummerMax, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-
-SummerPPT <- asmi.season %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "springSummer") %>%
-  rename(SummerPPT = Value) %>%
-  dplyr::select(Plot, Prev12, SummerPPT) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
-  left_join(SummerPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
-  left_join(SummerPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-  
-asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
-  left_join(SummerPPT, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
-
-# Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
-PlotSiteYrFence <- asmi.all2 %>%
-  distinct(year,plot,site,fenced)
-### Use PlotSiteYrFence to specify years when a plot was fenced
-PlotSiteYrFence %>%
-  filter(fenced == "y")
-add2024 <- PlotSiteYrFence %>%
-  filter(year == 2023) %>%
-  mutate(year = 2024)
-PlotSiteYrFence <- PlotSiteYrFence %>%
-  bind_rows(add2024)
-
-asmiMulti.ddl$S$Psience <-  ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMulti.ddl$S$Psience <- as.factor(asmiMulti.ddl$S$Psience)
-
-asmiMulti.ddl$p$Psience <-  ifelse(asmiMulti.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMulti.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMulti.ddl$p$Psience <- as.factor(asmiMulti.ddl$p$Psience)
-
-  
-asmiMulti.ddl$Psi$Psience <-  ifelse(asmiMulti.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMulti.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMulti.ddl$Psi$Psience <- as.factor(asmiMulti.ddl$Psi$Psience)
-```
-
-
-If want to get estimates by Site or Creek, need to add this
-```{r}
-# Add groups
-asmiMulti.ddl$S <- asmiMulti.ddl$S %>%
-  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
-  mutate(Site = as.factor(Site)) %>%
-  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
-                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
-  mutate(Creek = as.factor(Creek))
-
-asmiMulti.ddl$p <- asmiMulti.ddl$p %>%
-  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
-  mutate(Site = as.factor(Site)) %>%
-  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
-                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
-  mutate(Creek = as.factor(Creek))
-asmiMulti.ddl$Psi <- asmiMulti.ddl$Psi %>%
-  mutate(Site = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 1] ~ 1,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 2] ~ 2,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 5] ~ 5,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 15] ~ 15,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 19] ~ 19,
-                          Plot %in% plotSiteCreek$Plot[plotSiteCreek$Site == 26] ~ 26)) %>%
-  mutate(Site = as.factor(Site)) %>%
-  mutate(Creek = case_when(Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "SouthBeaver"] ~ "SouthBeaver",
-                           Plot %in% plotSiteCreek$Plot[plotSiteCreek$Creek == "Cebolla"] ~ "Cebolla")) %>%
-  mutate(Creek = as.factor(Creek))
-
-```
-    
-```{r}
-# Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
-PlotSiteYrFence <- asmi.all2 %>%
-  distinct(year,plot,site,fenced)
-## Add last year
-addLast <- PlotSiteYrFence %>%
-  filter(year == (currentyr-1))
-PlotSiteYrFence <- PlotSiteYrFence %>%
-  bind_rows(addLast)
-
-## Time varying fencing; as a dummy variable, not a factor
-asmiMulti.ddl$S$fence <- ifelse(asmiMulti.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
-                                  asmiMulti.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
-asmiMulti.ddl$S$fence <- as.factor(asmiMulti.ddl$S$fence) ## Should be numeric, and it is.
-
-asmiMulti.ddl$Psi$fence <- ifelse(asmiMulti.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
-                                  asmiMulti.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
-asmiMulti.ddl$Psi$fence <- as.factor(asmiMulti.ddl$Psi$fence)
-
-asmiMulti.ddl$p$fence <- ifelse(asmiMulti.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
-                                  asmiMulti.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
-asmiMulti.ddl$p$fence <- as.factor(asmiMulti.ddl$p$fence)
-
-
-### Need to note, no surveys for some plots 1995, before 2004, before 2014, and after 2019
-# i.e. fix indices as detection == 0 on occasions where there were no observations
-
-# ps.asmi <- ps.asmi[!(ps.asmi$Plot == 89 & ps.asmi$Year > 2019),]
-# ps.asmi <- ps.asmi[!(ps.asmi$Site < 3 & ps.asmi$Year < 2014),]
-# ps.asmi <- ps.asmi[!(ps.asmi$Plot == 598 & ps.asmi$Year < 2004),]
-# ps.asmi <- ps.asmi[!(ps.asmi$Plot == 300 & ps.asmi$Year < 1996),]
-# ps.asmi <- ps.asmi[!(ps.asmi$Plot == 238 & ps.asmi$Year < 1996),]
-
-## Should this have been time?! not cohort?? No, cohort and time 
-plotsSite <- CJS_asmi %>%
-  distinct(Plot,Site)
-pindex <- asmiMulti.ddl$p 
-p.idAddedlater <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(598) & cohort < 2004))
-p.idAdded1996 <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(300,238) & cohort < 1996))  
-p.Cebolla <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  filter((group %in% c(1,22,32,42,52,16,58,89,90,96,98) & 
-            cohort < 2013))
-## Need to stop at '2018'to 2019 because no 2020
-p.Cebolla89 <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  filter((group %in% c(89) & 
-            cohort >= 2019))
-## None of them will be 2024 because it's going into 2024, need to be the 2023? And get rid of the '2024' to 2025
-p.Cebolla.missing2024 <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  filter((group %in% c("52") &
-            cohort %in% c(2024)))
-p.Cebolla.missing2024_time <- pindex %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  filter((group %in% c(52) & time %in% c("2024")))
-  
-## Fixed indices
-p.indices <- 
-  unique(c(p.idAdded1996$par.index, p.idAddedlater$par.index,
-               p.Cebolla$par.index, p.Cebolla89$par.index,
-               p.Cebolla.missing2024$par.index,p.Cebolla.missing2024_time$par.index))
-p.values <- rep(0, length(p.indices))
-
-########################################################################################################
-### Fix detection to 1 for the final survey
-## Just for 2024
-p.Oneinfinal <- pindex %>%
-  mutate(group = as.numeric(as.character(group))) %>%
-  mutate(cohort = as.numeric(as.character(cohort))) %>%
-  filter(!(group %in%  c(52,89)) & time %in% currentyr) %>%
-  filter(!(group %in% c(1,16,22,32,42,52,58,89,90,96,98) & cohort < 2013)) %>%
-  filter(!(group %in% c(238,300) & cohort == 1995)) %>%
-  filter(!(group == 598 & cohort < 2004))
-
-## Other years when current year measured all plots, except 89 that got dropped
-# p.Oneinfinal <- pindex %>%
-  # mutate(group = as.numeric(as.character(group))) %>%
-  # mutate(cohort = as.numeric(as.character(cohort))) %>%
-  # filter(!(group %in%  c(89)) & time %in% currentyr) %>%
-  # filter(!(group %in% c(1,16,22,32,42,52,58,89,90,96,98) & cohort < 2013)) %>%
-  # filter(!(group %in% c(238,300) & cohort == 1995)) %>%
-  # filter(!(group == 598 & cohort < 2004))
-  
-p1.indices <- p.Oneinfinal$par.index
-p1.values <- rep(1, length(p1.indices))
-#########################################################################################################
-
-p.indices <- c(p.indices, p1.indices)
-p.values <- c(p.values, p1.values)
-
-## 10 repeats
-length(p.indices) -
-length(unique(p.indices))
-
-## All the plot 52 in 2024 times! Oh, from the ones where the cohort was 1995:2012 (which is through year 2013)
-## Added unique above to fix
-pindex %>%
-  filter(par.index %in% p.indices[which(duplicated(p.indices))]) %>%
-  distinct(group, cohort)
-
-pindex %>%
-  filter(par.index %in% p.indices[which(duplicated(p.indices))]) %>%
-  distinct(group)
-
-```
-
-
-Should detection be consistent across strata, fencing, Creeks? 
-```{r}
-
-# nest tostratum within stratum and fence within tostratum
-## Make a function to compare multiple models
-
-multi.asmi <- function(){
-  S.dot = list(formula = ~ stratum)
-  
-  p.dot = list(formula = ~1,
-               fixed = list(index = p.indices, value = p.values))
-  p.fence = list(formula = ~ fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.creek = list(formula = ~ Creek,
-               fixed = list(index = p.indices, value = p.values))
-  p.strata = list(formula = ~ stratum,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratafence = list(formula = ~ stratum:fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratafenceCreek = list(formula = ~ stratum:Creek:fence,
-               fixed = list(index = p.indices, value = p.values))
-  
-  Psi.dot = list(formula = ~ -1 + stratum:tostratum)
-  
-  asmi.model.list <- create.model.list("Multistrata")
-  asmi.results <- mark.wrapper(asmi.model.list, 
-                               data = asmiMulti.proc, 
-                               ddl = asmiMulti.ddl)
-  
-  return(asmi.results)
-}
-
-asmi.modelsMulti20241031 <- multi.asmi()
-
-save(asmi.modelsMulti20241031, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
-```
-
-
-
-
-```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241118.rdata")
-
-asmi.modelsMulti20241031
-```
-
-
-
-
-```{r}
-
-## Took 4 days to run
-# load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_20241031.rdata")
-# save(asmi.modelsMulti20241031, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmi_modelsMulti20241031.Rdata")
-load("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/asmi_modelsMulti20241031.Rdata")
-
-asmi.modelsMulti20241031$model.table
-
-p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Creek,stratum, Age) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Age, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  facet_wrap(~Creek, scales = "free")
-
-
-p.table <- get.real(asmi.modelsMulti20241031$S.dot.p.strata.Psi.dot, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Time,Creek,stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  facet_wrap(~Creek, scales = "free")
-
-
-S.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "S", se = TRUE)
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Creek,stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(stratum, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  ylab("Survival")
-
-## R to V, and V to R
-Psi.table <- get.real(asmi.modelsMulti20241031$S.dot.p.stratafenceCreek.Psi.dot, "Psi", se = TRUE)
-Psi.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Creek,stratum,tostratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(stratum, estimates, color = tostratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  facet_wrap(~Creek, scales = "free")
-
-
-
-```
 
 
 
@@ -713,11 +266,11 @@ p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
 
 
 asmiCebolla <- function(){
-  S.stratumTimeSite = list(formula = ~ stratum:time:Site)
+  S.stratumSite = list(formula = ~ stratum:Site)
 
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
-  Psi.stratumTimeSite = list(formula = ~ -1 + stratum:tostratum:time:Site)
+  Psi.stratumSite = list(formula = ~ -1 + stratum:tostratum:Site)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -734,7 +287,7 @@ save(asmi.modelCebolla, file = paste(savepath, "asmimodelCebolla.Rdata", sep = "
 ```{r}
 asmi.modelCebolla
 
-Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumTimeSite.p.strata.Psi.stratumTimeSite, "Psi", vcv = TRUE)
+Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", vcv = TRUE)
 
 PsivaluesCebolla <- Psi.tableCebolla$estimates
 PsivaluesCebolla$stratum <- factor(PsivaluesCebolla$stratum, levels = c("V","R"))
@@ -742,36 +295,28 @@ PsivaluesCebolla$tostratum <- factor(PsivaluesCebolla$tostratum, levels = c("V",
 
 ## Don't differ by plot so just pick one
 PsivaluesSite <- PsivaluesCebolla %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  group_by(Plot,group,stratum,tostratum) %>%
-  mutate(estimate = mean(estimate),
-         se = mean(se),
-         lcl = mean(lcl),
-         ucl = mean(ucl)) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) 
 
 
-### WHY?!?! Why do confidence intervals include NAs??? Because too close to zero?? they tend to switch back and forth between veg and reprodutive? 
-TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1,], vcv.real = Psi.table$vcv.real)
-TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 16 & PsivaluesSite$time == "2015",], vcv.real = Psi.table$vcv.real)
+### 
+TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1,], vcv.real = Psi.tableCebolla$vcv.real)
+TM.CebollaNorth <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 16,], vcv.real = Psi.tableCebolla$vcv.real)
 
 ## Transitions
-Psi.strataSite <- get.real(asmi.modelCebolla$S.stratumTimeSite.p.strata.Psi.stratumTimeSite, "Psi", se = TRUE) %>%
+Psi.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  filter(fixed != "Fixed") %>%
-  group_by(group, stratum) %>%
-  summarise(Psi.estimates = mean(estimate),
-            Psi.lcl = mean(lcl),
-            Psi.ucl = mean(ucl))
+  rename(Psi.estimates = estimate,
+         Psi.lcl = lcl,
+         Psi.ucl = ucl) %>%
+  select(group, Plot, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl)
 
 ## Survival
-S.strataSite <- get.real(asmi.modelCebolla$S.stratumTimeSite.p.strata.Psi.stratumTimeSite, "S", se = TRUE) %>%  
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  filter(fixed != "Fixed") %>%
-  group_by(group, stratum) %>%
-  summarise(S.estimates = mean(estimate),
-            S.lcl = mean(lcl),
-            S.ucl = mean(ucl))
+S.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "S", se = TRUE) %>%  
+  distinct(estimate, lcl, ucl, .keep_all = TRUE)  %>%
+  rename(S.estimates = estimate,
+         S.lcl = lcl,
+         S.ucl = ucl) %>%
+  select(group, Plot, stratum, S.estimates, S.lcl, S.ucl)
 
 ## Point estimates for MPM
 MPMCebolla <- Psi.strataSite %>%
@@ -791,6 +336,9 @@ CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"
                          MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"], MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"]),
                      nrow = 2,
                      byrow = TRUE)
+
+CebollaMPMMid
+CebollaMPMNorth
 
 ```
 
@@ -915,6 +463,18 @@ asmiMultiSouthBeaver.ddl$Psi <- asmiMultiSouthBeaver.ddl$Psi %>%
                               "Plot" == "Plot"))
 
 
+
+# By sites, have the plots the same over site 
+PlotSiteSBC <- CJS_asmiSouthBeaver %>%
+  distinct(Site, Plot)
+
+asmiMultiSouthBeaver.ddl$S <- asmiMultiSouthBeaver.ddl$S %>%
+  left_join(PlotSiteSBC)
+asmiMultiSouthBeaver.ddl$p <- asmiMultiSouthBeaver.ddl$p %>%
+  left_join(PlotSiteSBC)
+asmiMultiSouthBeaver.ddl$Psi <- asmiMultiSouthBeaver.ddl$Psi %>%
+  left_join(PlotSiteSBC)
+
 ### South Beaver only
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
@@ -927,20 +487,21 @@ add2024 <- PlotSiteYrFence %>%
   filter(year == 2023) %>%
   mutate(year = 2024)
 PlotSiteYrFence <- PlotSiteYrFence %>%
-  bind_rows(add2024)
+  bind_rows(add2024) %>%
+  mutate(year == as.factor(year))
 
-asmiMultiSouthBeaver.ddl$S$Psience <-  ifelse(asmiMultiSouthBeaver.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMultiSouthBeaver.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMultiSouthBeaver.ddl$S$Psience <- as.factor(asmiMultiSouthBeaver.ddl$S$Psience)
+asmiMultiSouthBeaver.ddl$S$fence <-  ifelse(asmiMultiSouthBeaver.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiMultiSouthBeaver.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMultiSouthBeaver.ddl$S$fence <- as.factor(asmiMultiSouthBeaver.ddl$S$fence)
 
-asmiMultiSouthBeaver.ddl$p$Psience <-  ifelse(asmiMultiSouthBeaver.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMultiSouthBeaver.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMultiSouthBeaver.ddl$p$Psience <- as.factor(asmiMultiSouthBeaver.ddl$p$Psience)
+asmiMultiSouthBeaver.ddl$p$fence <-  ifelse(asmiMultiSouthBeaver.ddl$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiMultiSouthBeaver.ddl$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMultiSouthBeaver.ddl$p$fence <- as.factor(asmiMultiSouthBeaver.ddl$p$fence)
 
   
-asmiMultiSouthBeaver.ddl$Psi$Psience <-  ifelse(asmiMultiSouthBeaver.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$Psienced == "y"] &
-                               asmiMultiSouthBeaver.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$Psienced == "y"],1,0)
-asmiMultiSouthBeaver.ddl$Psi$Psience <- as.factor(asmiMultiSouthBeaver.ddl$Psi$Psience)
+asmiMultiSouthBeaver.ddl$Psi$fence <-  ifelse(asmiMultiSouthBeaver.ddl$Psi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
+                               asmiMultiSouthBeaver.ddl$Psi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
+asmiMultiSouthBeaver.ddl$Psi$fence <- as.factor(asmiMultiSouthBeaver.ddl$Psi$fence)
 
 ### Need to note, no surveys for some plots 1995, before 2004, before 2014, and after 2019
 # i.e. fix indices as detection == 0 on occasions where there were no observations
@@ -952,14 +513,16 @@ asmiMultiSouthBeaver.ddl$Psi$Psience <- as.factor(asmiMultiSouthBeaver.ddl$Psi$P
 pindex <- asmiMultiSouthBeaver.ddl$p 
 p.idAddedlater <- pindex %>%
   mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
   mutate(group = as.numeric(as.character(group))) %>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(598) & cohort < 2004))
+  filter((group %in% c(598) & cohort < 2004 & time < 2005))
 p.idAdded1996 <- pindex %>%
   mutate(cohort = as.numeric(as.character(cohort))) %>%
+  mutate(time = as.numeric(as.character(time))) %>%
   mutate(group = as.numeric(as.character(group))) %>%
   ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
-  filter((group %in% c(300,238) & cohort < 1996))  
+  filter((group %in% c(300,238) & cohort < 1996 & time < 1997))  
 
   
 ## Fixed indices
@@ -967,7 +530,6 @@ p.indices <-
   unique(c(p.idAdded1996$par.index, 
            p.idAddedlater$par.index))
 p.values <- rep(0, length(p.indices))
-
 
 
 ########################################################################################################
@@ -982,8 +544,9 @@ p1.SouthBeavervalues <- rep(1, length(p1.SouthBeaverindices))
 #########################################################################################################
 
 
-p.SouthBeaverindices <- c(pindex, p1.SouthBeaverindices)
+p.SouthBeaverindices <- c(p.indices, p1.SouthBeaverindices)
 p.SouthBeavervalues <- c(p.values, p1.SouthBeavervalues)
+
 
 ```
 
@@ -992,12 +555,12 @@ South Beaver
 ```{r}
 
 
-asmiTimeFence <- function(){
-  S.dot = list(formula = ~ stratum:time:Site:fence)
+asmiSouthBeaver <- function(){
+  S.stratumSiteFence = list(formula = ~ stratum:Site:fence)
 
   p.strata = list(formula = ~ stratum,
-               fixed = list(index = p.indices, value = p.values))
-  Psi.dot = list(formula = ~ -1 + stratum:tostratum:time:Site:fence)
+               fixed = list(index = p.SouthBeaverindices, value = p.SouthBeavervalues))
+  Psi.stratumSiteFence = list(formula = ~ -1 + stratum:tostratum:Site:fence)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -1007,7 +570,8 @@ asmiTimeFence <- function(){
   return(asmi.results)
 }
 
-asmi.modelFenceCreek <- asmiTimeFenceCreek()
+asmi.modelSouthBeaver <- asmiSouthBeaver()
+save(asmi.modelSouthBeaver, file = paste(savepath, "asmimodelSouthBeaver.Rdata", sep = ""))
 
 ```
 
@@ -1022,323 +586,6 @@ These are factors that should influence survival and transitions, less so detect
  Look at Fletcher c-hat in section 5.8 Chapter 5
  c-hat greater than 1 means overdispersion, variation from age or stage that isn't in the model
 
-Detection of vegetative would be high because after finding a new individual, more likely that it survived and was tagged and we look more closely for those that were alive sometime in the recent past. Maybe don't differentiate strata for detection? 
-
-
-Warning: "One or more encounter histories have probabilities not in interval 0-1. "    
-Probably not true that plants were dormant for more than 1 or two years. Need to reassign them to a new plant id after a break of 3 years, can play with the number of years
-```{r}
-multi.mark2WinSumadditive
-
-p.table <- get.real(multi.mark2WinSumadditive, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  # left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-S.table <- get.real(multi.mark2WinSumadditive, "S", se = TRUE)
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(WinterPPT, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(SummerMax, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-
-
-```
-
-
-
-
-```{r}
-asmiTimeFenceCreek <- function(){
-  S.dot = list(formula = ~ stratum:time:Creek:fence)
-
-  p.strata = list(formula = ~ stratum,
-               fixed = list(index = p.indices, value = p.values))
-  Psi.dot = list(formula = ~ -1 + stratum:tostratum:time:Creek:fence)
-  
-  asmi.model.list <- create.model.list("Multistrata")
-  asmi.results <- mark.wrapper(asmi.model.list, 
-                               data = asmiMulti.proc, 
-                               ddl = asmiMulti.ddl)
-  
-  return(asmi.results)
-}
-
-asmi.modelFenceCreek <- asmiTimeFenceCreek()
-
-save(asmi.modelFenceCreek, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_timecreekfence.rdata")
-
-```
-
-#### 
-```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multi_timecreekfence.rdata")
-
-asmi.modelFenceCreek
-
-
-surv.table <- get.real(asmi.modelFenceCreek$S.dot.p.strata.Psi.dot, "S", se = TRUE)
-
-surv.Creek <- surv.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Creek, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) 
-
-psi.table <- get.real(asmi.modelFenceCreek$S.dot.p.strata.Psi.dot, "Psi", se = TRUE)
-  
-psi.Creek <- psi.table %>%
-  left_join(plotSiteCreek) %>%
-  group_by(Creek, stratum, tostratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) 
-
-### remain in strata by subtraction 
-psi.Creekremain <- psi.Creek %>%
-  mutate(tostratum = case_when(tostratum == "V" ~ "R",
-                               tostratum == "R" ~ "V")) %>%
-  mutate(estimates = 1-estimates,
-         lcl = 1-lcl,
-         ucl = 1-ucl) 
-
-psi.Creekalltrans <- psi.Creek %>%
-  bind_rows(psi.Creekremain)
-
-
-## Is this the same as TransitionMatrix???
-psi.Creekalltrans %>%
-  rename(S.estimates = estimates,
-        S.lcl = lcl,
-        S.ucl = ucl) %>%
-  left_join(surv.Creek) %>%
-  mutate(MPM = S.estimates * estimates)
-
-
-```
-
-
-rows are the "from stratum" and columns are the "to stratum"
-```{r}
-
-asmi.modelFenceCreek$model.table
-## S ~ stratum:time:Creek:fence
-## p ~ stratum
-## Psi ~ stratum:tostratum:time:Creek:fence
-
-
-Psi.table <- get.real(asmi.modelFenceCreek$S.dot.p.strata.Psi.dot, "Psi", vcv = TRUE)
-
-save(Psi.table, file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/Psi_tableFenceCreekStrata.Rdata")
-
-Psivalues <- Psi.table$estimates
-Psivalues$stratum <- factor(Psivalues$stratum, levels = c("V","R"))
-Psivalues$tostratum <- factor(Psivalues$tostratum, levels = c("V","R"))
-PsivaluesCreek <- Psivalues %>%
-  left_join(plotSiteCreek) %>%
-  filter((Creek == "Cebolla" & Time > 18) | Creek == "SouthBeaver") %>%
-  group_by(Creek, time) %>%
-  mutate(Creek.estimate = mean(estimate),
-            Creek.se = mean(se),
-            Creek.lcl = mean(lcl),
-            Creek.ucl = mean(ucl))
-
-PsivaluesCreek
-
-```
-
-
-
-
-
-
-
-
-
-
-### Try once more before adding new individuals with more than 2 years of dormancy  
-```{r}
-starttime <- Sys.Date()
-###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
-multi.mark2climateinter <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ stratum + WinterPPT*SummerMax + fence),
-                                           p = list(formula = ~ 1,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum + fence)))
-
-
-endtime <- Sys.Date()
-
-save(multi.mark2climateinter, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimarkStratumFenceWinterSummerinteraction",
-                               endtime, ".rdata", sep=""))
-```
-
-
-```{r}
-
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/2024-11-13multimarkStratumFenceWinterSummerinteraction2024-11-13.rdata")
-multi.mark2climateinter
-
-p.table <- get.real(multi.mark2climateinter, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  # left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-S.table <- get.real(multi.mark2climateinter, "S", se = TRUE)
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(WinterPPT, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(SummerMax, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw() +
-  ylab("Survival")
-
-
-```
-
-
-Warning: "One or more encounter histories have probabilities not in interval 0-1. "    
-Probably not true that plants were dormant for more than 1 or two years. Need to reassign them to a new plant id after a break of 3 years, can play with the number of years
-```{r}
-multi.mark2WinSumadditive
-
-p.table <- get.real(multi.mark2WinSumadditive, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  # left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Time, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-S.table <- get.real(multi.mark2WinSumadditive, "S", se = TRUE)
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(WinterPPT, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-S.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT, SummerMax, Time, stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(SummerMax, estimates, color = stratum)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-
-
-```
-
-### Do I need to fix detection of the final transition to 1?  
-if there are more than 2 states then want to use ~ -1 time:stratum:tostratum   
-
-With subtract stratum gives a V and R covariate??? 
-```{r}
-starttime <- Sys.Date()
-###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
-multi.marktest <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ (stratum * WinterPPT*SummerMax * Creek):fence),
-                                           p = list(formula = ~ stratum,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           Psi = list(formula = ~ -1 + stratum:tostratum:Creek:fence)))
-
-
-endtime <- Sys.Date()
-
-save(multi.marktest, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimark2statenested",
-                               endtime, ".rdata", sep=""))
-```
 
 <http://www.phidot.org/forum/viewtopic.php?f=54&t=3410> 
 "Note that I have this structured so that probability of remaining in the stratum is done by subtraction. That is the only way I can conceive of it working because you can't set the covariate value for the one computed by subtraction. One could also have ~stratum+distance such that probability of remaining is strata dependent but because Psi values sum to 1, this will happen to some degree without a stratum specific intercept. This is made clear by writing down formula for strata A and strata B using the values I assign in code below and beta is slope for distance and intercept is the Psi intercept value. 
@@ -1357,185 +604,6 @@ Psi A to A = 1/exp(intercept)
 
 Not in the model but after getting the estimate    
 
-
-
-```{r}
-Psi.table <- get.real(multi.marktest, "Psi", vcv = TRUE)
-save(Psi.table,   file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimark2statePsitable.rdata")
-```
-
-```{r}
-Psivalues <- Psi.table$estimates
-Psivalues$stratum <- factor(Psivalues$stratum, levels = c("V","R"))
-Psivalues$tostratum <- factor(Psivalues$tostratum, levels = c("V","R"))
-
-TransitionsXPlot <- lapply(unique(Psivalues$Plot), function(plot) {
-  TransitionMatrix(Psivalues[Psivalues$Plot == plot & Psivalues$time == 1995,], vcv.real = Psi.table$vcv.real)
-  })
-
-
-whichXSite <- plotsSite %>%
-  arrange(Plot) %>%
-  mutate(Num = 1:nrow(plotsSite))
-
-
-## Not working to take the mean but all the same anyway
-mean(lapply(TransitionsXPlot[whichXSite$Num[whichXSite$Site == 1]], '[[', 1 ))    
-
-lapply(TransitionsXPlot[whichXSite$Num[whichXSite$Site == 1]], '[[', 1 )
-lapply(TransitionsXPlot[whichXSite$Num[whichXSite$Site == 5]], '[[', 1 )
-```
-
-
-
-TransitionMatrix   
-rows are the "from stratum" and columns are the "to stratum"
-```{r}
-
-Psi.list <- get.real(multi.marktest, "Psi", vcv = TRUE)
-Psivalues <- Psi.list$estimates
-
-# call it again but specify the vc matrix to get se and conf interval
-TransitionMatrix(Psivalues[Psivalues$time== 2020,],vcv.real=Psilist$vcv.real)
-
-
-```
-
-
-
-```{r}
-p.table <- get.real(multi.marktest, "p", se = TRUE)
-
-multi.marktest$results
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(stratum) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(stratum, estimates)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Nest fencing, now using subtract.strata "v"  "R"  
-```{r}
-starttime <- Sys.Date()
-###### Need fencing in all and stratum in all. Detection of reproductive will be different than vegetative
-multi.marktest2 <- mark(asmiMulti.proc, asmiMulti.ddl, begin.time = 1995, model = "Multistrata",
-                   model.parameters = list(S = list(formula = ~ (stratum * WinterPPT * SummerMax):fence),
-                                           p = list(formula = ~ stratum,
-                                                    fixed = list(index = p.indices, value = p.values)),
-                                           # Psi = list(formula = ~ -1 + stratum:tostratum + fence)
-                                           Psi = list(formula = ~ stratum)))
-
-
-endtime <- Sys.Date()
-
-save(multi.marktest, file = paste("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/",
-                               starttime, "multimark2state",
-                               endtime, ".rdata", sep=""))
-```
-
-
-
-
-x:y means that nests the y within x, so for a given x, what is the y. So should probably have time:fence, not the fence first. and stratum:Creek:fence   
-Not all plots (or Creek) or year, have fence, so that should be the last one.  
-Let's see if it makes a difference   
-```{r}
-
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/2024-11-15multimark2stateSubtractStrata2024-11-15.rdata")
-## First check best model for detection 
-multi.asmi.v2 <- function(){
-  S.dot = list(formula = ~1)
-  
-  p.dot = list(formula = ~1,
-               fixed = list(index = p.indices, value = p.values))
-  p.strata = list(formula = ~ -1 + stratum,
-               fixed = list(index = p.indices, value = p.values))
-  p.time = list(formula = ~ time,
-               fixed = list(index = p.indices, value = p.values))
-  p.fence = list(formula = ~ -1 + fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.creek = list(formula = ~ -1 + Creek,
-               fixed = list(index = p.indices, value = p.values))
-  p.creektime = list(formula = ~ -1 + Creek + time,
-               fixed = list(index = p.indices, value = p.values))
-  ## This is the one that ended up as -1 + fence:time when written as: -1 + fence + time
-  p.fencetime = list(formula = ~ -1 + time:fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratacreek = list(formula = ~ -1 + strata:Creek,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratatime = list(formula = ~ -1 + strata:time,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratafencetime = list(formula = ~ -1 + strata:time:fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratafence = list(formula = ~ -1 + stratum:fence,
-               fixed = list(index = p.indices, value = p.values))
-  p.stratafenceCreek = list(formula = ~ -1 + stratum:Creek:fence,
-               fixed = list(index = p.indices, value = p.values))
-  
-  Psi.dot = list(formula = ~1)
-  
-  asmi.model.list <- create.model.list("Multistrata")
-  asmi.results <- mark.wrapper(asmi.model.list, 
-                               data = asmiMulti.proc, 
-                               ddl = asmiMulti.ddl)
-  
-  return(asmi.results)
-}
-
-asmi.modelsMulti.v2 <- multi.asmi.v2()
-
-save(asmi.modelsMulti.v2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkDetection2024.rdata")
-
-```
-
-
-
-```{r}
-
-## Would need time for year when the climate was and can add climate variables
-foo <- asmiMulti.ddl
-foo$p <- merge_design.covariates(foo$p, plotSiteCreek)
-
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkNoFence2024.rdata")
-multi.mark.nofence$results$beta
-
-
-## multi.mark
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/multimarkFence2024.rdata")
-multi.mark$results$real %>%
-  distinct()
-
-```
-
-
-
-
-
-
-
-
-
-
-
-## Really, detection should depend on observers - but we have so many different people, didn't record well who did what, we semi-changed the strategy of digging around with metal detector or just digging in the dirt to find every tag. As plants died, tags might not mean there is a plant so we switched to looking for plants, then figuring out which tag they are associated with... So maybe time is a good proxy for 'trap' measures.   
+ Really, detection should depend on observers - but we have so many different people, didn't record well who did what, we semi-changed the strategy of digging around with metal detector or just digging in the dirt to find every tag. As plants died, tags might not mean there is a plant so we switched to looking for plants, then figuring out which tag they are associated with... So maybe time is a good proxy for 'trap' measures.   
 
 
