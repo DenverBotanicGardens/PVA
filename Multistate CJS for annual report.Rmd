@@ -162,7 +162,7 @@ asmiMultiCebolla.ddl <- make.design.data(asmiMultiCebolla.proc)
 
 
 WinterPPTCebolla <-  asmi.season %>%
-  filter(Prev12 > 2014) %>%
+  filter(Prev12 >= 2014) %>%
   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
   ungroup() %>%
   filter(Variable == "ppt" & season == "winter") %>%
@@ -173,20 +173,20 @@ WinterPPTCebolla <-  asmi.season %>%
 
 
 asmiMultiCebolla.ddl$S <- asmiMultiCebolla.ddl$S %>%
-  left_join(WinterPPTCebolla, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
   
 asmiMultiCebolla.ddl$p <- asmiMultiCebolla.ddl$p %>%
-  left_join(WinterPPTCebolla, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
   
 asmiMultiCebolla.ddl$Psi <- asmiMultiCebolla.ddl$Psi %>%
-  left_join(WinterPPTCebolla, join_by("time" == "Prev12", 
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
 
 
 SummerMaxCebolla <- asmi.season %>%
-  filter(Prev12 > 2014) %>%
+  filter(Prev12 >= 2014) %>%
   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
   ungroup() %>%
   filter(Variable == "tmax" & season == "springSummer") %>%
@@ -197,16 +197,16 @@ SummerMaxCebolla <- asmi.season %>%
 
 
 asmiMultiCebolla.ddl$S <- asmiMultiCebolla.ddl$S %>%
-  left_join(SummerMaxCebolla, join_by("time" == "Prev12",
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
 
 asmiMultiCebolla.ddl$p <- asmiMultiCebolla.ddl$p %>%
-  left_join(SummerMaxCebolla, join_by("time" == "Prev12",
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
 
 asmiMultiCebolla.ddl$Psi <- asmiMultiCebolla.ddl$Psi %>%
-  left_join(SummerMaxCebolla, join_by("time" == "Prev12",
-                              "Plot" == "Plot"))
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
 
 
 # By sites, have the plots the same over site 
@@ -248,17 +248,17 @@ p.Cebollavalues <- rep(0, length(p.Cebollaindices))
 ## Just for 2024
 ## All the 89s are already zeros for 2019 and later so make them 1 in 2018
 
-p.OneinfinalCebolla <- pindexCebolla %>%
-  filter(group == "89" & time == "2018" | 
-           time == "2024" & !( group %in% c("89","52") )| 
-           group == "52" & time == "2023" )
-
-p1.Cebollaindices <- p.OneinfinalCebolla$par.index
-p1.Cebollavalues <- rep(1, length(p1.Cebollaindices))
-
-## put the zeros and ones together
-p.Cebollaindices <- c(p.Cebollaindices, p1.Cebollaindices)
-p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
+# p.OneinfinalCebolla <- pindexCebolla %>%
+#   filter(group == "89" & time == "2018" | 
+#            time == "2024" & !( group %in% c("89","52") )| 
+#            group == "52" & time == "2023" )
+# 
+# p1.Cebollaindices <- p.OneinfinalCebolla$par.index
+# p1.Cebollavalues <- rep(1, length(p1.Cebollaindices))
+# 
+# ## put the zeros and ones together
+# p.Cebollaindices <- c(p.Cebollaindices, p1.Cebollaindices)
+# p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
 ```
 
 # Cebolla Creek
@@ -267,10 +267,16 @@ p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
 
 asmiCebolla <- function(){
   S.stratumSite = list(formula = ~ stratum:Site)
+  S.stratumSiteWinter = list(formula = ~ stratum:WinterPPT:Site) 
+  S.stratumSiteSummer = list(formula = ~ stratum:SummerMax:Site) 
+  S.stratumSiteSummerWinter = list(formula = ~ stratum:WinterPPT:SummerMax:Site) 
 
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
   Psi.stratumSite = list(formula = ~ -1 + stratum:tostratum:Site)
+  Psi.stratumSitewinter = list(formula = ~ -1 + stratum:tostratum:WinterPPT:Site)
+  Psi.stratumSitesummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:Site)
+  Psi.stratumSitewintersummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:WinterPPT:Site)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -287,7 +293,8 @@ save(asmi.modelCebolla, file = paste(savepath, "asmimodelCebolla.Rdata", sep = "
 ```{r}
 asmi.modelCebolla
 
-Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", vcv = TRUE)
+# Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", vcv = TRUE)
+Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "Psi", vcv = TRUE)
 
 PsivaluesCebolla <- Psi.tableCebolla$estimates
 PsivaluesCebolla$stratum <- factor(PsivaluesCebolla$stratum, levels = c("V","R"))
@@ -299,16 +306,43 @@ PsivaluesSite <- PsivaluesCebolla %>%
 
 
 ### 
-TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1,], vcv.real = Psi.tableCebolla$vcv.real)
+TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1 & PsivaluesSite$time == 2014,], vcv.real = Psi.tableCebolla$vcv.real)
 TM.CebollaNorth <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 16,], vcv.real = Psi.tableCebolla$vcv.real)
 
 ## Transitions
-Psi.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", se = TRUE) %>%
+Psi.strataSite <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "Psi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   rename(Psi.estimates = estimate,
          Psi.lcl = lcl,
          Psi.ucl = ucl) %>%
-  select(group, Plot, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl)
+  select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
+
+stratatostratalabels <- c("R" = "V to R", "V" = "R to V")
+
+ggplot(Psi.strataSite, aes(WinterPPT, Psi.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = 1)) +
+  geom_errorbar(aes(ymin = Psi.lcl, ymax = Psi.ucl),position = position_dodge(width = 1))+
+  facet_wrap(~tostratum, labeller = labeller(tostratum = stratatostratalabels))+
+  theme_bw() +
+  ylab("Transition rate")
+
+S.strataSite <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "S", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(S.estimates = estimate,
+         S.lcl = lcl,
+         S.ucl = ucl) %>%
+  select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
+
+ggplot(S.strataSite, aes(WinterPPT, S.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = 1)) +
+  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = 1))+
+  facet_wrap(~stratum, labeller = labeller(tostratum = stratatostratalabels))+
+  theme_bw() +
+  ylab("Survival rate")
 
 ## Survival
 S.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "S", se = TRUE) %>%  
