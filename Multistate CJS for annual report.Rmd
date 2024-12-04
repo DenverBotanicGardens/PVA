@@ -11,6 +11,7 @@ library(dplyr)
 library(tidyr)
 library(patchwork)
 library(ggplot2)
+library(popbio)
 ```
 
 
@@ -375,35 +376,27 @@ MPMCebolla <- Psi.strataSite %>%
   mutate(MPMremain = (1-Psi.estimates) * S.estimates) %>%
   mutate(MPMtransition = Psi.estimates * S.estimates)
 
-## Need to multiply recruitment for the upper right
+## Need to add recruitment for the upper right
 MPMSiteMid <- MPMCebolla %>% filter(group == "1") 
-CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"] *
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
-                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"] *
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"] + 
-                              f.mpm$f.estimates[f.mpm$Plot == 1],
-                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"] *
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
-                            MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"] *
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"]),
+CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"],     # V survive and remain
+                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"] + 
+                              f.mpm$f.estimates[f.mpm$Plot == 1],                # R retrogress and per capita recruitment
+                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"], # V survive and to R  
+                            MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"]),    # R survive and remain
                      nrow = 2,
                      byrow = TRUE)
 
 MPMSiteNorth<- MPMCebolla %>% filter(group == "16") 
-CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"]*
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
-                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"]*
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"] + 
-                              f.mpm$f.estimates[f.mpm$Plot == 16],
-                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"]*
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
-                              MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"] *
-                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"]),
+CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"], 
+                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"] + 
+                                f.mpm$f.estimates[f.mpm$Plot == 16],
+                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"], 
+                              MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"]),
                      nrow = 2,
                      byrow = TRUE)
 
-CebollaMPMMid
-CebollaMPMNorth
+lambda(CebollaMPMMid)
+lambda(CebollaMPMNorth)
 
 ```
 
@@ -722,6 +715,30 @@ width=210, height=200,units='mm', dpi=300)
 
 ```
 
+## MPM from Multistrata and Pradel for South Beaver Creek    
+```{r}
+
+MPMSouthBeaver <- Psi.strataSiteWinterSBC %>%
+  left_join(S.strataSiteWinterSBC) %>%
+  mutate(MPMremain = (1-Psi.estimates) * S.estimates) %>%
+  mutate(MPMtransition = Psi.estimates * S.estimates)
+
+MPMSite05open <- MPMSouthBeaver %>% filter(site == 5 & fenced == "n")
+
+MPMSite05fenced <- MPMSouthBeaver %>% filter(site == 5 & fenced == "y")
+
+MPMSite15 <- MPMSouthBeaver %>% filter(site == 15)
+
+MPMSite19open <- MPMSouthBeaver %>% filter(site == 19 & fenced == "n")
+
+MPMSite19fenced <- MPMSouthBeaver %>% filter(site == 19 & fenced == "y")
+
+
+MPMSite26open <- MPMSouthBeaver %>% filter(site == 26 & fenced == "n")
+
+MPMSite26fenced <- MPMSouthBeaver %>% filter(site == 26 & fenced == "y")
+
+```
 
 
 ###########################################################################################################################
