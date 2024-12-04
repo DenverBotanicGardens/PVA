@@ -591,8 +591,32 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.f
 # Per captia recruitment for MPM in Multistate CJS for annual report   
 ```{r}
 # Cebolla Creek
-f.mpm <- get.real()
+f.mpm <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  group_by(Plot) %>%
+  summarise(f.estimates = median(estimate),
+         f.lcl = median(lcl),
+         f.ucl = median(ucl)) 
 
+f.mpmSBCsite <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  group_by(site) %>%
+  summarise(f.estimates = median(estimate),
+         f.lcl = median(lcl),
+         f.ucl = median(ucl)) 
+
+f.mpmSBC <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  ungroup() %>%
+  summarise(f.estimates = median(estimate),
+         f.lcl = median(lcl),
+         f.ucl = median(ucl)) 
 
 ```
 
