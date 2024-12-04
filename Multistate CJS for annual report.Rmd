@@ -243,22 +243,6 @@ p.Cebollaindices <- unique(c(p.Cebolla89$par.index,
 
 p.Cebollavalues <- rep(0, length(p.Cebollaindices))
 
-########################################################################################################
-### Fix detection to 1 for the final survey
-## Just for 2024
-## All the 89s are already zeros for 2019 and later so make them 1 in 2018
-
-# p.OneinfinalCebolla <- pindexCebolla %>%
-#   filter(group == "89" & time == "2018" | 
-#            time == "2024" & !( group %in% c("89","52") )| 
-#            group == "52" & time == "2023" )
-# 
-# p1.Cebollaindices <- p.OneinfinalCebolla$par.index
-# p1.Cebollavalues <- rep(1, length(p1.Cebollaindices))
-# 
-# ## put the zeros and ones together
-# p.Cebollaindices <- c(p.Cebollaindices, p1.Cebollaindices)
-# p.Cebollavalues <- c(p.Cebollavalues, p1.Cebollavalues)
 ```
 
 # Cebolla Creek
@@ -296,20 +280,20 @@ load(paste(savepath, "asmimodelCebolla.Rdata", sep = ""))
 asmi.modelCebolla
 
 # Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", vcv = TRUE)
-Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "Psi", vcv = TRUE)
-
-PsivaluesCebolla <- Psi.tableCebolla$estimates
-PsivaluesCebolla$stratum <- factor(PsivaluesCebolla$stratum, levels = c("V","R"))
-PsivaluesCebolla$tostratum <- factor(PsivaluesCebolla$tostratum, levels = c("V","R"))
+# Psi.tableCebolla <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "Psi", vcv = TRUE)
+# 
+# PsivaluesCebolla <- Psi.tableCebolla$estimates
+# PsivaluesCebolla$stratum <- factor(PsivaluesCebolla$stratum, levels = c("V","R"))
+# PsivaluesCebolla$tostratum <- factor(PsivaluesCebolla$tostratum, levels = c("V","R"))
 
 ## Don't differ by plot so just pick one
-PsivaluesSite <- PsivaluesCebolla %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) 
+# PsivaluesSite <- PsivaluesCebolla %>%
+#   distinct(estimate, lcl, ucl, .keep_all = TRUE) 
 
 
 ### 
-TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1 & PsivaluesSite$time == 2014,], vcv.real = Psi.tableCebolla$vcv.real)
-TM.CebollaNorth <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 16,], vcv.real = Psi.tableCebolla$vcv.real)
+# TM.CebollaMid <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 1 & PsivaluesSite$time == 2014,], vcv.real = Psi.tableCebolla$vcv.real)
+# TM.CebollaNorth <- TransitionMatrix(PsivaluesSite[PsivaluesSite$Plot == 16,], vcv.real = Psi.tableCebolla$vcv.real)
 
 ## Detection
 p.strataSite <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "p", se = TRUE) %>%
@@ -393,14 +377,28 @@ MPMCebolla <- Psi.strataSite %>%
 
 ## Need to multiply recruitment for the upper right
 MPMSiteMid <- MPMCebolla %>% filter(group == "1") 
-CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"], MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"],
-                         MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"], MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"]),
+CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"] *
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
+                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"] *
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"] + 
+                              f.mpm$f.estimates[f.mpm$Plot == 1],
+                            MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"] *
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
+                            MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"] *
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"]),
                      nrow = 2,
                      byrow = TRUE)
 
 MPMSiteNorth<- MPMCebolla %>% filter(group == "16") 
-CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"], MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"],
-                         MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"], MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"]),
+CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"]*
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
+                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"]*
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"] + 
+                              f.mpm$f.estimates[f.mpm$Plot == 16],
+                              MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"]*
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "V"], 
+                              MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"] *
+                              S.strataSite$S.estimates[S.strataSite$Plot == 1 & S.strataSite$stratum == "R"]),
                      nrow = 2,
                      byrow = TRUE)
 
@@ -612,20 +610,9 @@ p.indices <-
 p.values <- rep(0, length(p.indices))
 
 
-########################################################################################################
-### Fix detection to 1 for the final survey
-# p.OneinfinalSouthBeaver <- pindex %>%
-#   filter(time == "2024")
-# 
-# p1.SouthBeaverindices <- p.OneinfinalSouthBeaver$par.index
-# p1.SouthBeavervalues <- rep(1, length(p1.SouthBeaverindices))
 
-
-#########################################################################################################
-
-
-p.SouthBeaverindices <- c(p.indices) #, p1.SouthBeaverindices)
-p.SouthBeavervalues <- c(p.values) #, p1.SouthBeavervalues)
+p.SouthBeaverindices <- c(p.indices) 
+p.SouthBeavervalues <- c(p.values) 
 
 
 ```
@@ -661,6 +648,80 @@ asmi.modelSouthBeaver <- asmiSouthBeaver()
 save(asmi.modelSouthBeaver, file = paste(savepath, "asmimodelSouthBeaver_v2.Rdata", sep = ""))
 
 ```
+
+
+```{r}
+load(paste(savepath, "asmimodelSouthBeaver.Rdata", sep = ""))
+asmi.modelSouthBeaver
+
+## Detection
+p.strataSiteSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "p", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(p.estimates = estimate,
+         p.lcl = lcl,
+         p.ucl = ucl) %>%
+  select(group, Plot, time, stratum,  p.estimates, p.lcl, p.ucl) %>%
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  left_join(WinterPPT) %>%
+  left_join(SummerMax)
+
+
+## Transitions
+Psi.strataSiteWinterSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "Psi", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(Psi.estimates = estimate,
+         Psi.lcl = lcl,
+         Psi.ucl = ucl) %>%
+  select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  left_join(WinterPPT) %>%
+  left_join(SummerMax)
+
+stratatostratalabels <- c("R" = "Vegetative to Reproductive", "V" = "Reproductive to Vegetative")
+
+## I think one of the Site 19s that should be marked Yes fenced is still a No
+SBC.Phi <- ggplot(Psi.strataSiteWinterSBC, aes(fenced, Psi.estimates, color = as.factor(site))) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = Psi.lcl, ymax = Psi.ucl),position = position_dodge(width = 0.5), width = 0.1)+
+  facet_wrap(~tostratum, labeller = labeller(tostratum = stratatostratalabels))+
+  theme_bw() +
+  ylab("Transition rate") +
+  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) 
+
+S.strataSiteWinterSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "S", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  rename(S.estimates = estimate,
+         S.lcl = lcl,
+         S.ucl = ucl) %>%
+  select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  left_join(WinterPPT) %>%
+  left_join(SummerMax)
+
+SBC.S <- ggplot(S.strataSiteWinterSBC, aes(SummerMax, S.estimates, color = as.factor(site))) +
+  geom_point(position = position_dodge(width = 2)) +
+  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = 2))+
+  facet_wrap(~stratum)+
+  theme_bw() +
+  ylab("Survival rate")+
+  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) 
+
+ggsave(paste(savepath, "SouthBeaverCreek_survival.jpg", sep = ""),
+       SBC.S/SBC.Phi,
+width=210, height=200,units='mm', dpi=300)
+
+```
+
 
 
 ###########################################################################################################################
