@@ -658,7 +658,7 @@ asmiSouthBeaver <- function(){
 }
 
 asmi.modelSouthBeaver <- asmiSouthBeaver()
-save(asmi.modelSouthBeaver, file = paste(savepath, "asmimodelSouthBeaver.Rdata", sep = ""))
+save(asmi.modelSouthBeaver, file = paste(savepath, "asmimodelSouthBeaver_v2.Rdata", sep = ""))
 
 ```
 
