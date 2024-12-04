@@ -550,12 +550,25 @@ PlotSiteYrFence <- asmi.all2 %>%
 ### Use PlotSiteYrFence to specify years when a plot was fenced
 PlotSiteYrFence %>%
   filter(fenced == "y")
+## Add  
+plot2381995 <- PlotSiteYrFence %>%
+  filter(plot %in% c(300,238) &
+           year == 1996) %>%
+  mutate(year = 1995)
+plot606 <- PlotSiteYrFence %>%
+  filter(plot %in% c(606) &
+           year == 2021) 
+plot606 <- plot606 %>%
+  bind_rows(plot606) %>%
+  mutate(year = c(2022, 2023))
+
 add2024 <- PlotSiteYrFence %>%
   filter(year == 2023) %>%
   mutate(year = 2024)
 PlotSiteYrFence <- PlotSiteYrFence %>%
   bind_rows(add2024) %>%
-  mutate(year == as.factor(year))
+  bind_rows(plot2381995) %>%
+  bind_rows(plot606)
 
 asmiMultiSouthBeaver.ddl$S$fence <-  ifelse(asmiMultiSouthBeaver.ddl$S$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiMultiSouthBeaver.ddl$S$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)

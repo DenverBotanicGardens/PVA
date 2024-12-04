@@ -506,36 +506,6 @@ CJS_asmi_Southbeaver <- asmi.raw %>%
   filter(grepl("1",ch)) %>%
   mutate(Plot = factor(Plot))
 
-## Why crazy results for 2011 and 2012??
-## BECAUSE only 17 records of above ground plants total from 2012, so the transition 2011-2012 and transition from 2012-2013 are messed up! But should take into account all the missed observations, correct? 
-asmi.raw %>%
-  dplyr::select(c(AsMi_tag_id:status,AsMi_plot_id:fence)) %>%
-  filter(AsMi_site_id > 3) %>%
-  ungroup() %>%
-  mutate(Obs = case_when(length > 0 ~ 1, 
-                         length == 0 ~ 0,
-                         is.na(length) ~ 0)) %>%
-  arrange(year) %>%
-  mutate(Obs = as.character(Obs)) %>%
-  filter(year %in% c(2012)) %>%
-  filter(Obs == 1) %>%
-  group_by(year, AsMi_plot_id) %>%
-  summarise(n = n())
-
-## 17 above ground
-asmi.raw %>%
-  filter(year == 2012 & length > 0)
-
-## 8320 dormant
-asmi.raw %>%
-  filter(status == "dormant") %>%
-  summarise(n = n())
-
-WinterPPT %>%
-  filter(Prev12 == 2012)
-
-
-
 dmPlot_SouthBeaver <- model.matrix(~ -1 + Plot, CJS_asmi_Southbeaver)  
 dimnames(dmPlot_SouthBeaver)[[2]][length(dimnames(dmPlot_SouthBeaver)[[2]])]  # Plot799
 
@@ -592,6 +562,55 @@ p.SouthBeaverindicies <- c(p.idAdded1996$par.index,
 p.SouthBeavervalues <- rep(0, length(p.SouthBeaverindicies))
 
 
+############### Add climate
+WinterPPTSouthBeaver <-  asmi.season %>%
+  filter(Prev12 >= 1995) %>%
+  filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
+  ungroup() %>%
+  filter(Variable == "ppt" & season == "winter") %>%
+  rename(WinterPPT = Value) %>%
+  dplyr::select(Plot, Prev12, WinterPPT) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+
+asmiddlSouthBeaver$Phi <- asmiddlSouthBeaver$Phi  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+
+asmiddlSouthBeaver$p <- asmiddlSouthBeaver$p  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+
+asmiddlSouthBeaver$f <- asmiddlSouthBeaver$f  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+  
+SummerMaxSouthBeaver <- asmi.season %>%
+  filter(Prev12 >= 1995) %>%
+  filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
+  ungroup() %>%
+  filter(Variable == "tmax" & season == "springSummer") %>%
+  rename(SummerMax = Value) %>%
+  dplyr::select(Plot, Prev12, SummerMax) %>%
+  mutate(Prev12 = as.factor(Prev12)) %>%
+  mutate(Plot = as.factor(Plot))
+
+asmiddlSouthBeaver$Phi <- asmiddlSouthBeaver$Phi %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+asmiddlSouthBeaver$p <- asmiddlSouthBeaver$p %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+asmiddlSouthBeaver$f <- asmiddlSouthBeaver$f %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+
+
+
 # Which sites/plots were fenced when; when Open == 1, when fenced == 0; switched back, that didn't fix it
 PlotSiteYrFence <- asmi.all2 %>%
   distinct(year,plot,site,fenced) %>%
@@ -600,15 +619,41 @@ PlotSiteYrFence <- asmi.all2 %>%
 PlotSiteYrFence %>%
   filter(fenced == "y")
 
+PlotSiteYrFence %>%
+  filter(plot == 238) ## needs 1995
+## Huh! 
+PlotSiteYrFence %>%
+  filter(plot == 606) ## needs 2022, 2023
+PlotSiteYrFence %>%
+  filter(plot == 300) ## needs 1995
+
+
+## Add  
+plot2381995 <- PlotSiteYrFence %>%
+  filter(plot %in% c(300,238) &
+           year == 1996) %>%
+  mutate(year = 1995)
+plot606 <- PlotSiteYrFence %>%
+  filter(plot %in% c(606) &
+           year == 2021) 
+plot606 <- plot606 %>%
+  bind_rows(plot606) %>%
+  mutate(year = c(2022, 2023))
+
 add2024 <- PlotSiteYrFence %>%
   filter(year == 2023) %>%
   mutate(year = 2024)
 PlotSiteYrFence <- PlotSiteYrFence %>%
-  bind_rows(add2024)
+  bind_rows(add2024) %>%
+  bind_rows(plot2381995) %>%
+  bind_rows(plot606)
 
 asmiddlSouthBeaver$Phi$fence <-  ifelse(asmiddlSouthBeaver$Phi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiddlSouthBeaver$Phi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
 asmiddlSouthBeaver$Phi$fence <- as.factor(asmiddlSouthBeaver$Phi$fence)
+
+## looks correct
+asmiddlSouthBeaver$Phi %>% filter(fence == "1")
 
 asmiddlSouthBeaver$p$fence <-  ifelse(asmiddlSouthBeaver$p$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiddlSouthBeaver$p$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
@@ -625,8 +670,15 @@ asmiddlSouthBeaver$f$fence <- as.factor(asmiddlSouthBeaver$f$fence)
 ```{r}
 
 run.PradrecSBC <- function(){
-  Phi.dot = list(formula =  ~ Site:fence)
-  f.dot = list(formula =  ~ Site:fence)
+  Phi.site = list(formula =  ~ Site:fence)
+  Phi.siteWinter = list(formula =  ~ WinterPPT:Site:fence)
+  Phi.siteSummer = list(formula =  ~ SummerMax:Site:fence)
+  Phi.siteWinterSummer = list(formula =  ~ WinterPPT:SummerMax:Site:fence)
+  
+  f.site = list(formula =  ~ Site:fence)
+  f.siteWinter = list(formula =  ~ WinterPPT:Site:fence)
+  f.siteSummer = list(formula =  ~ SummerMax:Site:fence)
+  f.siteWinterSummer = list(formula =  ~ WinterPPT:SummerMax:Site:fence)
 
   p.dot = list(formula =  ~ 1,
                fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
@@ -644,14 +696,36 @@ save(asmiPradelmodelsSBC, file = paste(savepath, currentyr, "asmiPradelmodelsSBC
 
 ```{r}
 
-f.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
+load(paste(savepath, currentyr, "asmiPradelmodelsSBC.rdata", sep=""))
+asmiPradelmodelsSBC
+
+f.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   rename(f.estimates = estimate,
          f.lcl = lcl,
          f.ucl = ucl) %>%
   select(group, Plot,f.estimates, f.lcl, f.ucl, time) %>%
-  mutate(fence = case_when(time == 1995 ~ "N",
-                           time == 2006 ~ "Y"))
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  left_join(WinterPPTSouthBeaver) %>%
+  left_join(SummerMaxSouthBeaver)
+
+f.tableSBCPradrec %>%
+  filter(fenced == "y")
+f.tableSBCPradrec %>%
+  filter(is.na(site))
+
+### Some are site that are named by the plot, the additional additional are fenced but only three sites are fenced
+ggplot(f.tableSBCPradrec, aes(WinterPPT, f.estimates, color = as.factor(site))) +
+  geom_point(position = position_dodge(width = 1)) +
+  geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 1))+
+  theme_bw() +
+  ylab("Per capita recruitment")+
+  scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))
   
 Phi.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
