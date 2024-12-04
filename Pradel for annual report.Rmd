@@ -267,7 +267,7 @@ ggplot(Phi.table, aes(WinterPPT, Phi.estimates, color = Plot)) +
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
                                 "16" = "Cebolla North"))
-
+lambdaCC <- 
 f.table %>%
   left_join(Phi.table) %>%
   mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
@@ -285,203 +285,6 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = Plot
   
 
 ```
-
-
-#######################################  SKIP  ##################################################
-## Get site based confidence intervals on lambda
-```{r}
-asmiprocCebollapradlambda <- process.data(asmi.inpCebolla, model = "Pradlambda",
-                         groups = "Plot",
-                         begin.time = 2014)
-
-asmiddlCebollaPradlambda <- make.design.data(asmiprocCebollapradlambda)
-
-## Add site to ddl
-asmiddlCebollaPradlambda$Phi <- asmiddlCebollaPradlambda$Phi %>%
-  left_join(plotdfCebolla)
-asmiddlCebollaPradlambda$Lambda <- asmiddlCebollaPradlambda$Lambda %>%
-  left_join(plotdfCebolla)
-
-
-
-## Fix detection, p, to zero when no survey
-pindexCebollaPradlambda <- asmiddlCebollaPradlambda$p %>%
-  left_join(plotdf)
-
-identical(pindexCebolla, pindexCebollaPradlambda)
-
-
-run.Pradlambda <- function(){
-  Phi.dot = list(formula =  ~ Site)
-  Lambda.dot = list(formula =  ~ Site)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocCebollapradlambda, ddl = asmiddlCebollaPradlambda)
-  
-  return(asmi.results)
-}
-
-asmiPradellambdaCebolla <- run.Pradlambda()
-save(asmiPradellambdaCebolla, file = paste(savepath, currentyr, "asmiPradellambdaCebolla.rdata", sep=""))
-
-lambda.table <- get.real(asmiPradellambdaCebolla$Phi.dot.p.dot.Lambda.dot, "Lambda", se = TRUE)
-lambda.table  %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Lambda.estimates = estimate,
-         Lambda.lcl = lcl,
-         Lambda.ucl = ucl) %>%
-  select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl)
-
-
-
-## Annual
-run.Pradlambdaann <- function(){
-  Phi.timesite = list(formula =  ~ time:Site)
-  Lambda.timesite = list(formula =  ~ time:Site)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocCebollapradlambda, ddl = asmiddlCebollaPradlambda)
-  
-  return(asmi.results)
-}
-
-asmiPradellambdaannCebolla <- run.Pradlambdaann()
-
-lambda.table <- get.real(asmiPradellambdaannCebolla$Phi.timesite.p.dot.Lambda.timesite, "Lambda", se = TRUE)
-
-CebollaLambdaPlot <- lambda.table %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(time, log(estimate), color = group)) +
-  geom_point(position = position_dodge(width = 0.2)) +
-  geom_errorbar(position = position_dodge(width = 0.2), aes(ymin = log(lcl), ymax = log(ucl)), width = 0.1) +
-  stat_smooth(method = "lm") +
-  theme_bw() +
-  scale_color_manual("",
-                     values = c("cyan3", "darkslategrey"), # hcl.colors(2,palette = "RedOr"),
-                     labels = c("1" = "Cebolla Mid", "16" = "Cebolla North")) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
-  ylab(expression(log(frac(N[t+1],N[t])))) +
-  xlab("Year t")
-  
-```
-
-## Annual
-```{r}
-
-run.Pradrecann <- function(){
-  Phi.dot = list(formula =  ~ time + Site)
-  f.dot = list(formula =  ~ time + Site)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocCebolla, ddl = asmiddlCebolla)
-  
-  return(asmi.results)
-}
-
-asmiPradelmodelsCebollaann <- run.Pradrecann()
-save(asmiPradelmodelsCebollaann, file = paste(savepath, currentyr, "asmiPradelmodelsCebollaann.rdata", sep=""))
-```
-
-```{r}
-load(paste(savepath, currentyr, "asmiPradelmodelsCebollaann.rdata", sep=""))
-
-f.tableann <- get.real(asmiPradelmodelsCebollaann$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(f.estimates = estimate,
-         f.lcl = lcl,
-         f.ucl = ucl) %>%
-  select(group, time, Plot,f.estimates, f.lcl, f.ucl)
-
-Phi.tableann <- get.real(asmiPradelmodelsCebollaann$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Phi.estimates = estimate,
-         Phi.lcl = lcl,
-         Phi.ucl = ucl) %>%
-  select(group, time,  Plot,Phi.estimates, Phi.lcl, Phi.ucl)
-
-CCplot <- f.tableann %>%
-  left_join(Phi.tableann) %>%
-  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(time, log(Lambda.estimate), color = group)) +
-  geom_point(position = position_dodge(width = .2)) +
-  stat_smooth(method = "lm")+
-  theme_bw() +
-  scale_color_manual("Cebolla Creek",
-                     labels = c("1" = "Mid", "16" = "North"),
-                     values = c("darkblue","gold")) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
-  ylab(expression(log(frac(N[t+1],N[t])))) +
-  xlab("Year t")
-
-ggsave(paste(savepath, "PradelCebolla.jpg", sep = ""),
-       CCplot,
-       width=130, height=100,units='mm', dpi=300)
-
-
-f.tableann %>%
-  left_join(Phi.tableann) %>%
-  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
-  left_join(WinterPPT, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
-  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(SummerMax, Lambda.estimate, color = group)) +
-  geom_point() +
-  stat_smooth(method = "lm")
-
-f.tableann %>%
-  left_join(WinterPPT, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
-  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(SummerMax, f.estimates, color = group)) +
-  geom_point() +
-  stat_smooth(method = "lm") +
-  facet_wrap(~ ppt_winter_bin)
-
-Phi.tableann %>%
-  left_join(WinterPPT, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12",
-                               "Plot" == "Plot")) %>%
-  mutate(max_summer_bin = cut(SummerMax, breaks = 2)) %>%
-  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 2)) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(SummerMax, Phi.estimates, color = group)) +
-  geom_point() +
-  stat_smooth(method = "lm") 
-
-```
-
-#################################################################################################
-
-First keep survival and recruitment constant and see how detection varies  
-Good if we had variables where we'd expect detection to change, like observer or habitat. Could test plot
-~ time as a factor, a separate parameter for each occasion   
-~ Time as a trend, a continuous variable with a slope and intercept  (see Laake & Rexstad 2008)
-
-
-
 
 
 ### South Beaver Creek  
@@ -712,106 +515,96 @@ f.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWin
   left_join(WinterPPTSouthBeaver) %>%
   left_join(SummerMaxSouthBeaver)
 
-f.tableSBCPradrec %>%
-  filter(fenced == "y")
-f.tableSBCPradrec %>%
-  filter(is.na(site))
-
-### Some are site that are named by the plot, the additional additional are fenced but only three sites are fenced
-ggplot(f.tableSBCPradrec, aes(WinterPPT, f.estimates, color = as.factor(site))) +
-  geom_point(position = position_dodge(width = 1)) +
-  geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 1))+
-  theme_bw() +
-  ylab("Per capita recruitment")+
-  scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown"),
-                     labels = c("1" = "Cebolla Mid",
-                                "16" = "Cebolla North"))
+pRecruitment <- ggplot(f.tableSBCPradrec, aes(WinterPPT, f.estimates, color = as.factor(site))) +
+                    geom_point(position = position_dodge(width = 3)) +
+                    geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 3))+
+                    theme_bw() +
+                    ylab("Per capita recruitment")+
+                    scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown")) +
+                    xlab("Winter Precipitation (mm)")
   
-Phi.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
+Phi.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "Phi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   rename(Phi.estimates = estimate,
          Phi.lcl = lcl,
          Phi.ucl = ucl) %>%
   select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl,time) %>%
-  mutate(fence = case_when(time == 1995 ~ "N",
-                           time == 2006 ~ "Y"))
+  mutate(time = as.numeric(as.character(time)),
+         group = as.integer(as.character(group))) %>%
+  left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  left_join(WinterPPTSouthBeaver) %>%
+  left_join(SummerMaxSouthBeaver)
 
 
+lambdaSBC <- 
 f.tableSBCPradrec %>%
   left_join(Phi.tableSBCPradrec) %>%
-  left_join(plotdfSouthBeaver) %>%
-  mutate(Lambda.estimate = f.estimates + Phi.estimates)
-  
-
-```
-
-Annual
-```{r}
-
-run.PradrecSBCannual <- function(){
-  Phi.dot = list(formula =  ~ time + Plot:fence)
-  f.dot = list(formula =  ~ time + Plot:fence)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaver, ddl = asmiddlSouthBeaver)
-  
-  return(asmi.results)
-}
-
-asmiPradelmodelsSBCannual <- run.PradrecSBCannual()
-save(asmiPradelmodelsSBCannual, file = paste(savepath, currentyr, "asmiPradelmodelsSBCannual.rdata", sep=""))
-```
-
-## Also missing data in 2011(-2012) and 2012(-2013)  
-What happened to 2012 data? 
-
-```{r}
-
-f.tableSBCPradrecannual <- get.real(asmiPradelmodelsSBCannual$Phi.dot.p.dot.f.dot, "f", se = TRUE) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(f.estimates = estimate,
-         f.lcl = lcl,
-         f.ucl = ucl) %>%
-  select(group, Plot,f.estimates, f.lcl, f.ucl, time) %>%
-  left_join(PSYF, join_by("group" == "plot", "time" == year)) %>%
-  mutate(fenced = case_when(is.na(fenced) ~ "n",
-                           TRUE ~ fenced))
-  
-Phi.tableSBCPradrecannual <- get.real(asmiPradelmodelsSBCannual$Phi.dot.p.dot.f.dot, "Phi", se = TRUE) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Phi.estimates = estimate,
-         Phi.lcl = lcl,
-         Phi.ucl = ucl) %>%
-  select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl,time) %>%
-  mutate(fence = case_when(time == 1995 ~ "N",
-                           time == 2006 ~ "Y"))%>%
-  left_join(PSYF, join_by("group" == "plot", "time" == year)) %>%
-  mutate(fenced = case_when(is.na(fenced) ~ "n",
-                           TRUE ~ fenced))
-  
-
-
-f.tableSBCPradrecannual %>%
-  left_join(Phi.tableSBCPradrecannual) %>%
-  left_join(plotdfSouthBeaver) %>%
   mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(time, log(Lambda.estimate), color = Site)) +
-  geom_point()+
-  stat_smooth(method = "lm", alpha = 0.5) +
-  facet_wrap(~ fenced,  scales = "free") +
+ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(site))) +
+  geom_point(position = position_dodge(width = 0.1))+
+  stat_smooth(method = "lm", position = position_dodge(width = 0.1), alpha = 0.15) +
   theme_bw() +
-  scale_color_manual(values = rainbow(4)) +
-  geom_hline(yintercept = 0, linetype = "dotted")
+  xlab("Year") +
+  ylab(expression(log(lambda))) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  ggtitle("b)")+
+  scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown")) +
+  facet_wrap(~fenced, labeller = labeller(fenced = c("n" = "Open Plots", "y" = "Fenced Plots")),
+             nrow = 2)
   
 
 ```
 
 
+## Lambda for both Drainages   
+```{r}
+
+ggsave(paste(savepath, "Fig3PradelLambda.jpg", sep = ""),
+       lambdaCC + lambdaSBC +
+         plot_layout(design = "
+                     ABB
+                     #BB
+                     "),
+width=275, height=200,units='mm', dpi=300)
+       
+
+## Check for site 15 line
+f.tableSBCPradrec %>%
+  left_join(Phi.tableSBCPradrec) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
+  filter(site %in% c(15,26)) %>%
+ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(site))) +
+  geom_point(position = position_dodge(width = 0.1))+
+  stat_smooth(method = "lm", position = position_dodge(width = 0.1), alpha = 0.15) +
+  theme_bw() +
+  xlab("Year") +
+  ylab(expression(log(lambda))) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  ggtitle("b)")+
+  scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown")) +
+  facet_wrap(~fenced, labeller = labeller(fenced = c("n" = "Open Plots", "y" = "Fenced Plots")),
+             nrow = 2) 
+       
+```
+
+# Per captia recruitment for MPM in Multistate CJS for annual report   
+```{r}
+# Cebolla Creek
+f.mpm <- get.real()
+
+
+```
+
+
+
+
+
+
+####################################################################################################################
+####################################################################################################################
+####################################################################################################################
+####################################################################################################################
 ## Get site based confidence intervals on lambda
 ```{r}
 asmiprocSouthBeaverpradlambda <- process.data(asmi.inpSouthBeaver, model = "Pradlambda",
@@ -944,500 +737,6 @@ ggplot(  aes(time, log(estimate), color = Site)) +
 #########################################################################################################################
 #########################################################################################################################
 
-By Plot - like in the asmi paper, and additive not interaction like in the paper   
-the climate of the year should drive and then be offset slightly by the plot's particular microclimate (portfolio effect)
-```{r}
-
-run.PradlambdaSBC_add <- function(){
-  Phi.dot = list(formula =  ~ time + Plot:fence)
-  Lambda.dot = list(formula =  ~ time + Plot:fence)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaverpradlambda, ddl = asmiddlSouthBeaverPradlambda)
-  
-  return(asmi.results)
-}
-
-asmiPradellambdaSouthBeaver_add <- run.PradlambdaSBC_add()
-save(asmiPradellambdaSouthBeaver_add, file = paste(savepath, currentyr, "asmiPradellambdaSouthBeaver_add.rdata", sep=""))
-
-```
-
-
-```{r}
-load(paste(savepath, currentyr, "asmiPradellambdaSouthBeaver_add.rdata", sep=""))
-
-lambda.table <- get.real(asmiPradellambdaSouthBeaver_add$Phi.dot.p.dot.Lambda.dot, "Lambda", se = TRUE)
-PSYF <- PlotSiteYrFence %>%
-  mutate(year = as.factor(year)) %>%
-  mutate(plot = as.factor(plot))
-
-lambda.table  %>%
-  left_join(PSYF, join_by("time" == "year", "group" == "plot")) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-  left_join(plotdfSouthBeaver) %>%
-  filter(estimate > 0.01 & estimate < 10) %>%
-  mutate(fenced = case_when(is.na(fenced) ~ "n",
-                            TRUE ~ fenced)) %>%
-ggplot(  aes(time, log(estimate), color = Site, group = Plot)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(position = position_dodge(width = 0.9), aes(ymin = log(lcl), ymax = log(ucl)), width = 0.1) +
-  stat_smooth(method = "lm", alpha = 0.15) +
-  theme_bw() +
-  scale_color_manual("",
-                     values = rainbow(4), #hcl.colors(4,palette = "Hawaii"),
-                     labels = c("1" = "SouthBeaver Mid", "16" = "SouthBeaver North")) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
-  ylab(expression(log(frac(N[t+1],N[t])))) +
-  xlab("Year t") +
-  facet_grid(Site~fenced, scales = "free")
-
-## Missing fencing information for plots 238 1995
-# 300 in 1995
-# 581 and 598 in several years
-# 606 and 610 in 2023
-lambda.table  %>%
-  left_join(PSYF, join_by("time" == "year", "group" == "plot")) %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-  left_join(plotdfSouthBeaver) %>%
-  filter(estimate < 0.01 | estimate > 10) 
-
-### Missing data from 2011 and 2012??!?!
-asmi.raw%>%
-  filter(year %in% c(2011, 2012)) %>%
-  select(year, AsMi_plot_id, AsMi_site_id, length)
-
-str(asmi.raw)
-```
-
-
-
-#########################################################################################################################
-#########################################################################################################################
-#########################################################################################################################
-
-
-### Let detection differ by site 
-See if trend of survival or reproduction or if depends on winter ppt, summer tmax, or interaction of the two
-```{r}
-run.asmi.Phif <- function(){
-  Phi.dot = list(formula =  ~ 1)
-  Phi.age = list(formula = ~ Age)
-  Phi.creek = list(formula = ~ Creek)
-  Phi.winterppt = list(formula = ~ WinterPPT)
-  Phi.summermax = list(formula = ~ SummerMax)
-  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-    
-  f.dot = list(formula =  ~ 1)
-  f.age = list(formula = ~ Age)
-  f.creek = list(formula = ~ Creek)
-  f.winterppt = list(formula = ~ WinterPPT)
-  f.summermax = list(formula = ~ SummerMax)
-  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-
-  p.Plot = list(formula = ~ Plot,
-               fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmiSurvRep <- run.asmi.Phif()
-save(asmiSurvRep, file = paste(savepath, currentyr, "asmiSurvRep.rdata", sep=""))
-```
-
-```{r}
-
-load(paste(savepath, currentyr, "asmiSurvRep.rdata", sep=""))
-asmiSurvRep
-
-Phi.table <- get.real(asmiSurvRep$Phi.age.p.Plot.f.age, "Phi", se = TRUE)
-Phi.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(Age) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Age, estimates)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  ylab("Survival")
-
-
-f.table <- get.real(asmiSurvRep$Phi.age.p.Plot.f.age, "f", se = TRUE)
-f.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(Age) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(Age, estimates)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()+
-  ylab("Recruitment")
-
-
-## Need ~ time
-## Lambda 
-Phi.table2 <- get.real(asmiSurvRep$Phi.winpptsummax.p.Plot.f.age, "Phi", se = TRUE)
-f.table2 <- get.real(asmiSurvRep$Phi.winpptsummax.p.Plot.f.age, "f", se = TRUE)
-Phi.table2 %>%
-  select(estimate:Plot) %>%
-  rename(Phi.estimate = estimate,
-         Phi.se = se,
-         Phi.lcl = lcl,
-         Phi.ucl = ucl) %>%
-  left_join(f.table2) %>%
-  left_join(plotdf) %>%
-  mutate(lambda = estimate + Phi.estimate) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-  mutate(Creek = case_when(Site %in% c(5,15,19,26) ~ "South Beaver",
-                           TRUE ~ "Cebolla")) %>%
-  group_by(Creek,time) %>%
-  summarise(mean.lambda = mean(lambda)) %>%
-  filter(Creek == "South Beaver" | (Creek == "Cebolla" & time > 2013)) %>%
-ggplot(  aes(time, log(mean.lambda))) +
-  geom_point() +
-  stat_smooth(method = "lm") +
-  theme_bw() +
-  facet_wrap(~Creek, scales = "free")
-  
-
-### Is it that there are more individuals as precipitation increases so per capita recruitment goes down? 
-f.table2 <- get.real(asmiSurvRep$Phi.age.p.Plot.f.winpptsummax, "f", se = TRUE)
-f.table2 %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  mutate(ppt_winter_bin = cut(WinterPPT, breaks = 3)) %>%
-  group_by(Age,ppt_winter_bin, SummerMax) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(SummerMax, estimates, color = Age)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9) +
-  theme_bw()+
-  facet_wrap(~ppt_winter_bin) +
-  ylab("Recruitment")
-
-f.table2 %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  left_join(SummerMax, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  mutate(max_summer_bin = cut(SummerMax, breaks = 3)) %>%
-  group_by(max_summer_bin, WinterPPT) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(WinterPPT, estimates)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9) +
-  theme_bw()+
-  facet_wrap(~max_summer_bin) +
-  ylab("Recruitment")
-
-## No population size from this, need closed estimates to get population size
-asmiSurvRep$Phi.age.p.Plot.f.age$results$derived$`log(Lambda) Population Change`
-```
-
-
-
-
-## Compare models  
-```{r}
-
-
-run.asmi.det2 <- function(){
-  Phi.dot = list(formula =  ~ 1)
-  f.dot = list(formula =  ~ 1)
-
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.indices, value = p.values))
-  # Climate that might influence surrounding vegetation
-  p.winterppt = list(formula = ~ WinterPPT,
-               fixed = list(index = p.indices, value = p.values))
-  p.summerMax = list(formula = ~ SummerMax,
-               fixed = list(index = p.indices, value = p.values))
-  p.summerppt = list(formula = ~ SummerPPT,
-               fixed = list(index = p.indices, value = p.values))
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-  p.Plot = list(formula = ~ -1 + Plot,
-               fixed = list(index = p.indices, value = p.values))
-  p.TimePlot = list(formula = ~ -1 + Time:Plot,
-               fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmiPradeldetection <- run.asmi.det2()
-save(asmiPradeldetection, file = paste(savepath, currentyr, "asmiPradeldetection.rdata", sep=""))
-
-
-```
-
-```{r}
-
-load( paste(savepath, currentyr, "asmiPradeldetection.rdata", sep=""))
-
-asmiPradeldetection$model.table
-
-```
-
-
-```{r}
-
-## Need to merge climate
-p.table <- get.real(asmiPradeldetection$Phi.dot.p.winterppt, "p", se = TRUE)
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  left_join(WinterPPT, join_by("time" == "Prev12", "Plot" == "Plot")) %>%
-  group_by(WinterPPT) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes(WinterPPT, estimates)) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-```
-
-
-```{r}
-
-asmiSurvRep$model.table
-
-asmiSurvRep$Phi.Time.p.Time.f.Time$results$real %>%
-  mutate(prams = row.names(.)) %>%
-  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
-  mutate(time = as.numeric(gsub("t", "", time))) %>%
-  filter(parameter == "Phi") %>%
-  filter(fixed != "Fixed") %>%
-ggplot(   aes(time, estimate)) +
-  geom_point()  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
-  xlab("Year")+
-  ylab("Survival") +
-  theme_bw()
-
-
-asmiSurvRep$Phi.Time.p.Time.f.Time$results$real %>%
-  mutate(prams = row.names(.)) %>%
-  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
-  mutate(time = as.numeric(gsub("t", "", time))) %>%
-  filter(parameter == "f") %>%
-  filter(fixed != "Fixed") %>%
-ggplot(   aes(time, estimate)) +
-  geom_point()  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
-  xlab("Year")+
-  ylab("recruitment") +
-  theme_bw()
-
-
-
-
-```
-
-
-### Let detection increase over time  !! No, don't
-See if survival or reproduction change each year and if depends on winter ppt, summer tmax, or interaction of the two
-```{r}
-run.asmi.Phif2<- function(){
-  Phi.dot = list(formula = 1)
-  Phi.fence = list(formula = ~ -1 + fence)
-  Phi.fencetime = list(formula = ~ -1 +time:fence)
-  Phi.time = list(formula = ~ time)
-  Phi.plot = list(formula = ~ Plot)
-  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
-  Phi.winterppt = list(formula = ~ WinterPPT)
-  Phi.summermax = list(formula = ~ SummerMax)
-  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-    
-  f.dot = list(formula = 1)
-  f.fence = list(formula = ~ -1 + fence)
-  f.fencetime = list(formula = ~ -1 +time:fence)
-  f.time = list(formula = ~ time)
-  f.plot = list(formula = ~ Plot)
-  f.plotfence = list(formula = ~ -1 + Plot:fence)
-  f.winterppt = list(formula = ~ WinterPPT)
-  f.summermax = list(formula = ~ SummerMax)
-  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-
-  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmiSurvRep2 <- run.asmi.Phif2()
-save(asmiSurvRep2, file = paste(savepath, currentyr, "asmiSurvRep2.rdata", sep=""))
-```
-
-
-
-```{r}
-
-load(paste(savepath, currentyr, "asmiSurvRep2.rdata", sep=""))
-asmiSurvRep2$model.table
-
-asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real %>%
-  mutate(prams = row.names(.)) %>%
-  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
-  mutate(time = as.numeric(gsub("t", "", time))) %>%
-  filter(parameter == "f") %>%
-  filter(fixed != "Fixed") %>%
-ggplot(   aes(time, estimate)) +
-  geom_point()  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl)) +
-  xlab("Year")+
-  ylab("recruitment") +
-  theme_bw()
-
-
-asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real %>%
-  mutate(prams = row.names(.)) %>%
-  tidyr::separate(prams, into = c("parameter","group","age","time")) %>%
-  mutate(time = as.numeric(gsub("t", "", time))) %>%
-  filter(parameter == "Phi") %>%
-  filter(fixed != "Fixed") %>%
-  mutate(group = case_when(group == "g1" ~ "Open",
-                           group == "g238" ~ "Fenced")) %>%
-ggplot(   aes(time, estimate, color = group)) +
-  geom_point(position = position_dodge(width = 0.9))  +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl),position = position_dodge(width = 0.9)) +
-  xlab("Year")+
-  ylab("Survival") +
-  theme_bw()
-
-## 870 rows   
-## 38 distinct rows
-asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lambda) Population Change` %>%
-  distinct()
-
-### There are 10 years with fencing
-require(plotrix)
-
-p.table <- get.real(asmiSurvRep2$Phi.fencetime.p.Time.f.time, "p", se = TRUE)
-## Missing 2024
-PlotSiteYrFence <- PlotSiteYrFence %>%
-  mutate(plot = as.factor(plot),
-         year = as.factor(year),
-         fenced = as.factor(fenced),
-         site = as.factor(site))
-p.table <- p.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
-  mutate(fenced = case_when(fenced == "NA" ~ "n",
-                            TRUE ~ fenced))
-  # mutate(fenced = case_when(time == "2024" ~ "n",
-  #                           TRUE ~ fenced))
-estimates <- by(p.table$estimate, p.table$Time, mean)
-lcl <- by(p.table$lcl, p.table$Time, mean)
-ucl <- by(p.table$ucl, p.table$Time, mean)
-plotCI(c(1:length(estimates)), estimates, ucl-estimates, estimates-lcl, 
-         xlab = "Year",
-         ylab = "Capture probability")
-
-p.table %>%
-  filter(fixed != "Fixed") %>%
-  group_by(time,fenced) %>%
-  summarise(estimates = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(estimates != 0) %>%
-ggplot(  aes( time,estimates, color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-## Lambda = phi + f
-phi.table <-  get.real(asmiSurvRep2$Phi.fencetime.p.Time.f.time, "Phi", se = TRUE)
-phi.table <- phi.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) 
-phi.table %>%
-  filter(fixed != "Fixed") %>%
-  filter(group != "NA") %>%
-  filter(fenced != "NA") %>%
-  group_by(time,fenced) %>%
-  summarise(Survival = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(Survival != 0) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes( time,Survival, color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.7)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
-  theme_bw()
-
-f.table <-  get.real(asmiSurvRep2$f.fencetime.p.Time.f.time, "f", se = TRUE)
-f.table <- f.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) 
-f.table %>%
-  filter(fixed != "Fixed") %>%
-  filter(group != "NA") %>%
-  filter(fenced != "NA") %>%
-  group_by(time,fenced) %>%
-  summarise(Recruit = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(Recruit != 0) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes( time,Recruit, color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.7)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
-  theme_bw()
-
-
-paramsAll <- row.names(asmiSurvRep2$Phi.fencetime.p.Time.f.time$model.parameters)
-params <- paramsAll[grepl("Phi", paramsAll)]
-length(paramsAll[grepl("g1", paramsAll)]) ## 1 row for fixed p at zero, 29 Phi rows, one for each year
-length(paramsAll[grepl("g238", paramsAll)]) ## 10 Phi rows, one for each year of fencing
-
-
-nrow(asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$real)
-
-lambdaPlot <- asmiSurvRep2$Phi.fencetime.p.Time.f.time$results$derived$`log(Lambda) Population Change` %>%
-  bind_cols(Params = params) %>%
-  separate(Params, into = c("parameter","plot","age","time")) %>%
-  mutate(time = as.character(time)) %>%
-  mutate(time = gsub("t", "",time)) %>%
-  mutate(time = as.numeric(time)) %>%
-  mutate(plot = gsub("g","", plot)) %>%
-  mutate(Plot = as.factor(plot)) %>%
-  left_join(plotsSite) %>%
-  mutate(site = as.factor(Site))
-
-```
-
 
 
 Pradlambda
@@ -1465,235 +764,5 @@ run.asmi.lambda <- function(){
 
 asmi.lambdaresults <- run.asmi.lambda()
 save(asmi.lambdaresults, file = "C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmiLambda.Rdata")
-
-```
-
-```{r}
-
-load("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmiLambda.Rdata")
-
-lam.table <- get.real(asmi.lambdaresults$Phi.timePlot.p.plot.Lambda.timeplot, "Lambda", se = TRUE)
-lam.table %>%
-  left_join(plotdf) %>%
-  group_by(Site, Plot) %>%
-  summarise(lambda = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) 
-
-
-lam.table %>%
-  filter(fixed != "Fixed") %>%
-  filter(fenced != "NA") %>%
-  group_by(time,fenced) %>%
-  summarise(f_recruit = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(f_recruit != 0) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes( time,f_recruit, color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.9,position = position_dodge(width = 0.9)) +
-  theme_bw()
-
-
-
-
-
-```
-
-
-
-```{r}
-
-
-run.asmi.lambda2 <- function(){
-  Phi.dot = list(formula = 1)
-  Phi.fence = list(formula = ~ -1 + fence)
-  Phi.fencetime = list(formula = ~ -1 +time:fence)
-  Phi.time = list(formula = ~ time)
-  Phi.plot = list(formula = ~ Plot)
-  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
-  Phi.winterppt = list(formula = ~ WinterPPT)
-  Phi.summermax = list(formula = ~ SummerMax)
-  Phi.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-    
-  f.dot = list(formula = 1)
-  f.fence = list(formula = ~ -1 + fence)
-  f.fencetime = list(formula = ~ -1 +time:fence)
-  f.time = list(formula = ~ time)
-  f.plot = list(formula = ~ Plot)
-  f.plotfence = list(formula = ~ -1 + Plot:fence)
-  f.winterppt = list(formula = ~ WinterPPT)
-  f.summermax = list(formula = ~ SummerMax)
-  f.winpptsummax = list(formula = ~ WinterPPT:SummerMax)
-
-  ## Did we get better over time? and as we ammended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-    
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmi.lambdaresults2 <- run.asmi.lambda2()
-save(asmi.lambdaresults2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_lambdaresults2.rdata")
-
-```
-
-```{r}
-
-load( "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_lambdaresults2.rdata")
-asmi.lambdaresults2$model.table
-
-
-```
-
-
-## Just change in lambda over years allowed to vary by year 'time', Plot, and fence while detection incraeses over time  
-```{r}
-
-
-run.detTimePlottimefence <- function(){
-  
-  Phi.plottimefence = list(formula = ~ -1 + time:Plot:fence)
-
-  f.plottimefence = list(formula = ~ -1 + time:Plot:fence)
-
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ Time,
-               fixed = list(index = p.indices, value = p.values))
-    
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmi.detTimePlottimefence2 <- run.detTimePlottimefence()
-save(asmi.detTimePlottimefence2, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_detTimePlottimefence2.rdata")
-
-
-```
-
-
-
-```{r}
-
-
-run.Pradrec <- function(){
-  
-  Phi.plottimefence = list(formula = ~ -1 + time:Plot:fence)
-
-  f.plottimefence = list(formula = ~ -1 + time:Plot:fence)
-
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ 1,
-               fixed = list(index = p.indices, value = p.values))
-    
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmi.Pradrec <- run.Pradrec()
-save(asmi.Pradrec, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_Pradrec.rdata")
-
-
-```
-
-```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_Pradrec.rdata")
-
-Phi.table <- get.real(asmi.Pradrec$Phi.plottimefence.p.Time.f.plottimefence, "Phi", se = TRUE)
-
-PlotSiteYrFence <- PlotSiteYrFence %>%
-  mutate(plot = as.factor(plot),
-         year = as.factor(year),
-         fenced = as.factor(fenced),
-         site = as.factor(site))
-
-Phi.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
-  filter(fixed != "Fixed") %>%filter(group != "NA") %>%
-  filter(fenced != "NA") %>%
-  group_by(time,fenced) %>%
-  summarise(Survival = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%
-  filter(Survival != 0) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes( time,Survival, color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.7)) +
-  geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
-  theme_bw()
-  
-
-### Recruitment, negative recruitment?!?! What now?!
-f.table <- get.real(asmi.Pradrec$Phi.plottimefence.p.Time.f.plottimefence, "f", se = TRUE)
-
-f.table %>%
-  left_join(PlotSiteYrFence, join_by("time" == "year", "group" == "plot")) %>%
-  filter(fixed != "Fixed") %>%filter(group != "NA") %>%
-  filter(fenced != "NA") %>%
-  group_by(time,fenced) %>%
-  summarise(Recruitment = mean(estimate),
-            lcl = mean(lcl),
-            ucl = mean(ucl)) %>%Or 
-  filter(Recruitment != 0) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes( time,log(Recruitment), color = fenced) ) +
-  geom_point(position = position_dodge(width = 0.7)) +
-  # geom_errorbar(aes(ymin = lcl, ymax = ucl), width = 0.7,position = position_dodge(width = 0.7)) +
-  theme_bw()
-  
-
-```
-
-
-
-## 
-## Too meaningless to allow survival and reproduction to just vary year to year. Need to have it be a function of climate and fencing and Plot is ok
-```{r}
-
-
-run.Pradrec <- function(){
-  
-  Phi.winterppt = list(formula = ~ WinterPPT)
-  Phi.summerppt = list(formula = ~ SummerPPT)
-  Phi.summertmax = list(formula = ~ SummerMax)
-  Phi.plotfence = list(formula = ~ -1 + Plot:fence)
-  Phi.plotfenceWinterPPT = list(formula = ~ -1 + WinterPPT:Plot:fence)
-  Phi.plotfenceSummerppt = list(formula = ~ -1 + SummerPPT:Plot:fence)
-  Phi.plotfenceSummerMax = list(formula = ~ -1 + SummerMax:Plot:fence)
-
-
-  f.winterppt = list(formula = ~ WinterPPT)
-  f.summerppt = list(formula = ~ SummerPPT)
-  f.summertmax = list(formula = ~ SummerMax)
-  f.plotfence = list(formula = ~ -1 + Plot:fence)
-  f.plotfenceWinterPPT = list(formula = ~ -1 + WinterPPT:Plot:fence)
-  f.plotfenceSummerppt = list(formula = ~ -1 + SummerPPT:Plot:fence)
-  f.plotfenceSummerMax = list(formula = ~ -1 + SummerMax:Plot:fence)
-
-  ## Did we get better over time? and as we amended our protocols - look for plants, not tags
-  p.Time = list(formula = ~ 1,
-               fixed = list(index = p.indices, value = p.values))
-    
-  asmi.model.list <- create.model.list("Pradrec")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiproc, ddl = asmiddl)
-  
-  return(asmi.results)
-}
-
-asmi.PradrecClimate <- run.Pradrec()
-save(asmi.PradrecClimate, file = "Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi_PradrecClimate.rdata")
-
 
 ```
