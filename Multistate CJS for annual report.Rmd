@@ -724,12 +724,49 @@ MPMSouthBeaver <- Psi.strataSiteWinterSBC %>%
   mutate(MPMtransition = Psi.estimates * S.estimates)
 
 MPMSite05open <- MPMSouthBeaver %>% filter(site == 5 & fenced == "n")
+SBCMPM05open <- matrix(c(MPMSite05open$MPMremain[MPMSite05open$stratum == "V"],        # V survive and remain
+                            MPMSite05open$MPMtransition[MPMSite05open$stratum == "R"] + 
+                              f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 5 &
+                                                  f.mpmSBCsite$fenced == "n"],         # R retrogress and per capita recruitment
+                            MPMSite05open$MPMtransition[MPMSite05open$stratum == "V"], # V survive and to R  
+                            MPMSite05open$MPMremain[MPMSite05open$stratum == "R"]),    # R survive and remain
+                     nrow = 2,
+                     byrow = TRUE)
+lambda(SBCMPM05open)
 
 MPMSite05fenced <- MPMSouthBeaver %>% filter(site == 5 & fenced == "y")
+SBCMPM05fenced <- matrix(c(MPMSite05fenced$MPMremain[MPMSite05fenced$stratum == "V"],     # V survive and remain
+                            MPMSite05fenced$MPMtransition[MPMSite05fenced$stratum == "R"] + 
+                              f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 5 &
+                                                  f.mpmSBCsite$fenced == "y"],                # R retrogress and per capita recruitment
+                            MPMSite05fenced$MPMtransition[MPMSite05fenced$stratum == "V"], # V survive and to R  
+                            MPMSite05fenced$MPMremain[MPMSite05fenced$stratum == "R"]),    # R survive and remain
+                     nrow = 2,
+                     byrow = TRUE)
+lambda(SBCMPM05fenced)
+
 
 MPMSite15 <- MPMSouthBeaver %>% filter(site == 15)
+SBCMPM15 <- matrix(c(MPMSite15$MPMremain[MPMSite15$stratum == "V"],     # V survive and remain
+                            MPMSite15$MPMtransition[MPMSite15$stratum == "R"] + 
+                              f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 15], # R retrogress and per capita recruitment
+                            MPMSite15$MPMtransition[MPMSite15$stratum == "V"], # V survive and to R  
+                            MPMSite15$MPMremain[MPMSite15$stratum == "R"]),    # R survive and remain
+                     nrow = 2,
+                     byrow = TRUE)
+lambda(SBCMPM15)
 
+## Why are there two values? One for 1995 and on for 2006? Because plot 300 was added late? Plot 300 was added in 2004
 MPMSite19open <- MPMSouthBeaver %>% filter(site == 19 & fenced == "n")
+SBCMPM19open <- matrix(c(MPMSite19open$MPMremain[MPMSite19open$stratum == "V"],        # V survive and remain
+                            MPMSite19open$MPMtransition[MPMSite19open$stratum == "R"] + 
+                              f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 19 &
+                                                  f.mpmSBCsite$fenced == "n"],         # R retrogress and per capita recruitment
+                            MPMSite19open$MPMtransition[MPMSite19open$stratum == "V"], # V survive and to R  
+                            MPMSite19open$MPMremain[MPMSite19open$stratum == "R"]),    # R survive and remain
+                     nrow = 2,
+                     byrow = TRUE)
+lambda(SBCMPM19open)
 
 MPMSite19fenced <- MPMSouthBeaver %>% filter(site == 19 & fenced == "y")
 
