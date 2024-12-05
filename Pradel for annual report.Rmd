@@ -197,7 +197,7 @@ asmiddlCebolla$f <- asmiddlCebolla$f %>%
 
 
 
-
+#########################################  Cebolla ##########################################
 ```{r}
 
 run.PradrecCebolla <- function(){
@@ -224,6 +224,7 @@ run.PradrecCebolla <- function(){
 asmiPradelmodelsCebolla <- run.PradrecCebolla()
 save(asmiPradelmodelsCebolla, file = paste(savepath, currentyr, "asmiPradelmodelsCebolla.rdata", sep=""))
 ```
+#########################################  Cebolla ##########################################
 
 ```{r}
 load( paste(savepath, currentyr, "asmiPradelmodelsCebolla.rdata", sep=""))
@@ -419,37 +420,18 @@ PlotSiteYrFence <- asmi.all2 %>%
   distinct(year,plot,site,fenced) %>%
   arrange(site,plot,year)
 ### Use PlotSiteYrFence to specify years when a plot was fenced
-PlotSiteYrFence %>%
-  filter(fenced == "y")
 
-PlotSiteYrFence %>%
-  filter(plot == 238) ## needs 1995
-## Huh! 
-PlotSiteYrFence %>%
-  filter(plot == 606) ## needs 2022, 2023
-PlotSiteYrFence %>%
-  filter(plot == 300) ## needs 1995
+plotdfSBC <- plotdfSouthBeaver %>%
+  mutate(Plot = as.integer(as.character(Plot)))
 
-
-## Add  
-plot2381995 <- PlotSiteYrFence %>%
-  filter(plot %in% c(300,238) &
-           year == 1996) %>%
-  mutate(year = 1995)
-plot606 <- PlotSiteYrFence %>%
-  filter(plot %in% c(606) &
-           year == 2021) 
-plot606 <- plot606 %>%
-  bind_rows(plot606) %>%
-  mutate(year = c(2022, 2023))
-
-add2024 <- PlotSiteYrFence %>%
-  filter(year == 2023) %>%
-  mutate(year = 2024)
+### expand
 PlotSiteYrFence <- PlotSiteYrFence %>%
-  bind_rows(add2024) %>%
-  bind_rows(plot2381995) %>%
-  bind_rows(plot606)
+  filter(site > 3) %>%
+  select(year, plot, fenced) %>%
+  complete(year, plot, fill = list(fenced = "n")) %>%
+  arrange(plot,year) %>%
+  left_join(plotdfSBC, join_by("plot" == "Plot"))
+
 
 asmiddlSouthBeaver$Phi$fence <-  ifelse(asmiddlSouthBeaver$Phi$time %in% PlotSiteYrFence$year[PlotSiteYrFence$fenced == "y"] &
                                asmiddlSouthBeaver$Phi$Plot %in% PlotSiteYrFence$plot[PlotSiteYrFence$fenced == "y"],1,0)
@@ -470,6 +452,9 @@ asmiddlSouthBeaver$f$fence <- as.factor(asmiddlSouthBeaver$f$fence)
 
 ```
 
+
+
+############################### South Beaver Creek ###########################################
 ```{r}
 
 run.PradrecSBC <- function(){
@@ -496,6 +481,9 @@ run.PradrecSBC <- function(){
 asmiPradelmodelsSBC <- run.PradrecSBC()
 save(asmiPradelmodelsSBC, file = paste(savepath, currentyr, "asmiPradelmodelsSBC.rdata", sep=""))
 ```
+############################### South Beaver Creek ###########################################
+
+
 
 ```{r}
 
@@ -541,7 +529,7 @@ lambdaSBC <-
 f.tableSBCPradrec %>%
   left_join(Phi.tableSBCPradrec) %>%
   mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
-ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(site))) +
+ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(Site))) +
   geom_point(position = position_dodge(width = 0.1))+
   stat_smooth(method = "lm", position = position_dodge(width = 0.1), alpha = 0.15) +
   theme_bw() +
@@ -573,8 +561,8 @@ width=275, height=200,units='mm', dpi=300)
 f.tableSBCPradrec %>%
   left_join(Phi.tableSBCPradrec) %>%
   mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
-  filter(site %in% c(15,26)) %>%
-ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(site))) +
+  filter(Site %in% c(15,26)) %>%
+ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.factor(Site))) +
   geom_point(position = position_dodge(width = 0.1))+
   stat_smooth(method = "lm", position = position_dodge(width = 0.1), alpha = 0.15) +
   theme_bw() +
@@ -603,7 +591,7 @@ f.mpmSBCsite <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, 
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
   left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
-  group_by(site) %>%
+  group_by(Site, fenced) %>%
   summarise(f.estimates = median(estimate),
          f.lcl = median(lcl),
          f.ucl = median(ucl)) 
@@ -623,170 +611,274 @@ f.mpmSBC <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f",
 
 
 
-
-
-####################################################################################################################
-####################################################################################################################
-####################################################################################################################
-####################################################################################################################
-## Get site based confidence intervals on lambda
+Pradlambda
 ```{r}
-asmiprocSouthBeaverpradlambda <- process.data(asmi.inpSouthBeaver, model = "Pradlambda",
+# Cebolla
+asmiprocPradlambda.CC <- process.data(asmi.inpCebolla, model = "Pradlambda",
                          groups = "Plot",
-                         begin.time = 1995)
+                         begin.time = 2014)
+asmiddlPradlambda.CC <- make.design.data(asmiprocPradlambda.CC)
 
-asmiddlSouthBeaverPradlambda <- make.design.data(asmiprocSouthBeaverpradlambda)
+asmiddlPradlambda.CC$Phi <- asmiddlPradlambda.CC$Phi %>%
+  left_join(plotdfCebolla)
+asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda %>%
+  left_join(plotdfCebolla)
 
-## Add site to ddl
-asmiddlSouthBeaverPradlambda$Phi <- asmiddlSouthBeaverPradlambda$Phi %>%
-  left_join(plotdfSouthBeaver)
-asmiddlSouthBeaverPradlambda$Lambda <- asmiddlSouthBeaverPradlambda$Lambda %>%
-  left_join(plotdfSouthBeaver)
-
-### Number and factor, fix
-asmiddlSouthBeaverPradlambda$Phi <-  asmiddlSouthBeaverPradlambda$Phi %>%
-  left_join(PSYF, join_by("group" == "plot", "time"== "year")) %>%
-  mutate(fence = case_when(is.na(fenced) ~ "n",
-                           TRUE ~ fenced))
-
-asmiddlSouthBeaverPradlambda$p <- asmiddlSouthBeaverPradlambda$p %>%
-  left_join(PSYF, join_by("group" == "plot", "time"== "year")) %>%
-  mutate(fence = case_when(is.na(fenced) ~ "n",
-                           TRUE ~ fenced))
-
-asmiddlSouthBeaverPradlambda$Lambda <- asmiddlSouthBeaverPradlambda$Lambda %>%
-  left_join(PSYF, join_by("group" == "plot", "time"== "year")) %>%
-  mutate(fence = case_when(is.na(fenced) ~ "n",
-                           TRUE ~ fenced))
 
 ## Fix detection, p, to zero when no survey
-pindexSouthBeaverPradlambda <- asmiddlSouthBeaverPradlambda$p %>%
-  left_join(plotdfSouthBeaver)
+pindexCebolla <- asmiddlPradlambda.CC$p %>%
+  left_join(plotdfCebolla)
 
-identical(pindexSouthBeaver, pindexSouthBeaverPradlambda)
+p.Cebolla89 <- pindexCebolla %>%
+  mutate(time = as.numeric(as.character(time))) %>%
+  mutate(group = as.numeric(as.character(group))) %>%
+  filter((group %in% c(89) & 
+            time >= 2019))
+
+p.Cebolla.missing2024 <- pindexCebolla %>%
+  filter((group %in% c("52") &
+            time %in% c("2024")))
+
+p.Cebollaindices <- unique(c(p.Cebolla89$par.index, 
+                             p.Cebolla.missing2024$par.index)) 
+
+p.Cebollavalues <- rep(0, length(p.Cebollaindices))
 
 
-run.PradlambdaSBC <- function(){
-  Phi.dot = list(formula =  ~ Site:fence)
-  Lambda.dot = list(formula =  ~ Site:fence)
+##Winter precipitation, summer maximum temp
+asmiddlPradlambda.CC$Phi <- asmiddlPradlambda.CC$Phi  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
 
-  p.dot = list(formula =  ~ 1,
-               fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
+asmiddlPradlambda.CC$p <- asmiddlPradlambda.CC$p  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
+
+asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) 
+
+
+asmiddlPradlambda.CC$Phi <- asmiddlPradlambda.CC$Phi %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
+
+asmiddlPradlambda.CC$p <- asmiddlPradlambda.CC$p %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
+
+asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxCebolla)
+
+```
+
+
+```{r}
+run.asmi.lambda.CC <- function(){
+  
+  Phi.Site = list(formula =  ~ Site)
+  Phi.SiteWinter = list(formula =  ~ WinterPPT:Site)
+  Phi.SiteSummer = list(formula =  ~ SummerMax:Site)
+  Phi.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site)
+  
+  Lambda.Site = list(formula =  ~ Site)
+  Lambda.SiteWinter = list(formula =  ~ WinterPPT:Site)
+  Lambda.SiteSummer = list(formula =  ~ SummerMax:Site)
+  Lambda.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site)
+
+  p.dot = list(formula = ~ 1,
+               fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
   
   asmi.model.list <- create.model.list("Pradlambda")
   
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaverpradlambda, ddl = asmiddlSouthBeaverPradlambda)
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocPradlambda.CC, ddl = asmiddlPradlambda.CC)
   
   return(asmi.results)
 }
 
-asmiPradellambdaSouthBeaver <- run.PradlambdaSBC()
-save(asmiPradellambdaSouthBeaver, file = paste(savepath, currentyr, "asmiPradellambdaSouthBeaver.rdata", sep=""))
+asmi.lambdaresults.CC <- run.asmi.lambda.CC()
+save(asmi.lambdaresults.CC, file =  paste(savepath, currentyr, "asmiLambda_CC.Rdata", sep=""))
 
-lambda.tableSBC <- get.real(asmiPradellambdaSouthBeaver$Phi.dot.p.dot.Lambda.dot, "Lambda", se = TRUE)
+```
 
-## Higher lambda while fenced
-lambda.tableSBC  %>%
+
+```{r}
+
+load(paste(savepath, currentyr, "asmiLambda_CC.Rdata", sep=""))
+
+asmi.lambdaresults.CC
+
+Pradlambda.tableCC <- get.real(asmi.lambdaresults.CC$Phi.SiteWinter.p.dot.Lambda.SiteSummer, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   rename(Lambda.estimates = estimate,
          Lambda.lcl = lcl,
          Lambda.ucl = ucl) %>%
-  select(group, Plot,time, Time, Lambda.estimates, Lambda.lcl, Lambda.ucl) %>%
-  mutate(fenced = case_when(Time == 0 ~ "0",
-                            Time == 11 ~ "1"))
+  select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl, time) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTCebolla) %>%
+  left_join(SummerMaxCebolla) %>%
+  mutate(logLambda = log(Lambda.estimates),
+         log.lcl = log(Lambda.lcl),
+         log.ucl = log(Lambda.ucl))
+
+ggplot(Pradlambda.tableCC, aes(SummerMax, logLambda, color = Plot)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = log.lcl, ymax = log.ucl), position = position_dodge(width = .1))+
+  theme_bw() +
+  ylab(expression(lambda))+
+  scale_color_manual("Site", values = c("darkblue","skyblue"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))+
+  xlab("Summer maximum temperature")+
+  geom_hline(yintercept = 0, linetype = "dotted")
+
+## By site
+get.real(asmi.lambdaresults.CC$Phi.Site.p.dot.Lambda.Site, "Lambda", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE)
+
+```
 
 
-## Annual
-run.PradlambdaannSBC <- function(){
-  Phi.timesite = list(formula =  ~ time + Site:fence)
-  Lambda.timesite = list(formula =  ~ time + Site:fence)
 
-  p.dot = list(formula =  ~ 1,
+
+
+
+```{r}
+# South Beaver Creek
+asmiprocPradlambda.SBC <- process.data(asmi.inpSouthBeaver, model = "Pradlambda",
+                         groups = "Plot",
+                         begin.time = 1995)
+asmiddlPradlambda.SBC <- make.design.data(asmiprocPradlambda.SBC)
+
+
+PlotSiteYrFence <- PlotSiteYrFence %>%
+  mutate(Plot = as.factor(plot),
+         time = as.factor(year))
+
+asmiddlPradlambda.SBC$Phi <- asmiddlPradlambda.SBC$Phi %>%
+  left_join(PlotSiteYrFence)
+asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda %>%
+  left_join(PlotSiteYrFence)
+
+## Fix detection, p, to zero when no survey
+pindexSouthBeaver <- asmiddlPradlambda.SBC$p %>%
+  left_join(PlotSiteYrFence)
+
+p.idAddedlater <- pindexSouthBeaver %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(598) & time < 2004))
+p.idAdded1996 <- pindexSouthBeaver %>%
+  mutate(time = as.numeric(as.character(time)))%>%
+  ## Added in 2004 %in% c(598), added in 1996 %in% c(300,238)
+  filter((group %in% c(300,238) & time < 1996))  
+
+p.SouthBeaverindicies <- c(p.idAdded1996$par.index, 
+                           p.idAddedlater$par.index)
+p.SouthBeavervalues <- rep(0, length(p.SouthBeaverindicies))
+
+##Winter precipitation, summer maximum temp
+asmiddlPradlambda.SBC$Phi <- asmiddlPradlambda.SBC$Phi  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+
+asmiddlPradlambda.SBC$p <- asmiddlPradlambda.SBC$p  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+
+asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda  %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) 
+
+
+asmiddlPradlambda.SBC$Phi <- asmiddlPradlambda.SBC$Phi %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+asmiddlPradlambda.SBC$p <- asmiddlPradlambda.SBC$p %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(SummerMaxSouthBeaver)
+
+```
+
+
+```{r}
+run.asmi.lambda.SBC <- function(){
+  
+  Phi.Site = list(formula =  ~ Site:fenced)
+  Phi.SiteWinter = list(formula =  ~ WinterPPT:Site:fenced)
+  Phi.SiteSummer = list(formula =  ~ SummerMax:Site:fenced)
+  Phi.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site:fenced)
+  
+  Lambda.Site = list(formula =  ~ Site:fenced)
+  Lambda.SiteWinter = list(formula =  ~ WinterPPT:Site:fenced)
+  Lambda.SiteSummer = list(formula =  ~ SummerMax:Site:fenced)
+  Lambda.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site:fenced)
+
+  p.dot = list(formula = ~ 1,
                fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
   
   asmi.model.list <- create.model.list("Pradlambda")
   
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocSouthBeaverpradlambda, ddl = asmiddlSouthBeaverPradlambda)
+  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocPradlambda.SBC, ddl = asmiddlPradlambda.SBC)
   
   return(asmi.results)
 }
 
-asmiPradellambdaannSouthBeaver <- run.PradlambdaannSBC()
-save(asmiPradellambdaannSouthBeaver, file = paste(savepath, currentyr, "asmiPradelLambdaSBC.rdata", sep=""))
+asmi.lambdaresults.SBC <- run.asmi.lambda.SBC()
+save(asmi.lambdaresults.SBC, file =  paste(savepath, currentyr, "asmiLambda_SBC.Rdata", sep=""))
+
 ```
+
 
 ```{r}
 
-load(paste(savepath, currentyr, "asmiPradelLambdaSBC.rdata", sep=""))
-lambda.tableSBGLambdaann <- get.real(asmiPradellambdaannSouthBeaver$Phi.timesite.p.dot.Lambda.timesite, 
-                                     "Lambda", se = TRUE)
+load(paste(savepath, currentyr, "asmiLambda_SBC.Rdata", sep=""))
 
-SouthBeaverLambdaPlot <- lambda.tableSBGLambdaann %>%
-  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  left_join(plotdfSouthBeaver) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-ggplot(  aes(time, log(estimate), color = Site)) +
-  geom_point(position = position_dodge(width = 0.2)) +
-  geom_errorbar(position = position_dodge(width = 0.2), aes(ymin = log(lcl), ymax = log(ucl)), width = 0.1) +
-  stat_smooth(method = "lm") +
-  theme_bw() +
-  scale_color_manual("South Beaver Creek",
-                     values = hcl.colors(4,palette = "Hawaii"),
-                     labels = c("5" = "05", "15" = "15", "19" = "19", "26" = "26")) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
-  ylab(expression(log(frac(N[t+1],N[t])))) +
-  xlab("Year t")
+asmi.lambdaresults.SBC
 
-lambda.tableSBGLambdaann %>%
+Pradlambda.tableSBC <- get.real(asmi.lambdaresults.SBC$Phi.SiteSummer.p.dot.Lambda.SiteWinter, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  left_join(plotdfSouthBeaver) %>%
-  mutate(time = as.numeric(as.character(time))) %>%
-  mutate(log.estimate = log(estimate)) %>%
-  filter(log.estimate > -10 & log.estimate < 4) %>%
-ggplot(  aes(time, log(estimate), color = Site)) +
-  geom_point(position = position_dodge(width = 0.5)) +
-  geom_errorbar(position = position_dodge(width = 0.5), aes(ymin = log(lcl), ymax = log(ucl)), width = 0.75) +
-  stat_smooth(method = "lm") +
+  rename(Lambda.estimates = estimate,
+         Lambda.lcl = lcl,
+         Lambda.ucl = ucl) %>%
+  select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl, time) %>%
+  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  left_join(WinterPPTSouthBeaver) %>%
+  left_join(SummerMaxSouthBeaver) %>%
+  left_join(PlotSiteYrFence) %>%
+  mutate(logLambda = log(Lambda.estimates),
+         log.lcl = log(Lambda.lcl),
+         log.ucl = log(Lambda.ucl))
+
+Pradlambda.tableSBC %>%
+  distinct(time,Plot,Site,fenced) %>%
+  filter(time %in% c(1995,2010,2023))
+
+ggplot(Pradlambda.tableSBC, aes(WinterPPT, logLambda, color = Site)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = log.lcl, ymax = log.ucl), position = position_dodge(width = .1))+
   theme_bw() +
-  scale_color_manual("South Beaver Creek",
-                     values = hcl.colors(4,palette = "Hawaii"),
-                     labels = c("5" = "05", "15" = "15", "19" = "19", "26" = "26")) +
+  ylab(expression(lambda))+
+  scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown"))+
+  xlab("Winter precipitation")+
   geom_hline(yintercept = 0, linetype = "dotted") +
-  ylab(expression(log(frac(N[t+1],N[t])))) +
-  xlab("Year t") 
-  
+  facet_wrap(~fenced)
+
+
+## By site
+get.real(asmi.lambdaresults.SBC$Phi.Site.p.dot.Lambda.Site, "Lambda", se = TRUE) %>%
+  distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
+  mutate(fence = case_when(time == 1995 ~ "n",
+                           TRUE ~ "y")) %>%
+  left_join(PlotSiteYrFence) %>%
+  select(estimate, lcl,ucl,Site,fenced)
+
 ```
 
-#########################################################################################################################
-#########################################################################################################################
-#########################################################################################################################
 
-
-
-Pradlambda
-```{r}
-
-asmiprocPradlambda <- process.data(asmi.inp, model = "Pradlambda",
-                         groups = "Plot",
-                         begin.time = 1995)
-asmiddlPradlambda <- make.design.data(asmiprocPradlambda)
-
-
-run.asmi.lambda <- function(){
-  Phi.timePlot = list(formula =  ~ time:Plot)
-  Lambda.timeplot = list(formula =  ~ time:Plot)
-
-  p.plot = list(formula = ~ Plot,
-               fixed = list(index = p.indices, value = p.values))
-  
-  asmi.model.list <- create.model.list("Pradlambda")
-  
-  asmi.results <- mark.wrapper(asmi.model.list, data = asmiprocPradlambda, ddl = asmiddlPradlambda)
-  
-  return(asmi.results)
-}
-
-asmi.lambdaresults <- run.asmi.lambda()
-save(asmi.lambdaresults, file = "C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmiLambda.Rdata")
-
-```
