@@ -30,6 +30,7 @@ userpath <- "C:/Users/DePrengm/"
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 asmi.raw <- read.csv(rawdatapath, na.strings = "na")
 # need to remove all plot 89, site 1 in 2020 and beyond
+## Don't remove, just make 0 in the detection probability, wasn't any chance of observing anything
 asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 # Need to remove all plot 52 in 2024, data from tablet was lost, didn't save 
 asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 52 & asmi.raw$year == 2024),]
@@ -53,6 +54,7 @@ Climate
 load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+
 ```
 
 # Cebolla Creek
@@ -68,11 +70,27 @@ CJS_asmi_Cebolla <- asmi.raw %>%
   mutate(Obs = as.character(Obs)) %>%
   pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
               id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id)) %>%
-  unite(ch, Year2014:Year2024, sep ="") %>%
+  ### UPDATE TO CURRENT YEAR ####
+  unite(ch, Year2014:Year2025, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id)) %>%
   filter(grepl("1",ch))
+
+## Why are there NAs for the missing 89 years?
+CJS_asmi_Cebolla %>%
+  mutate(n = nchar(ch)) %>%
+  group_by(n) %>%
+  dplyr::summarise(num = n())
+length(2014:currentyr)  
+## All 89 should be zeros in 2020 and after 
+## Recorded 17 plants in 2020 
+CJS_asmi_Cebolla %>%
+  # Remove first 5
+  mutate(lost_ch = substr(ch, 7, length(2014:currentyr) )) %>%
+  filter(AsMi_plot_id == "89" & grepl("1", lost_ch)) %>%
+  print(n = 68)
+
 
 dmPlot_Cebolla <- model.matrix(~ -1 + Plot, CJS_asmi_Cebolla)  
 dimnames(dmPlot_Cebolla)[[2]][length(dimnames(dmPlot_Cebolla)[[2]])]  # Plot98
@@ -122,11 +140,12 @@ asmiddlCebolla$f <- asmiddlCebolla$f %>%
 pindexCebolla <- asmiddlCebolla$p %>%
   left_join(plotdfCebolla)
 
+## Data taken in 2019
 p.Cebolla89 <- pindexCebolla %>%
   mutate(time = as.numeric(as.character(time))) %>%
   mutate(group = as.numeric(as.character(group))) %>%
   filter((group %in% c(89) & 
-            time >= 2019))
+            time > 2019))
 
 p.Cebolla.missing2024 <- pindexCebolla %>%
   filter((group %in% c("52") &
@@ -152,64 +171,83 @@ WinterPPTCebolla <-  asmi.season %>%
   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
   ungroup() %>%
   filter(Variable == "ppt" & season == "winter") %>%
-  rename(WinterPPT = Value) %>%
-  dplyr::select(Plot, Prev12, WinterPPT) %>%
+  dplyr::rename(WinterPPT = Value) %>%
+  dplyr::mutate(WinterPPT_scaled = c(scale(WinterPPT))) %>%
+  dplyr::select(Plot, Prev12, WinterPPT, WinterPPT_scaled) %>%
   mutate(Prev12 = as.factor(Prev12)) %>%
   mutate(Plot = as.factor(Plot))
 
+WinterPPTCebolla %>%
+  filter(is.na(WinterPPT_scaled))
 
-
+## Why would I add a year for each time factor? 
 asmiddlCebolla$Phi <- asmiddlCebolla$Phi  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  mutate(Prev12 = time) %>%
   left_join(WinterPPTCebolla) 
 
 asmiddlCebolla$p <- asmiddlCebolla$p  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  mutate(Prev12 = time) %>%
   left_join(WinterPPTCebolla) 
 
 asmiddlCebolla$f <- asmiddlCebolla$f  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+  mutate(Prev12 = time) %>%
   left_join(WinterPPTCebolla) 
   
-SummerMaxCebolla <- asmi.season %>%
-  filter(Prev12 >= 2014) %>%
-  filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
-  ungroup() %>%
-  filter(Variable == "tmax" & season == "springSummer") %>%
-  rename(SummerMax = Value) %>%
-  dplyr::select(Plot, Prev12, SummerMax) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-asmiddlCebolla$Phi <- asmiddlCebolla$Phi %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
-
-asmiddlCebolla$p <- asmiddlCebolla$p %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
-
-asmiddlCebolla$f <- asmiddlCebolla$f %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
+# SummerMaxCebolla <- asmi.season %>%
+#   filter(Prev12 >= 2014) %>%
+#   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
+#   ungroup() %>%
+#   filter(Variable == "tmax" & season == "springSummer") %>%
+#   dplyr::rename(SummerMax = Value) %>%
+#   dplyr::mutate(SummerMax_scaled = c(scale(SummerMax))) %>%
+#   dplyr::select(Plot, Prev12, SummerMax, SummerMax_scaled) %>%
+#   mutate(Prev12 = as.factor(Prev12)) %>%
+#   mutate(Plot = as.factor(Plot))
+# 
+# ## Only goes through 2023!
+# asmi.season %>%
+#   filter(Prev12 >= 2014) %>%
+#   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
+#   ungroup() %>%
+#   filter(Variable == "tmax" & season == "springSummer") %>%
+#   dplyr::rename(SummerMax = Value) %>%
+#   arrange(desc(Prev12))
+# 
+# asmiddlCebolla$Phi <- asmiddlCebolla$Phi %>%
+#   # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+#   mutate(Prev12 = time) %>%
+#   left_join(SummerMaxCebolla)
+# 
+# asmiddlCebolla$p <- asmiddlCebolla$p %>%
+#   # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+#   mutate(Prev12 = time) %>%
+#   left_join(SummerMaxCebolla)
+# 
+# asmiddlCebolla$f <- asmiddlCebolla$f %>%
+#   # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+#   mutate(Prev12 = time) %>%
+#   left_join(SummerMaxCebolla)
 
 ```
 
 
-
+NAs need to get rid of them! What!?! WinterPPT and SummerMax are missing data in 2023 and 2024
 #########################################  Cebolla ##########################################
 ```{r}
 
 run.PradrecCebolla <- function(){
   Phi.site = list(formula =  ~ Site)
-  Phi.siteWinter = list(formula =  ~ Site:WinterPPT)
-  Phi.siteWinterSummer = list(formula =  ~ Site:WinterPPT:SummerMax)
-  Phi.siteSummer = list(formula =  ~ Site:SummerMax)
+  Phi.siteWinter = list(formula =  ~ Site:WinterPPT_scaled)
+  # Phi.siteWinterSummer = list(formula =  ~ Site:WinterPPT_scaled:SummerMax)
+  # Phi.siteSummer = list(formula =  ~ Site:SummerMax)
   
   f.site = list(formula =  ~ Site)
-  f.siteWinter = list(formula =  ~ Site:WinterPPT)
-  f.siteWinterSummer = list(formula =  ~ Site:WinterPPT:SummerMax)
-  f.siteSummer = list(formula =  ~ Site:SummerMax)
+  f.siteWinter = list(formula =  ~ Site:WinterPPT_scaled)
+  # f.siteWinterSummer = list(formula =  ~ Site:WinterPPT_scaled:SummerMax)
+  # f.siteSummer = list(formula =  ~ Site:SummerMax)
 
   p.dot = list(formula =  ~ 1,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
@@ -231,38 +269,40 @@ load( paste(savepath, currentyr, "asmiPradelmodelsCebolla.rdata", sep=""))
 
 asmiPradelmodelsCebolla
 
-f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
+# f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
+f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(f.estimates = estimate,
+  dplyr::rename(f.estimates = estimate,
          f.lcl = lcl,
          f.ucl = ucl) %>%
-  select(group, Plot,f.estimates, f.lcl, f.ucl, time) %>%
+  dplyr::select(group, Plot,f.estimates, f.lcl, f.ucl, time) %>%
   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) %>%
-  left_join(SummerMaxCebolla)
+  left_join(WinterPPTCebolla) #%>%
+  # left_join(SummerMaxCebolla)
 
-ggplot(f.table, aes(SummerMax, f.estimates, color = Plot)) +
+ggplot(f.table, aes(WinterPPT_scaled, f.estimates, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = .1))+
+  stat_smooth(method = "lm")+
   theme_bw() +
   ylab("Per capita recruitment")+
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
                                 "16" = "Cebolla North"))
 
-Phi.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "Phi", se = TRUE) %>%
+Phi.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "Phi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Phi.estimates = estimate,
+  dplyr::rename(Phi.estimates = estimate,
          Phi.lcl = lcl,
          Phi.ucl = ucl) %>%
-  select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl, time) %>%
+  dplyr::select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl, time) %>%
   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) %>%
-  left_join(SummerMaxCebolla)
+  left_join(WinterPPTCebolla) 
 
-ggplot(Phi.table, aes(WinterPPT, Phi.estimates, color = Plot)) +
-  geom_point(position = position_dodge(width = 1)) +
-  geom_errorbar(aes(ymin = Phi.lcl, ymax = Phi.ucl),position = position_dodge(width = 1))+
+ggplot(Phi.table, aes(WinterPPT_scaled, Phi.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = Phi.lcl, ymax = Phi.ucl),position = position_dodge(width = .1))+
+  stat_smooth(method = "lm")+
   theme_bw() +
   ylab("Survival")+
   scale_color_manual("Site", values = c("darkblue","skyblue"),
@@ -303,7 +343,7 @@ CJS_asmi_Southbeaver <- asmi.raw %>%
   mutate(Obs = as.character(Obs)) %>%
   pivot_wider(names_from = year, values_from = Obs, values_fill = "0", names_prefix = "Year", 
               id_cols = c(AsMi_tag_id,AsMi_site_id,AsMi_plot_id, fence)) %>%
-  unite(ch, Year1995:Year2024, sep ="") %>%
+  unite(ch, Year1995:Year2025, sep ="") %>%
   mutate(Tag = as.factor(AsMi_tag_id),
          Site = as.factor(AsMi_site_id),
          Plot = as.factor(AsMi_plot_id)) %>%
@@ -372,7 +412,7 @@ WinterPPTSouthBeaver <-  asmi.season %>%
   filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
   ungroup() %>%
   filter(Variable == "ppt" & season == "winter") %>%
-  rename(WinterPPT = Value) %>%
+  dplyr::rename(WinterPPT = Value) %>%
   dplyr::select(Plot, Prev12, WinterPPT) %>%
   mutate(Prev12 = as.factor(Prev12)) %>%
   mutate(Plot = as.factor(Plot))
@@ -395,7 +435,7 @@ SummerMaxSouthBeaver <- asmi.season %>%
   filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
   ungroup() %>%
   filter(Variable == "tmax" & season == "springSummer") %>%
-  rename(SummerMax = Value) %>%
+  dplyr::rename(SummerMax = Value) %>%
   dplyr::select(Plot, Prev12, SummerMax) %>%
   mutate(Prev12 = as.factor(Prev12)) %>%
   mutate(Plot = as.factor(Plot))
@@ -427,8 +467,8 @@ plotdfSBC <- plotdfSouthBeaver %>%
 ### expand
 PlotSiteYrFence <- PlotSiteYrFence %>%
   filter(site > 3) %>%
-  select(year, plot, fenced) %>%
-  complete(year, plot, fill = list(fenced = "n")) %>%
+  dplyr::select(year, plot, fenced) %>%
+  tidyr::complete(year, plot, fill = list(fenced = "n")) %>%
   arrange(plot,year) %>%
   left_join(plotdfSBC, join_by("plot" == "Plot"))
 
