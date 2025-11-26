@@ -352,6 +352,9 @@ load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllP
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
 
+asmi.season.wide %>%
+  filter(Prev12 > 2023)
+
 ```
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
@@ -410,6 +413,17 @@ asmi.season.wide %>%
     # facet_grid(Variable ~ season)
 
 ```
+
+
+```{r}
+## No summer after 2023
+asmi.season %>%
+  group_by(season, Prev12) %>%
+  dplyr::summarise(n = n()) %>%
+  arrange(desc(Prev12))
+```
+
+
 
 # Environmental Data
 ```{r}
@@ -946,7 +960,7 @@ for(i in 2:length(glm.list)){
 }
 
 ```
-Year and site differ for the total allive with AGG. 
+Year and site differ for the total alive with AGG. 
 
 # Climate factors  
 ```{r}
@@ -2801,13 +2815,14 @@ table(mastseeding$flower, mastseeding$Creek)
 
 glm1 <- glm(flower ~ ppt_winter*site, family = binomial, data = mastseeding)
 glm2 <- glm(flower ~ tmax_springSummer*ppt_winter*site, family = binomial, data = mastseeding)
-# glm3 <- glm(flower ~ tmin_winter*ppt_winter*site, family = binomial, data = mastseeding) 
+glm3 <- glm(flower ~ tmin_winter*ppt_winter*site, family = binomial, data = mastseeding)
 glm4 <- glm(flower ~ ppt_fall*site, family = binomial, data = mastseeding)
 glm5 <- glm(flower ~ 1*site, family = binomial, data = mastseeding)
 glm6 <- glm(flower ~ ppt_springSummer*site, family = binomial, data = mastseeding)
 glm7 <- glm(flower ~ tmax_springSummer*site, family = binomial, data = mastseeding) 
 glm8 <- glm(flower ~ tmin_winter*site, family = binomial, data = mastseeding)
-glm.list <- list(glm1,glm2,glm3,glm4,glm5,glm6,glm7,glm8)
+glm.list <- list(glm1,glm2,glm3,
+                 glm4,glm5,glm6,glm7,glm8)
 glm.names <- as.character(unlist(lapply(glm.list,formula)))
 (glm.results <- aictab(glm.list, modnames=glm.names))
 for(i in 2:length(glm.list)){
@@ -3690,7 +3705,7 @@ Can go back to folder and delete old provisional data to replace with more curre
 prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 
 #Precipitation total, rain and snow
-get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-2):currentyr)
 
 #Maximum temperature (average)
 get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
@@ -3702,7 +3717,7 @@ get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-
 
 Error, didn't download
 ```{r, eval=FALSE}
-get_prism_monthlys(type="ppt", mon = 9, keepZip = FALSE, years = 1996)
+get_prism_monthlys(type="ppt", mon = 1, keepZip = FALSE, years = 2025)
 get_prism_monthlys(type="ppt", mon = 6, keepZip = FALSE, years = 1999)
 get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
 ```
