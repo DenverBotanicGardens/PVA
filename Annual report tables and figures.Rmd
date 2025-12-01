@@ -335,7 +335,7 @@ HDInterval::hdi(firstagerepro)
 
 ### Drop to bottom to download new climate data!! and to make and save annual, seasonal data
 UTM Zone 13 from ArcGIS
-```{r}
+```{r, eval=FALSE}
 # asmilatlong <- read.csv("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/Asmi_Word/2016_asmi/UTM_asmiplots.csv")
 asmilatlong <- read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/2016_Astragalus-microcymbus_AnnualReport/UTM_asmiplots.csv", sep="", collapse = ""))
 
@@ -352,11 +352,144 @@ load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllP
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
 
+## Missing 2025!!
 asmi.season.wide %>%
-  filter(Prev12 > 2023)
+  filter(Prev12 > 2024)
 
 ```
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
+
+
+When PRISM fails (problems in 2025)    
+```{r}
+
+cebolla_prism <- read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/PRISM_ppt_tmin_tmean_tmax_tdmean_vpdmin_vpdmax_stable_4km_189501_202412_38.3603_-107.1467_Cebolla.csv", collapse = "", sep = ""), skip = 10)
+
+cebolla_prism <- cebolla_prism %>%
+  mutate(Year = substr(Date, 1,4)) %>%
+  mutate(Month = substr(Date, 6,7)) %>%
+  dplyr::rename(ppt = ppt..mm.) %>%
+  dplyr::rename(tmin = tmin..degrees.C.) %>%
+  dplyr::rename(tmax = tmax..degrees.C.) %>%
+  dplyr::rename(tmean = tmean..degrees.C.) %>%
+  dplyr::rename(vpdmin = vpdmin..hPa.) %>%
+  dplyr::rename(vpdmax = vpdmax..hPa.) %>%
+  dplyr::rename(tdmean = tdmean..degrees.C.) %>%
+  mutate(Month = as.numeric(Month)) %>%
+  mutate(Year = as.numeric(Year))
+  
+cebollaSitePlot <- asmiLL %>%
+  dplyr::rename(Site = asmilatlong.Tag_Commen) %>%
+  dplyr::rename(Plot = asmilatlong.Tag__) %>%
+  dplyr::select(Plot,Site) %>%
+  filter(grepl("Cebolla", Site))
+
+cebolla_prism <- cebolla_prism %>%
+  crossing(cebollaSitePlot) %>%
+  dplyr::mutate(Creek = "Cebolla")
+  
+## Do one for each site
+Site05 <-  read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/PRISM_stable_4km_189501_202412_38.4847_-106.9792_Site5.csv", collapse = "", sep = ""), skip = 10)
+
+Site05 <- Site05 %>%
+  mutate(Year = substr(Date, 1,4)) %>%
+  mutate(Month = substr(Date, 6,7)) %>%
+  dplyr::rename(ppt = ppt..mm.) %>%
+  dplyr::rename(tmin = tmin..degrees.C.) %>%
+  dplyr::rename(tmax = tmax..degrees.C.) %>%
+  dplyr::rename(tmean = tmean..degrees.C.) %>%
+  dplyr::rename(vpdmin = vpdmin..hPa.) %>%
+  dplyr::rename(vpdmax = vpdmax..hPa.) %>%
+  dplyr::rename(tdmean = tdmean..degrees.C.) %>%
+  mutate(Month = as.numeric(Month)) %>%
+  mutate(Year = as.numeric(Year))
+
+Site5SitePlot <- asmiLL %>%
+  dplyr::rename(Site = asmilatlong.Tag_Commen) %>%
+  dplyr::rename(Plot = asmilatlong.Tag__) %>%
+  dplyr::select(Plot,Site) %>%
+  filter(grepl("Site 5", Site))
+
+Site05 <- Site05 %>%
+  crossing(Site5SitePlot) %>%
+  mutate(Creek = "South Beaver")
+
+Site15 <-  read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/PRISM_stable_4km_189501_202408_38.4317_-106.9563.csv", collapse = "", sep = ""), skip = 10)
+
+Site15 <- Site15 %>%
+  mutate(Year = substr(Date, 1,4)) %>%
+  mutate(Month = substr(Date, 6,7)) %>%
+  dplyr::rename(ppt = ppt..mm.) %>%
+  dplyr::rename(tmin = tmin..degrees.C.) %>%
+  dplyr::rename(tmax = tmax..degrees.C.) %>%
+  dplyr::rename(tmean = tmean..degrees.C.) %>%
+  dplyr::rename(vpdmin = vpdmin..hPa.) %>%
+  dplyr::rename(vpdmax = vpdmax..hPa.) %>%
+  dplyr::rename(tdmean = tdmean..degrees.C.) %>%
+  mutate(Month = as.numeric(Month)) %>%
+  mutate(Year = as.numeric(Year))
+
+Site15SitePlot <- asmiLL %>%
+  dplyr::rename(Site = asmilatlong.Tag_Commen) %>%
+  dplyr::rename(Plot = asmilatlong.Tag__) %>%
+  dplyr::select(Plot,Site) %>%
+  filter(grepl("Site 15", Site))
+
+Site15 <- Site15 %>%
+  crossing(Site15SitePlot) %>%
+  mutate(Creek = "South Beaver")
+
+
+Site1926 <-  read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/PRISM_stable_4km_189501_202412_38.4409_-106.9571_Site19.csv", collapse = "", sep = ""), skip = 10)
+
+Site1926 <- Site1926 %>%
+  mutate(Year = substr(Date, 1,4)) %>%
+  mutate(Month = substr(Date, 6,7)) %>%
+  dplyr::rename(ppt = ppt..mm.) %>%
+  dplyr::rename(tmin = tmin..degrees.C.) %>%
+  dplyr::rename(tmax = tmax..degrees.C.) %>%
+  dplyr::rename(tmean = tmean..degrees.C.) %>%
+  dplyr::rename(vpdmin = vpdmin..hPa.) %>%
+  dplyr::rename(vpdmax = vpdmax..hPa.) %>%
+  dplyr::rename(tdmean = tdmean..degrees.C.) %>%
+  mutate(Month = as.numeric(Month)) %>%
+  mutate(Year = as.numeric(Year))
+
+Site1926SitePlot <- asmiLL %>%
+  dplyr::rename(Site = asmilatlong.Tag_Commen) %>%
+  dplyr::rename(Plot = asmilatlong.Tag__) %>%
+  dplyr::select(Plot,Site) %>%
+  filter((Site %in% c("Site 19","Site 26")))
+
+Site1926 <- Site1926 %>%
+  crossing(Site1926SitePlot) %>%
+  mutate(Creek = "South Beaver")
+
+
+asmi.climate <- cebolla_prism %>%
+  rbind(Site05) %>%
+  rbind(Site15) %>%
+  rbind(Site1926)
+
+asmi.season.2 <- asmi.climate %>%
+  mutate(season = case_when(Month %in% c(1,2,3,12) ~ "winter",
+                            Month>3 & Month<8 ~ "springSummer",
+                            Month>7 & Month<12 ~ "fall")) %>%
+  # Make previous 12 months match year (previous to May survey)
+  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  group_by(season, Plot, Site, Creek, Prev12) %>%
+  dplyr::summarise(ppt = sum(ppt),
+            tmin = mean(tmin),
+            # tmean = mean(tmean),
+            tmax = mean(tmax)) %>%
+  ungroup() %>%
+  group_by(season) %>%
+  dplyr::mutate(across(ppt:tmax, .fns = scale)) %>%
+  pivot_longer(ppt:tmax, names_to = "Variable", values_to = "Value") %>%
+  mutate(Value = c(Value))
+
+```
+
 
 
 ```{r}
@@ -413,6 +546,21 @@ asmi.season.wide %>%
     # facet_grid(Variable ~ season)
 
 ```
+
+```{r}
+asmi.season.2 %>%
+  distinct(Site, Prev12, Value, Variable, season, Creek) %>%
+  filter(Prev12 < (currentyr + 1)) %>%
+  filter(Prev12 > 1994) %>%
+  ggplot(   aes(Prev12, Value, color = Site))+
+    geom_point()+
+    stat_smooth()+
+    theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    scale_color_manual("Site", values = c("black","grey30","deepskyblue","cyan4","cyan","cornflowerblue"))+
+    facet_grid(Variable ~ season + Creek, scales = "free_y")
+```
+
 
 
 ```{r}
@@ -3703,15 +3851,17 @@ Can go back to folder and delete old provisional data to replace with more curre
 ```{r, eval = FALSE}
 # Set wd for prism
 prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+# prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/PRISM_data")
 
 #Precipitation total, rain and snow
-get_prism_monthlys(type="ppt", mon = 1:12, keepZip = FALSE, years = (currentyr-2):currentyr)
+get_prism_monthlys(type="ppt", mon = 1:12, resolution = "4km", keepZip = FALSE, years =  currentyr) 
+get_prism_monthlys(type="ppt", mon = 1:12, resolution = "4km", keepZip = FALSE, years = (currentyr-1):currentyr) 
 
 #Maximum temperature (average)
-get_prism_monthlys(type="tmax", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+get_prism_monthlys(type="tmax", mon = 1:12, resolution = "4km", keepZip = FALSE, years = currentyr) # (currentyr-1):
 
 #Minimum temperature (average)
-get_prism_monthlys(type="tmin", mon = 1:12, keepZip = FALSE, years = (currentyr-1):currentyr)
+get_prism_monthlys(type="tmin", mon = 1:12, resolution = "4km",keepZip = FALSE, years = currentyr)  # (currentyr-1):
 
 ```
 
@@ -3729,12 +3879,13 @@ get_prism_monthlys(type="ppt", mon = 8, keepZip = FALSE, years = 1999)
 # Want Site, Year, Month, ppt, tmin, tmax
 ```{r, eval = FALSE}
 
-m.ppt <- lapply(prism_archive_subset("ppt", "monthly", years = 1986:currentyr), function(x){
+m.ppt <- lapply(prism_archive_subset("ppt", "monthly", years = 1986:currentyr, resolution = "4km"), function(x){
   x_rast <- pd_to_file(x)
   rastertemps <- raster(x_rast)
   data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
              date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
 })
+
 m.tmax <- lapply(prism_archive_subset("tmax","monthly",years = 1986:currentyr), function(x){
   x_rast <- pd_to_file(x)
   rastertemps <- raster(x_rast)
