@@ -288,27 +288,56 @@ f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "
   mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
   left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
-
-ggplot(f.table, aes(ppt_winter, f.estimates, color = Plot)) +
+f.table %>%
+  dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 3)) %>%
+ggplot(     aes(ppt_winter, f.estimates, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = .1))+
   stat_smooth(method = "lm")+
   theme_bw() +
+  # facet_grid(~tmax_springSummer_bin, scales = "free")+
   ylab("Per capita recruitment")+
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
                                 "16" = "Cebolla North"))
 
-Phi.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "Phi", se = TRUE) %>%
+f.table %>%
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 2)) %>%
+ggplot(     aes(tmax_springSummer, f.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = .5)) +
+  geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = .5))+
+  stat_smooth(method = "gam")+
+  theme_bw() +
+  # facet_grid(~ppt_winter_bin, scales = "free")+
+  ylab("Per capita recruitment")+
+  scale_color_manual("Site", values = c("darkblue","skyblue"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))+
+  xlab("Summer maximum temperature")
+
+Phi.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "Phi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   dplyr::rename(Phi.estimates = estimate,
          Phi.lcl = lcl,
          Phi.ucl = ucl) %>%
   dplyr::select(group, Plot,Phi.estimates, Phi.lcl, Phi.ucl, time) %>%
   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
-ggplot(Phi.table, aes(WinterPPT_scaled, Phi.estimates, color = Plot)) +
+## Yes impactful
+ggplot(Phi.table, aes(ppt_winter, Phi.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = Phi.lcl, ymax = Phi.ucl),position = position_dodge(width = .1))+
+  stat_smooth(method = "lm")+
+  theme_bw() +
+  ylab("Survival")+
+  scale_color_manual("Site", values = c("darkblue","skyblue"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))
+
+# Phi is winter, not summer temp
+ggplot(Phi.table, aes(tmax_springSummer, Phi.estimates, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = Phi.lcl, ymax = Phi.ucl),position = position_dodge(width = .1))+
   stat_smooth(method = "lm")+
@@ -333,6 +362,37 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = Plot
                      labels = c("1" = "Cebolla Mid",
                                 "16" = "Cebolla North"))
   
+
+f.table %>%
+  left_join(Phi.table) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
+ggplot(   aes(ppt_winter, log(Lambda.estimate), color = Plot)) +
+  geom_point(position = position_dodge(width = 0.1))+
+  stat_smooth(method = "lm", position = position_dodge(width = 0.1)) +
+  theme_bw() +
+  xlab("Winter precipitation") +
+  ylab(expression(log(lambda))) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  ggtitle("a)")+
+  scale_color_manual("Site", values = c("darkblue","skyblue"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))
+
+
+f.table %>%
+  left_join(Phi.table) %>%
+  mutate(Lambda.estimate = f.estimates + Phi.estimates) %>%
+ggplot(   aes(tmax_springSummer, log(Lambda.estimate), color = Plot)) +
+  geom_point(position = position_dodge(width = 0.1))+
+  stat_smooth(method = "lm", position = position_dodge(width = 0.1)) +
+  theme_bw() +
+  xlab("Summer maximum temperature") +
+  ylab(expression(log(lambda))) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  ggtitle("a)")+
+  scale_color_manual("Site", values = c("darkblue","skyblue"),
+                     labels = c("1" = "Cebolla Mid",
+                                "16" = "Cebolla North"))
 
 ```
 
@@ -416,21 +476,19 @@ p.SouthBeavervalues <- rep(0, length(p.SouthBeaverindicies))
 
 
 ############### Add climate
-WinterPPTSouthBeaver <-  asmi.season %>%
-  filter(Prev12 >= 1995) %>%
-  filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "winter") %>%
-  dplyr::rename(WinterPPT = Value) %>%
-  dplyr::mutate(WinterPPT_scaled = c(scale(WinterPPT))) %>%
-  dplyr::select(Plot, Prev12, WinterPPT, WinterPPT_scaled) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
+# WinterPPTSouthBeaver <-  asmi.season %>%
+#   filter(Prev12 >= 1995) %>%
+#   filter(!(site %in% c("Cebolla Mid","Cebolla North"))) %>%
+#   ungroup() %>%
+#   filter(Variable == "ppt" & season == "winter") %>%
+#   dplyr::rename(WinterPPT = Value) %>%
+#   dplyr::mutate(WinterPPT_scaled = c(scale(WinterPPT))) %>%
+#   dplyr::select(Plot, Prev12, WinterPPT, WinterPPT_scaled) %>%
+#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
+#   mutate(Plot = as.factor(Plot))
 
 
 asmiddlSouthBeaver$Phi <- asmiddlSouthBeaver$Phi  %>%
-  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  mutate(Prev12 = time) %>%
   left_join(WinterPPTSouthBeaver) 
 
 asmiddlSouthBeaver$p <- asmiddlSouthBeaver$p  %>%
