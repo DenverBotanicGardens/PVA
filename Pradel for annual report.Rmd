@@ -49,13 +49,23 @@ asmi.raw <- asmi.raw %>%
 ```
 
 Climate
-```{r}
+```{r, eval = FALSE}
 
 load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
 load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
 
 ```
+
+```{r}
+
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+
+## From manual PRISM download
+asmi.season.wide
+```
+
+
 
 # Cebolla Creek
 ```{r}
@@ -166,32 +176,32 @@ Add fencing as a factor to South Beaver Creek
 
 ##Winter precipitation, summer maximum temp
 
-WinterPPTCebolla <-  asmi.season %>%
-  filter(Prev12 >= 2014) %>%
-  filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "winter") %>%
-  dplyr::rename(WinterPPT = Value) %>%
-  dplyr::mutate(WinterPPT_scaled = c(scale(WinterPPT))) %>%
-  dplyr::select(Plot, Prev12, WinterPPT, WinterPPT_scaled) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
+# WinterPPTCebolla <-  asmi.season %>%
+#   filter(Prev12 >= 2014) %>%
+#   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
+#   ungroup() %>%
+#   filter(Variable == "ppt" & season == "winter") %>%
+#   dplyr::rename(WinterPPT = Value) %>%
+#   dplyr::mutate(WinterPPT_scaled = c(scale(WinterPPT))) %>%
+#   dplyr::select(Plot, Prev12, WinterPPT, WinterPPT_scaled) %>%
+#   # mutate(Prev12 = as.factor(Prev12)) %>%
+#   mutate(Plot = as.factor(Plot))
+
+asmi.season.wide <- asmi.season.wide %>%
   mutate(Plot = as.factor(Plot))
 
-## Why would I add a year for each time factor? 
+## Did it a year ahead because the year represents the probability of survival from time t to t+1 so the climate impact would be the climate previous to t+1
 asmiddlCebolla$Phi <- asmiddlCebolla$Phi  %>%
-  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  mutate(Prev12 = time) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlCebolla$p <- asmiddlCebolla$p  %>%
-  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  mutate(Prev12 = time) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlCebolla$f <- asmiddlCebolla$f  %>%
-  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  mutate(Prev12 = time) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
   
 
 
@@ -239,14 +249,14 @@ NAs need to get rid of them! What!?! WinterPPT and SummerMax are missing data in
 
 run.PradrecCebolla <- function(){
   Phi.site = list(formula =  ~ Site)
-  Phi.siteWinter = list(formula =  ~ Site:WinterPPT_scaled)
-  # Phi.siteWinterSummer = list(formula =  ~ Site:WinterPPT_scaled:SummerMax)
-  # Phi.siteSummer = list(formula =  ~ Site:SummerMax)
+  Phi.siteWinter = list(formula =  ~ Site:ppt_winter) #Site:WinterPPT_scaled)
+  Phi.siteWinterSummer = list(formula =  ~  Site:ppt_winter:tmax_springSummer)# Site:WinterPPT_scaled:SummerMax)
+  Phi.siteSummer = list(formula =  ~ Site:tmax_springSummer) #SummerMax)
   
   f.site = list(formula =  ~ Site)
-  f.siteWinter = list(formula =  ~ Site:WinterPPT_scaled)
-  # f.siteWinterSummer = list(formula =  ~ Site:WinterPPT_scaled:SummerMax)
-  # f.siteSummer = list(formula =  ~ Site:SummerMax)
+  f.siteWinter = list(formula =  ~ Site:ppt_winter) #WinterPPT_scaled)
+  f.siteWinterSummer = list(formula =  ~ Site:ppt_winter:tmax_springSummer) # WinterPPT_scaled:SummerMax)
+  f.siteSummer = list(formula =  ~ Site:tmax_springSummer) # SummerMax)
 
   p.dot = list(formula =  ~ 1,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
@@ -268,18 +278,18 @@ load( paste(savepath, currentyr, "asmiPradelmodelsCebolla.rdata", sep=""))
 
 asmiPradelmodelsCebolla
 
-# f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
-f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
+f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
+# f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   dplyr::rename(f.estimates = estimate,
          f.lcl = lcl,
          f.ucl = ucl) %>%
   dplyr::select(group, Plot,f.estimates, f.lcl, f.ucl, time) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) #%>%
-  # left_join(SummerMaxCebolla)
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
-ggplot(f.table, aes(WinterPPT_scaled, f.estimates, color = Plot)) +
+
+ggplot(f.table, aes(ppt_winter, f.estimates, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = .1))+
   stat_smooth(method = "lm")+
