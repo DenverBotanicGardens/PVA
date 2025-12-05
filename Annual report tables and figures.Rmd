@@ -347,10 +347,10 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
 asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 # only if made it for current year, then load here and skip the climate chunks that follow
-load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+# load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
 
 ## Missing 2025!!
 asmi.season.wide %>%
@@ -360,8 +360,18 @@ asmi.season.wide %>%
 asmi.c from github    Plot Site   Creek   tmin        Site.1 tmax Precip Year Month Prev12
 
 
-When PRISM fails (problems in 2025)    
+When PRISM fails (problems in 2025)   
+Manual download from Oregon PRISM
 ```{r}
+
+asmilatlong <- read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/2016_Astragalus-microcymbus_AnnualReport/UTM_asmiplots.csv", sep="", collapse = ""))
+
+# Convert from UTM to lat/long
+asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$Northing), 
+                                     proj4string = CRS("+proj=utm +zone=13 + datum=WGS84")), 
+                       CRS("+proj=longlat +datum=WGS84"))
+
+asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 cebolla_prism <- read.csv(paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/PRISM_ppt_tmin_tmean_tmax_tdmean_vpdmin_vpdmax_stable_4km_189501_202412_38.3603_-107.1467_Cebolla.csv", collapse = "", sep = ""), skip = 10)
 
@@ -471,6 +481,7 @@ asmi.climate <- cebolla_prism %>%
   rbind(Site15) %>%
   rbind(Site1926)
 
+## Got August 2025 which is one month that goes to fall Prev12 == 2026
 asmi.season.2 <- asmi.climate %>%
   mutate(season = case_when(Month %in% c(1,2,3,12) ~ "winter",
                             Month>3 & Month<8 ~ "springSummer",
@@ -488,6 +499,24 @@ asmi.season.2 <- asmi.climate %>%
   pivot_longer(ppt:tmax, names_to = "Variable", values_to = "Value") %>%
   mutate(Value = c(Value))
 
+asmi.season.wide <- asmi.season.2 %>%
+  pivot_wider(names_from = c(Variable,season), values_from = Value) %>%
+  dplyr::rename(site = Site)
+
+asmi.annual.2 <- asmi.climate %>%
+  # Make previous 12 months match year (previous to May survey)
+  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  group_by(Plot, Site, Creek, Prev12) %>%
+  dplyr::summarise(ppt = sum(ppt),
+            tmin = mean(tmin),
+            # tmean = mean(tmean),
+            tmax = mean(tmax)) %>%
+  ungroup() %>%
+  dplyr::mutate(across(ppt:tmax, .fns = scale)) %>%
+  pivot_longer(ppt:tmax, names_to = "Variable", values_to = "Value") %>%
+  mutate(Value = c(Value))
+  
+save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
 ```
 
 
@@ -534,7 +563,7 @@ asmi.season.wide %>%
   dplyr::mutate(across(ppt_fall:tmin_winter, .fns = scale)) %>% 
   pivot_longer(cols = ppt_fall:tmin_winter, names_to = "VarSeason",
                values_to = "Value") %>%
-  left_join(plots.site, by = c('Plot' = 'AsMi_plot_id')) %>%
+  left_join(plots.site, by = c('Plot' = 'AsMi_plot_id', "Creek" = "Creek")) %>%
   separate(VarSeason, c("Variable","season"), sep = "_") %>%
   ggplot(  aes(Prev12, Value, color = site))+
     geom_point()+
@@ -559,18 +588,22 @@ asmi.season.2 %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
     scale_color_manual("Site", values = c("black","grey30","deepskyblue","cyan4","cyan","cornflowerblue"))+
     facet_grid(Variable ~ season + Creek, scales = "free_y")
+
+
+asmi.annual.2 %>%
+  distinct(Site, Prev12, Value, Variable, Creek) %>%
+  filter(Prev12 < (currentyr + 1)) %>%
+  filter(Prev12 > 1994) %>%
+  ggplot(   aes(Prev12, Value, color = Site))+
+    geom_point()+
+    stat_smooth()+
+    theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    scale_color_manual("Site", values = c("black","grey30","deepskyblue","cyan4","cyan","cornflowerblue"))+
+    facet_grid(Variable ~ Creek, scales = "free_y")
+
+
 ```
-
-
-
-```{r}
-## No summer after 2023
-asmi.season %>%
-  group_by(season, Prev12) %>%
-  dplyr::summarise(n = n()) %>%
-  arrange(desc(Prev12))
-```
-
 
 
 # Environmental Data
@@ -582,13 +615,25 @@ asmi.c %>%
   dplyr::summarise(across(ppt:tmin, mean)) %>%
   as.data.frame()
 
-
 asmi.c %>%
   pivot_longer(cols = ppt_scaled:tmin_scaled, names_to = "variable", values_to = "value") %>%
 ggplot(  aes(Prev12, value, color = site, group = site))+
   geom_point()+
   stat_smooth()+
   facet_grid(Creek~variable)
+
+asmi.annual.2 %>%
+  filter(Value > 5)
+
+## 2025 with PRISM 
+asmi.annual.2 %>%
+  filter(Prev12 < (currentyr + 1) &
+           Prev12 > 1985) %>%
+  ggplot(  aes(Prev12, Value, color = Site, group = Site)) +
+    geom_point()+
+    stat_smooth()+
+    facet_grid(Creek~Variable, scales = "free_y")  
+
 
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
@@ -614,28 +659,70 @@ asmi.c %>%
 length(1995:currentyr)
 
 ## Cebolla Creek 2014 - current year
-CCc <- asmi.c %>%
-  filter(Creek == "Cebolla" & Prev12 > 2013) %>%
-  dplyr::summarise(Creek = "CC14",
-                   meanPPT = mean(ppt), sdPPT = sd(ppt),
+# CCc <- asmi.c %>%
+#   filter(Creek == "Cebolla" & Prev12 > 2013) %>%
+#   dplyr::summarise(Creek = "CC14",
+#                    meanPPT = mean(ppt), sdPPT = sd(ppt),
+#                    meanTmax = mean(tmax), sdTmax = sd(tmax),
+#                    meanTmin = mean(tmin), sdTmin = sd(tmin))
+
+## With PRISM by hand downloaded
+CCc <- asmi.climate %>%
+  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  dplyr::distinct(ppt, tmax, tmin, Prev12, Month, Plot, Site, Creek) %>%
+  group_by(Creek, Prev12, Site) %>%
+  dplyr::summarise(ppt = sum(ppt),
+         tmax = mean(tmax),
+         tmin = mean(tmin)) %>%
+  filter(Prev12 > 2013) %>%
+  group_by(Creek) %>% 
+  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
                    meanTmax = mean(tmax), sdTmax = sd(tmax),
                    meanTmin = mean(tmin), sdTmin = sd(tmin))
 
+
 ## South Beaver Creek 1995 - current year
-SBCc <- asmi.c %>%
-  filter(Creek == "SouthBeaver" & Prev12 > 1994) %>%
-  dplyr::summarise(Creek = "SBC95",
-                   meanPPT = mean(ppt), sdPPT = sd(ppt),
+# SBCc <- asmi.c %>%
+#   filter(Creek == "SouthBeaver" & Prev12 > 1994) %>%
+#   dplyr::summarise(Creek = "SBC95",
+#                    meanPPT = mean(ppt), sdPPT = sd(ppt),
+#                    meanTmax = mean(tmax), sdTmax = sd(tmax),
+#                    meanTmin = mean(tmin), sdTmin = sd(tmin)) 
+
+## With PRISM by hand downloaded
+SBCc <- asmi.climate %>%
+  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  dplyr::distinct(ppt, tmax, tmin, Prev12, Month, Plot, Site, Creek) %>%
+  group_by(Creek, Prev12, Site, Plot) %>%
+  dplyr::summarise(ppt = sum(ppt),
+         tmax = mean(tmax),
+         tmin = mean(tmin)) %>%
+  filter(Prev12 > 1994) %>%
+  group_by(Creek) %>% 
+  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
                    meanTmax = mean(tmax), sdTmax = sd(tmax),
-                   meanTmin = mean(tmin), sdTmin = sd(tmin)) 
+                   meanTmin = mean(tmin), sdTmin = sd(tmin))
 
 ## 1986 - current year
-historicc <- asmi.c %>%
-  group_by(Creek) %>%
-  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
-            meanTmax = mean(tmax), sdTmax = sd(tmax),
-            meanTmin = mean(tmin), sdTmin = sd(tmin)) 
+# historicc <- asmi.c %>%
+#   group_by(Creek) %>%
+#   dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
+#             meanTmax = mean(tmax), sdTmax = sd(tmax),
+#             meanTmin = mean(tmin), sdTmin = sd(tmin)) 
 
+
+## With PRISM by hand downloaded
+historicc <- asmi.climate %>%
+  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+  dplyr::distinct(ppt, tmax, tmin, Prev12, Month, Plot, Site, Creek) %>%
+  group_by(Creek, Prev12, Site, Plot) %>%
+  dplyr::summarise(ppt = sum(ppt),
+         tmax = mean(tmax),
+         tmin = mean(tmin)) %>%
+  group_by(Creek) %>% 
+  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
+                   meanTmax = mean(tmax), sdTmax = sd(tmax),
+                   meanTmin = mean(tmin), sdTmin = sd(tmin))
 
 CCc %>%
   bind_rows(SBCc) %>%
@@ -1203,9 +1290,9 @@ ggplot(  aes(tmax_springSummer,surv,color = site))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
              labeller = labeller(ppt_winter_bin =
-                                   c("(-1.92,-0.423]" = "low winter precipitation",
-                                     "(-0.423,1.07]"  = "mid winter precipitation",
-                                     "(1.07,2.57]"  = "high winter precipitation"))
+                                   c( "(-1.85,-0.367]" = "low winter precipitation", #
+                                      "(-0.367,1.11]" = "mid winter precipitation",
+                                      "(1.11,2.59]" = "high winter precipitation"))
              )+
   xlab("Summer maximum temperature")+
   ylab("Survival")+
@@ -1301,9 +1388,9 @@ ggplot(  aes(tmax_springSummer,FlYN))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
               labeller = labeller(ppt_winter_bin =
-                                    c("(-1.91,-0.332]" = "low winter precipitation",
-                                      "(-0.332,1.24]"  = "mid winter precipitation",
-                                      "(1.24,2.83]"  = "high winter precipitation"))
+                                    c("(-1.85,-0.277]" = "low winter precipitation",
+                                      "(-0.277,1.29]"  = "mid winter precipitation",
+                                      "(1.29,2.86]"  = "high winter precipitation"))
               )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
@@ -1317,13 +1404,13 @@ ggplot(  aes(tmax_springSummer,FlYN, colour=site))+
   theme_bw()+
   facet_grid(~ppt_winter_bin, scales = "free", 
               labeller = labeller(ppt_winter_bin =
-                                   c("(-1.91,-0.332]" = "low winter precipitation",
-                                      "(-0.332,1.24]"  = "mid winter precipitation",
-                                      "(1.24,2.83]"  = "high winter precipitation"))
+                                   c("(-1.85,-0.277]" = "low winter precipitation",
+                                      "(-0.277,1.29]"  = "mid winter precipitation",
+                                      "(1.29,2.86]"  = "high winter precipitation"))
               )+
   xlab("Summer maximum temperature")+
   ylab("Fruit production by plot")+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.1)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),se = TRUE, alpha = 0.5)+
   ggtitle("c)")
 
 ```
@@ -1380,10 +1467,10 @@ ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
   geom_boxplot(position = position_dodge(width = 0.9))+
   geom_point(position = position_dodge(width = 0.9))+
   facet_grid(~ppt_winter_bin, scales = "free", 
-               labeller = labeller(ppt_winter_bin =
-                                     c("(-1.3,0.0784]" = "low winter precipitation",
-                                       "(0.0784,1.45]"  = "mid winter precipitation",
-                                       "(1.45,2.82]"  = "high winter precipitation")))+
+             labeller = labeller(ppt_winter_bin =
+                                   c("(-1.23,0.137]" = "low winter precipitation",
+                                      "(0.137,1.5]"  = "mid winter precipitation",
+                                      "(1.5,2.86]"  = "high winter precipitation")))+
   xlab("low, mid, and high summer maximum temperature")+
   ylab("log(Total fruit production)")+
   scale_color_discrete("Site")+
@@ -2082,7 +2169,8 @@ Growthrates %>%
 
 ```
 
-# Figure 4: Life cycle diagram of Astragalus microcymbus   
+# Figure 4: Life cycle diagram of Astragalus microcymbus    
+Generation time
 ```{r}
 # remove a level of list of lists with recursive = FALSE
 (A <- mean(unlist(all.pva, recursive = FALSE)))

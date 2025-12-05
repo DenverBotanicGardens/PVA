@@ -667,14 +667,14 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.f
 # Per captia recruitment for MPM in Multistate CJS for annual report   
 ```{r}
 # Cebolla Creek
-f.mpm <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
+f.mpm <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   group_by(Plot) %>%
   summarise(f.estimates = median(estimate),
          f.lcl = median(lcl),
          f.ucl = median(ucl)) 
 
-f.mpmSBCsite <- get.real(asmiPradelmodelsSBC$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
+f.mpmSBCsite <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
@@ -684,7 +684,7 @@ f.mpmSBCsite <- get.real(asmiPradelmodelsSBC$Phi.siteWinter.p.dot.f.siteWinter, 
          f.lcl = median(lcl),
          f.ucl = median(ucl)) 
 
-f.mpmSBC <- get.real(asmiPradelmodelsSBC$Phi.siteWinter.p.dot.f.siteWinter, "f", se = TRUE) %>%
+f.mpmSBC <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWinter, "f", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
@@ -735,29 +735,18 @@ p.Cebollavalues <- rep(0, length(p.Cebollaindices))
 
 ##Winter precipitation, summer maximum temp
 asmiddlPradlambda.CC$Phi <- asmiddlPradlambda.CC$Phi  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlPradlambda.CC$p <- asmiddlPradlambda.CC$p  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 
-# asmiddlPradlambda.CC$Phi <- asmiddlPradlambda.CC$Phi %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxCebolla)
-
-# asmiddlPradlambda.CC$p <- asmiddlPradlambda.CC$p %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxCebolla)
-
-# asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxCebolla)
 
 ```
 
@@ -766,14 +755,14 @@ asmiddlPradlambda.CC$Lambda <- asmiddlPradlambda.CC$Lambda  %>%
 run.asmi.lambda.CC <- function(){
   
   Phi.Site = list(formula =  ~ Site)
-  Phi.SiteWinter = list(formula =  ~ WinterPPT_scaled:Site)
-  # Phi.SiteSummer = list(formula =  ~ SummerMax:Site)
-  # Phi.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site)
+  Phi.SiteWinter = list(formula =  ~ ppt_winter:Site)
+  Phi.SiteSummer = list(formula =  ~ tmax_springSummer:Site)
+  Phi.SiteSummerWinter = list(formula =  ~ ppt_winter:SummerMax:Site)
   
   Lambda.Site = list(formula =  ~ Site)
-  Lambda.SiteWinter = list(formula =  ~ WinterPPT_scaled:Site)
-  # Lambda.SiteSummer = list(formula =  ~ SummerMax:Site)
-  # Lambda.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site)
+  Lambda.SiteWinter = list(formula =  ~ ppt_winter:Site)
+  Lambda.SiteSummer = list(formula =  ~ tmax_springSummer:Site)
+  Lambda.SiteSummerWinter = list(formula =  ~ ppt_winter:tmax_springSummer:Site)
 
   p.dot = list(formula = ~ 1,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
@@ -797,20 +786,19 @@ load(paste(savepath, currentyr, "asmiLambda_CC.Rdata", sep=""))
 
 asmi.lambdaresults.CC
 
-Pradlambda.tableCC <- get.real(asmi.lambdaresults.CC$Phi.Site.p.dot.Lambda.SiteWinter, "Lambda", se = TRUE) %>%
+Pradlambda.tableCC <- get.real(asmi.lambdaresults.CC$Phi.SiteWinter.p.dot.Lambda.SiteSummer, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   dplyr::rename(Lambda.estimates = estimate,
          Lambda.lcl = lcl,
          Lambda.ucl = ucl) %>%
   dplyr::select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl, time) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTCebolla) %>%
-  # left_join(SummerMaxCebolla) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) %>%
   mutate(logLambda = log(Lambda.estimates),
          log.lcl = log(Lambda.lcl),
          log.ucl = log(Lambda.ucl))
 
-ggplot(Pradlambda.tableCC, aes(WinterPPT_scaled, logLambda, color = Plot)) +
+ggplot(Pradlambda.tableCC, aes(tmax_springSummer, logLambda, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = log.lcl, ymax = log.ucl), position = position_dodge(width = .1))+
   theme_bw() +
@@ -818,11 +806,11 @@ ggplot(Pradlambda.tableCC, aes(WinterPPT_scaled, logLambda, color = Plot)) +
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
                                 "16" = "Cebolla North"))+
-  xlab("Winter PPT")+
+  xlab("Summer maximum temperature")+
   geom_hline(yintercept = 0, linetype = "dotted")
 
 ## By site
-get.real(asmi.lambdaresults.CC$Phi.Site.p.dot.Lambda.Site, "Lambda", se = TRUE) %>%
+get.real(asmi.lambdaresults.CC$Phi.SiteWinter.p.dot.Lambda.SiteSummer, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE)
 
 ```
@@ -868,29 +856,16 @@ p.SouthBeavervalues <- rep(0, length(p.SouthBeaverindicies))
 
 ##Winter precipitation, summer maximum temp
 asmiddlPradlambda.SBC$Phi <- asmiddlPradlambda.SBC$Phi  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTSouthBeaver) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlPradlambda.SBC$p <- asmiddlPradlambda.SBC$p  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTSouthBeaver) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda  %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTSouthBeaver) 
-
-
-# asmiddlPradlambda.SBC$Phi <- asmiddlPradlambda.SBC$Phi %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxSouthBeaver)
-
-# asmiddlPradlambda.SBC$p <- asmiddlPradlambda.SBC$p %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxSouthBeaver)
-
-# asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda %>%
-#   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-#   left_join(SummerMaxSouthBeaver)
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 ```
 
@@ -899,14 +874,14 @@ asmiddlPradlambda.SBC$Lambda <- asmiddlPradlambda.SBC$Lambda  %>%
 run.asmi.lambda.SBC <- function(){
   
   Phi.Site = list(formula =  ~ Site:fenced)
-  Phi.SiteWinter = list(formula =  ~ WinterPPT_scaled:Site:fenced)
-  # Phi.SiteSummer = list(formula =  ~ SummerMax:Site:fenced)
-  # Phi.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site:fenced)
+  Phi.SiteWinter = list(formula =  ~ ppt_winter:Site:fenced)
+  Phi.SiteSummer = list(formula =  ~ tmax_springSummer:Site:fenced)
+  Phi.SiteSummerWinter = list(formula =  ~ ppt_winter:tmax_springSummer:Site:fenced)
   
   Lambda.Site = list(formula =  ~ Site:fenced)
-  Lambda.SiteWinter = list(formula =  ~ WinterPPT_scaled:Site:fenced)
-  # Lambda.SiteSummer = list(formula =  ~ SummerMax:Site:fenced)
-  # Lambda.SiteSummerWinter = list(formula =  ~ WinterPPT:SummerMax:Site:fenced)
+  Lambda.SiteWinter = list(formula =  ~ ppt_winter:Site:fenced)
+  Lambda.SiteSummer = list(formula =  ~ tmax_springSummer:Site:fenced)
+  Lambda.SiteSummerWinter = list(formula =  ~ ppt_winter:tmax_springSummer:Site:fenced)
 
   p.dot = list(formula = ~ 1,
                fixed = list(index = p.SouthBeaverindicies, value = p.SouthBeavervalues))
@@ -930,15 +905,14 @@ load(paste(savepath, currentyr, "asmiLambda_SBC.Rdata", sep=""))
 
 asmi.lambdaresults.SBC
 
-Pradlambda.tableSBC <- get.real(asmi.lambdaresults.SBC$Phi.SiteWinter.p.dot.Lambda.Site, "Lambda", se = TRUE) %>%
+Pradlambda.tableSBC <- get.real(asmi.lambdaresults.SBC$Phi.SiteWinter.p.dot.Lambda.SiteWinter, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   dplyr::rename(Lambda.estimates = estimate,
          Lambda.lcl = lcl,
          Lambda.ucl = ucl) %>%
   dplyr::select(group, Plot,Lambda.estimates, Lambda.lcl, Lambda.ucl, time) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)))) %>%
-  left_join(WinterPPTSouthBeaver) %>%
-  # left_join(SummerMaxSouthBeaver) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) %>%
   left_join(PlotSiteYrFence) %>%
   mutate(logLambda = log(Lambda.estimates),
          log.lcl = log(Lambda.lcl),
@@ -948,7 +922,7 @@ Pradlambda.tableSBC %>%
   distinct(time,Plot,Site,fenced) %>%
   filter(time %in% c(1995,2010,2023))
 
-ggplot(Pradlambda.tableSBC, aes(WinterPPT, logLambda, color = Site)) +
+ggplot(Pradlambda.tableSBC, aes(ppt_winter, logLambda, color = Site)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = log.lcl, ymax = log.ucl), position = position_dodge(width = .1))+
   theme_bw() +
@@ -960,7 +934,7 @@ ggplot(Pradlambda.tableSBC, aes(WinterPPT, logLambda, color = Site)) +
 
 
 ## By site
-get.real(asmi.lambdaresults.SBC$Phi.SiteWinter.p.dot.Lambda.Site, "Lambda", se = TRUE) %>%
+get.real(asmi.lambdaresults.SBC$Phi.SiteWinter.p.dot.Lambda.SiteWinter, "Lambda", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
   mutate(fence = case_when(time == 1995 ~ "n",
                            TRUE ~ "y")) %>%

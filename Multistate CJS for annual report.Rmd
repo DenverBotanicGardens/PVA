@@ -18,6 +18,8 @@ library(popbio)
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+
 ##To change if someone other than Michelle is running code
 userpath <- "C:/Users/DePrengm/"
 
@@ -68,8 +70,12 @@ asmi.raw$Creek <- as.factor(asmi.raw$Creek)
 
 Multi-state model   
 ```{r}
-load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
+# load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
 
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
+ 
+asmi.season.wide <- asmi.season.wide %>%
+  mutate(Plot = as.factor(Plot))
 
 ```
 
@@ -98,9 +104,9 @@ Add fencing as a factor
 ##########################################################################################################################################
 ```{r}
 
-load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+# load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
 
 ```
 
@@ -162,58 +168,33 @@ asmiMultiCebolla.proc <- process.data(asmiMultiCebolla, begin.time = 2014, model
 asmiMultiCebolla.ddl <- make.design.data(asmiMultiCebolla.proc)
 
 
-WinterPPTCebolla <-  asmi.season %>%
-  filter(Prev12 >= 2014) %>%
-  filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "winter") %>%
-  rename(WinterPPT = Value) %>%
-  dplyr::select(Plot, Prev12, WinterPPT) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
+# WinterPPTCebolla <-  asmi.season %>%
+#   filter(Prev12 >= 2014) %>%
+#   filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
+#   ungroup() %>%
+#   filter(Variable == "ppt" & season == "winter") %>%
+#   rename(WinterPPT = Value) %>%
+#   dplyr::select(Plot, Prev12, WinterPPT) %>%
+#   mutate(Prev12 = as.factor(Prev12)) %>%
+#   mutate(Plot = as.factor(Plot))
 
 
 asmiMultiCebolla.ddl$S <- asmiMultiCebolla.ddl$S %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
   
 asmiMultiCebolla.ddl$p <- asmiMultiCebolla.ddl$p %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
   
 asmiMultiCebolla.ddl$Psi <- asmiMultiCebolla.ddl$Psi %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
-
-
-SummerMaxCebolla <- asmi.season %>%
-  filter(Prev12 >= 2014) %>%
-  filter(site %in% c("Cebolla Mid","Cebolla North")) %>%
-  ungroup() %>%
-  filter(Variable == "tmax" & season == "springSummer") %>%
-  rename(SummerMax = Value) %>%
-  dplyr::select(Plot, Prev12, SummerMax) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-
-asmiMultiCebolla.ddl$S <- asmiMultiCebolla.ddl$S %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
-
-asmiMultiCebolla.ddl$p <- asmiMultiCebolla.ddl$p %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
-
-asmiMultiCebolla.ddl$Psi <- asmiMultiCebolla.ddl$Psi %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMaxCebolla)
-
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 # By sites, have the plots the same over site 
 PlotSiteCebolla <- CJS_asmiCebolla %>%
   distinct(Site, Plot)
-
+# 
 asmiMultiCebolla.ddl$S <- asmiMultiCebolla.ddl$S %>%
   left_join(PlotSiteCebolla)
 asmiMultiCebolla.ddl$p <- asmiMultiCebolla.ddl$p %>%
@@ -252,16 +233,16 @@ p.Cebollavalues <- rep(0, length(p.Cebollaindices))
 
 asmiCebolla <- function(){
   S.stratumSite = list(formula = ~ stratum:Site)
-  S.stratumSiteWinter = list(formula = ~ stratum:WinterPPT:Site) 
-  S.stratumSiteSummer = list(formula = ~ stratum:SummerMax:Site) 
-  S.stratumSiteSummerWinter = list(formula = ~ stratum:WinterPPT:SummerMax:Site) 
+  S.stratumSiteWinter = list(formula = ~ stratum:ppt_winter:Site) 
+  S.stratumSiteSummer = list(formula = ~ stratum:tmax_springSummer:Site) 
+  S.stratumSiteSummerWinter = list(formula = ~ stratum:ppt_winter:tmax_springSummer:Site) 
 
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.Cebollaindices, value = p.Cebollavalues))
   Psi.stratumSite = list(formula = ~ -1 + stratum:tostratum:Site)
-  Psi.stratumSitewinter = list(formula = ~ -1 + stratum:tostratum:WinterPPT:Site)
-  Psi.stratumSitesummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:Site)
-  Psi.stratumSitewintersummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:WinterPPT:Site)
+  Psi.stratumSitewinter = list(formula = ~ -1 + stratum:tostratum:ppt_winter:Site)
+  Psi.stratumSitesummer = list(formula = ~ -1 + stratum:tostratum:tmax_springSummer:Site)
+  Psi.stratumSitewintersummer = list(formula = ~ -1 + stratum:tostratum:tmax_springSummer:ppt_winter:Site)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -299,74 +280,76 @@ asmi.modelCebolla
 ## Detection
 p.strataSite <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "p", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(p.estimates = estimate,
+  dplyr::rename(p.estimates = estimate,
          p.lcl = lcl,
          p.ucl = ucl) %>%
-  select(group, Plot, time, stratum,  p.estimates, p.lcl, p.ucl)
+  dplyr::select(group, Plot, time, stratum,  p.estimates, p.lcl, p.ucl)
 
 
 ## Transitions
 Psi.strataSiteWinter <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "Psi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Psi.estimates = estimate,
+  dplyr::rename(Psi.estimates = estimate,
          Psi.lcl = lcl,
          Psi.ucl = ucl) %>%
-  select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
+  dplyr::select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 stratatostratalabels <- c("R" = "Vegetative to Reproductive", "V" = "Reproductive to Vegetative")
 
-CC.Phi <- ggplot(Psi.strataSiteWinter, aes(WinterPPT, Psi.estimates, color = Plot)) +
-  geom_point(position = position_dodge(width = 5)) +
-  geom_errorbar(aes(ymin = Psi.lcl, ymax = Psi.ucl),position = position_dodge(width = 5))+
+CC.Phi <- ggplot(Psi.strataSiteWinter, aes(ppt_winter, Psi.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = Psi.lcl, ymax = Psi.ucl),position = position_dodge(width = .1))+
   facet_wrap(~tostratum, labeller = labeller(tostratum = stratatostratalabels))+
   theme_bw() +
   ylab("Transition rate") +
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
-                                "16" = "Cebolla North"))
+                                "16" = "Cebolla North"))+
+  xlab("Winter precipitation (mm)")
 
 S.strataSiteWinter <- get.real(asmi.modelCebolla$S.stratumSiteWinter.p.strata.Psi.stratumSitewinter, "S", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(S.estimates = estimate,
+  dplyr::rename(S.estimates = estimate,
          S.lcl = lcl,
          S.ucl = ucl) %>%
-  select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPTCebolla) 
+  dplyr::select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
-CC.S <- ggplot(S.strataSiteWinter, aes(WinterPPT, S.estimates, color = Plot)) +
-  geom_point(position = position_dodge(width = 2)) +
-  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = 2))+
+CC.S <- ggplot(S.strataSiteWinter, aes(ppt_winter, S.estimates, color = Plot)) +
+  geom_point(position = position_dodge(width = .1)) +
+  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = .1))+
   facet_wrap(~stratum)+
   theme_bw() +
   ylab("Survival rate")+
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
-                                "16" = "Cebolla North"))
+                                "16" = "Cebolla North"))+
+  xlab("Winter precipitation (mm)")
 
 ggsave(paste(savepath, "CebollaCreek_survival.jpg", sep = ""),
        CC.S/CC.Phi,
-width=210, height=200,units='mm', dpi=300)
+width=200, height=190,units='mm', dpi=300)
 
 
 ################# By Site
 ## transitions
 Psi.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "Psi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Psi.estimates = estimate,
+  dplyr::rename(Psi.estimates = estimate,
          Psi.lcl = lcl,
          Psi.ucl = ucl) %>%
-  select(group, Plot, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl)
+  dplyr::select(group, Plot, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl)
 
 ## Survival
 S.strataSite <- get.real(asmi.modelCebolla$S.stratumSite.p.strata.Psi.stratumSite, "S", se = TRUE) %>%  
   distinct(estimate, lcl, ucl, .keep_all = TRUE)  %>%
-  rename(S.estimates = estimate,
+  dplyr::rename(S.estimates = estimate,
          S.lcl = lcl,
          S.ucl = ucl) %>%
-  select(group, Plot, stratum, S.estimates, S.lcl, S.ucl)
+  dplyr::select(group, Plot, stratum, S.estimates, S.lcl, S.ucl)
 
 
 ## Select a high winter ppt and a low winter ppt and compare
@@ -380,7 +363,7 @@ MPMCebolla <- Psi.strataSite %>%
 MPMSiteMid <- MPMCebolla %>% filter(group == "1") 
 CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"],     # V survive and remain
                             MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"] + 
-                              f.mpm$f.estimates[f.mpm$Plot == 1],                # R retrogress and per capita recruitment
+                              f.mpm$f.estimates, #[f.mpm$Plot == 1],    # R retrogress and per capita recruitment
                             MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"], # V survive and to R  
                             MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"]),    # R survive and remain
                      nrow = 2,
@@ -389,7 +372,7 @@ CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"],    
 MPMSiteNorth<- MPMCebolla %>% filter(group == "16") 
 CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"], 
                               MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"] + 
-                                f.mpm$f.estimates[f.mpm$Plot == 16],
+                                f.mpm$f.estimates,  # [f.mpm$Plot == 16],
                               MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"], 
                               MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"]),
                      nrow = 2,
@@ -475,51 +458,26 @@ asmiMultiSouthBeaver.ddl <- make.design.data(asmiMultiSouthBeaver.proc)
 
 
 ##Winter precipitation, summer maximum temp
-WinterPPT <- asmi.season %>%
-  filter(Prev12 >= 1995) %>%
-  ungroup() %>%
-  filter(Variable == "ppt" & season == "winter") %>%
-  rename(WinterPPT = Value) %>%
-  dplyr::select(Plot, Prev12, WinterPPT) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
+# WinterPPT <- asmi.season %>%
+#   filter(Prev12 >= 1995) %>%
+#   ungroup() %>%
+#   filter(Variable == "ppt" & season == "winter") %>%
+#   rename(WinterPPT = Value) %>%
+#   dplyr::select(Plot, Prev12, WinterPPT) %>%
+#   mutate(Prev12 = as.factor(Prev12)) %>%
+#   mutate(Plot = as.factor(Plot))
 
 asmiMultiSouthBeaver.ddl$S <- asmiMultiSouthBeaver.ddl$S %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPT) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
   
 asmiMultiSouthBeaver.ddl$p <- asmiMultiSouthBeaver.ddl$p %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPT) 
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
   
 asmiMultiSouthBeaver.ddl$Psi <- asmiMultiSouthBeaver.ddl$Psi %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(WinterPPT) 
-
-
-
-  
-SummerMax <- asmi.season %>%
-  filter(Prev12 >= 1995) %>%
-  ungroup() %>%
-  filter(Variable == "tmax" & season == "springSummer") %>%
-  rename(SummerMax = Value) %>%
-  dplyr::select(Plot, Prev12, SummerMax) %>%
-  mutate(Prev12 = as.factor(Prev12)) %>%
-  mutate(Plot = as.factor(Plot))
-
-asmiMultiSouthBeaver.ddl$S <- asmiMultiSouthBeaver.ddl$S %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMax)
-
-asmiMultiSouthBeaver.ddl$p <- asmiMultiSouthBeaver.ddl$p %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMax)
-
-asmiMultiSouthBeaver.ddl$Psi <- asmiMultiSouthBeaver.ddl$Psi %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
-  left_join(SummerMax)
-
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 
 # By sites, have the plots the same over site 
@@ -611,23 +569,24 @@ p.SouthBeavervalues <- c(p.values)
 ```
 
 
-South Beaver
-```{r}
+South Beaver     
+Takes a long time, run on separate computer    
+```{r, eval = FALSE}
 
 
 asmiSouthBeaver <- function(){
   S.stratumSiteFence = list(formula = ~ stratum:Site:fence)
-  S.stratumSiteWinter = list(formula = ~ stratum:WinterPPT:Site:fence) 
-  S.stratumSiteSummer = list(formula = ~ stratum:SummerMax:Site:fence) 
-  S.stratumSiteSummerWinter = list(formula = ~ stratum:WinterPPT:SummerMax:Site:fence) 
+  S.stratumSiteWinter = list(formula = ~ stratum:ppt_winter:Site:fence) 
+  S.stratumSiteSummer = list(formula = ~ stratum:tmax_springSummer:Site:fence) 
+  S.stratumSiteSummerWinter = list(formula = ~ stratum:ppt_winter:tmax_springSummer:Site:fence) 
 
   p.strata = list(formula = ~ stratum,
                fixed = list(index = p.SouthBeaverindices, value = p.SouthBeavervalues))
   
   Psi.stratumSiteFence = list(formula = ~ -1 + stratum:tostratum:Site:fence)
-  Psi.stratumSitewinter = list(formula = ~ -1 + stratum:tostratum:WinterPPT:Site:fence)
-  Psi.stratumSitesummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:Site:fence)
-  Psi.stratumSitewintersummer = list(formula = ~ -1 + stratum:tostratum:SummerMax:WinterPPT:Site:fence)
+  Psi.stratumSitewinter = list(formula = ~ -1 + stratum:tostratum:ppt_winter:Site:fence)
+  Psi.stratumSitesummer = list(formula = ~ -1 + stratum:tostratum:tmax_springSummer:Site:fence)
+  Psi.stratumSitewintersummer = list(formula = ~ -1 + stratum:tostratum:tmax_springSummer:ppt_winter:Site:fence)
   
   asmi.model.list <- create.model.list("Multistrata")
   asmi.results <- mark.wrapper(asmi.model.list, 
@@ -648,66 +607,100 @@ load(paste(savepath, "asmimodelSouthBeaver.Rdata", sep = ""))
 asmi.modelSouthBeaver
 
 ## Detection
-p.strataSiteSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "p", se = TRUE) %>%
+# p.strataSiteSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "p", se = TRUE) %>%
+p.strataSiteSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummerWinter.p.strata.Psi.stratumSiteFence, "p", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(p.estimates = estimate,
+  dplyr::rename(p.estimates = estimate,
          p.lcl = lcl,
          p.ucl = ucl) %>%
-  select(group, Plot, time, stratum,  p.estimates, p.lcl, p.ucl) %>%
+  dplyr::select(group, Plot, time, stratum,  p.estimates, p.lcl, p.ucl) %>%
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
   left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
-  left_join(WinterPPT) %>%
-  left_join(SummerMax)
+  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
+  # left_join(WinterPPT) %>%
+  # left_join(SummerMax)
 
-
+PlotSiteYrFence %>%
+  filter(site == 19)
+## What is wrong?? 
 ## Transitions
-Psi.strataSiteWinterSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "Psi", se = TRUE) %>%
+Psi.strataSiteWinterSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummerWinter.p.strata.Psi.stratumSiteFence, "Psi", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(Psi.estimates = estimate,
+  dplyr::rename(Psi.estimates = estimate,
          Psi.lcl = lcl,
          Psi.ucl = ucl) %>%
-  select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
+  dplyr::select(group, Plot, time, stratum, tostratum, Psi.estimates, Psi.lcl, Psi.ucl) %>%
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
+  ## Maybe because we added 19 a year later than 26 and 5?? 
   left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
-  left_join(WinterPPT) %>%
-  left_join(SummerMax)
+  mutate(fenced = case_when((group %in% c(512,300) & time == 2006) ~ "y",
+                            TRUE ~ fenced)) %>%
+  # mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
+  # left_join(WinterPPT) %>%
+  # left_join(SummerMax)
+
+# Psi.strataSiteWinterSBC %>%
+#   filter(group %in% c(512,300) & time == 2006)
 
 stratatostratalabels <- c("R" = "Vegetative to Reproductive", "V" = "Reproductive to Vegetative")
 
 ## I think one of the Site 19s that should be marked Yes fenced is still a No
-SBC.Phi <- ggplot(Psi.strataSiteWinterSBC, aes(fenced, Psi.estimates, color = as.factor(site))) +
+SBC.Phi <- ggplot(Psi.strataSiteWinterSBC, aes(fenced, Psi.estimates, color = as.factor(site.x))) + ## Was site 
   geom_point(position = position_dodge(width = 0.5)) +
   geom_errorbar(aes(ymin = Psi.lcl, ymax = Psi.ucl),position = position_dodge(width = 0.5), width = 0.1)+
   facet_wrap(~tostratum, labeller = labeller(tostratum = stratatostratalabels))+
   theme_bw() +
   ylab("Transition rate") +
-  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) 
+  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) +
+  xlab("Open (n) or Fenced (y)")
 
 S.strataSiteWinterSBC <- get.real(asmi.modelSouthBeaver$S.stratumSiteSummer.p.strata.Psi.stratumSiteFence, "S", se = TRUE) %>%
   distinct(estimate, lcl, ucl, .keep_all = TRUE) %>%
-  rename(S.estimates = estimate,
+  dplyr::rename(S.estimates = estimate,
          S.lcl = lcl,
          S.ucl = ucl) %>%
-  select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
+  dplyr::select(group, Plot, time, stratum, S.estimates, S.lcl, S.ucl) %>%
   mutate(Prev12 = as.factor(as.numeric(as.character(time)) +1)) %>%
   mutate(time = as.numeric(as.character(time)),
          group = as.integer(as.character(group))) %>%
   left_join(PlotSiteYrFence, join_by("group" == "plot", "time" == "year")) %>%
-  mutate(Prev12 = as.factor(as.numeric(as.character(time)) + 1)) %>%
-  left_join(WinterPPT) %>%
-  left_join(SummerMax)
+  mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
+  left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) %>%
+  dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 2)) %>%
+  dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 2))
 
-SBC.S <- ggplot(S.strataSiteWinterSBC, aes(SummerMax, S.estimates, color = as.factor(site))) +
-  geom_point(position = position_dodge(width = 2)) +
-  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = 2))+
-  facet_wrap(~stratum)+
+S.strataSiteWinterSBC %>%
+  filter(group %in% c(512,300) & fenced == "y")
+
+
+SBC.S <-
+S.strataSiteWinterSBC %>%
+  # group_by(site.x, ppt_winter_bin,stratum) %>%  #tmax_springSummer_bin, 
+  # dplyr::mutate(S.est = mean(S.estimates),
+  #                  S.l = mean(S.lcl),
+  #                  S.u = mean(S.ucl)) %>%
+ggplot(   aes(tmax_springSummer, S.estimates, color = as.factor(site.x))) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  geom_errorbar(aes(ymin = S.lcl, ymax = S.ucl),position = position_dodge(width = 0.5))+
   theme_bw() +
   ylab("Survival rate")+
-  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) 
+  xlab(expression("Summer maximum temperature "~ "\u00B0C"))+
+  scale_color_manual("Site", values = c("darkblue","skyblue","orange","brown")) +
+  facet_grid( fenced ~ stratum , scales = "free",
+              labeller = labeller(fenced = c("n" = "Open",
+                                             "y" = "Fenced"),
+                                  stratum = c("V" = "Vegetative",
+                                              "R" = "Reproductive"),
+                                  ppt_winter_bin = c("(-2.23,0.982]" = "<= Avg Winter PPT",
+                                                     "(0.982,4.19]" = "> Avg Winter PPT"),
+                                  tmax_springSummer_bin = c("(-2.37,-0.0279]" = "<= Avg Max Summer Temp",
+                                                            "(-0.0279,2.32]" = "> Avg Max Summer Temp")))
 
 ggsave(paste(savepath, "SouthBeaverCreek_survival.jpg", sep = ""),
        SBC.S/SBC.Phi,
