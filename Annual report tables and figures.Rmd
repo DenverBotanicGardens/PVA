@@ -521,7 +521,7 @@ save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Co
 
 
 
-```{r}
+```{r, eval = FALSE}
 ## I think wants wide instead of long as in asmi.annual
 # asmi.c <- asmi.climate
 asmi.c <- asmi.annual %>%
@@ -607,7 +607,7 @@ asmi.annual.2 %>%
 
 
 # Environmental Data
-```{r}
+```{r, eval= FALSE}
 
 # 1986 to currentyr
 asmi.c %>% 
@@ -2352,10 +2352,6 @@ Site 15
 
 [[1]]:All; [[2]]:fenced; [[3]]:open
 
-# Pradel 
-```{r}
-
-```
 
 Multi-stage mark-recapture
 
@@ -2703,7 +2699,8 @@ p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",],
                      values=c(1,2),
                      labels = c("Cebolla Mid","Cebolla North"))+
   theme(legend.position = "inside",legend.justification.inside = c(1,1), legend.position.inside = c(0.95,0.99),
-        legend.background = element_rect(fill=alpha('white', 0.1))) 
+        legend.background = element_rect(fill=alpha('white', 0.1))) +
+  scale_x_continuous(breaks=seq(2015, currentyr-1, 2))
 
 ```
 

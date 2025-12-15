@@ -245,7 +245,7 @@ asmiddlCebolla$f <- asmiddlCebolla$f  %>%
 
 NAs need to get rid of them! What!?! WinterPPT and SummerMax are missing data in 2023 and 2024
 #########################################  Cebolla ##########################################
-```{r}
+```{r, eval = FALSE}
 
 run.PradrecCebolla <- function(){
   Phi.site = list(formula =  ~ Site)
@@ -288,18 +288,22 @@ f.table <- get.real(asmiPradelmodelsCebolla$Phi.siteWinter.p.dot.f.siteSummer, "
   mutate(Prev12 = as.numeric(as.character(time)) +1 ) %>%
   left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
-f.table %>%
+ccPRecruitment <- f.table %>%
   dplyr::mutate(tmax_springSummer_bin = cut(tmax_springSummer, breaks = 3)) %>%
 ggplot(     aes(ppt_winter, f.estimates, color = Plot)) +
   geom_point(position = position_dodge(width = .1)) +
   geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = .1))+
-  stat_smooth(method = "lm")+
+  stat_smooth(method = "gam")+
   theme_bw() +
   # facet_grid(~tmax_springSummer_bin, scales = "free")+
   ylab("Per capita recruitment")+
+  xlab("Winter Precipitation (mm)") +
   scale_color_manual("Site", values = c("darkblue","skyblue"),
                      labels = c("1" = "Cebolla Mid",
-                                "16" = "Cebolla North"))
+                                "16" = "Cebolla North"))+
+  coord_cartesian(ylim = c(0,1)) +
+  ggtitle("c)")
+  
 
 f.table %>%
   dplyr::mutate(ppt_winter_bin = cut(ppt_winter, breaks = 2)) %>%
@@ -541,7 +545,7 @@ asmiddlSouthBeaver$f$fence <- as.factor(asmiddlSouthBeaver$f$fence)
 
 
 ############################### South Beaver Creek ###########################################
-```{r}
+```{r, eval=FALSE}
 
 run.PradrecSBC <- function(){
   Phi.site = list(formula =  ~ Site:fence)
@@ -589,13 +593,27 @@ f.tableSBCPradrec <- get.real(asmiPradelmodelsSBC$Phi.siteSummer.p.dot.f.siteWin
   left_join(asmi.season.wide, by = c("Prev12" = "Prev12", "Plot" = "Plot")) 
 
 pRecruitment <- ggplot(f.tableSBCPradrec, aes(ppt_winter, f.estimates, color = as.factor(Site))) +
-                    geom_point(position = position_dodge(width = 3)) +
-                    geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 3))+
+                    geom_point(position = position_dodge(width = 0.1)) +
+                    geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 0.1))+
                     theme_bw() +
                     stat_smooth(method = "gam") +
                     ylab("Per capita recruitment")+
                     scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown")) +
                     xlab("Winter Precipitation (mm)") +
+                    facet_wrap(~ fenced,
+                               labeller = labeller(fenced = c("n" = "Open",
+                                                   "y" = "Fenced")))+
+                    ggtitle("d)")
+
+## Per captia recruitment and summer maximum temp
+ggplot(f.tableSBCPradrec, aes(tmax_springSummer, f.estimates, color = as.factor(Site))) +
+                    geom_point(position = position_dodge(width = 3)) +
+                    geom_errorbar(aes(ymin = f.lcl, ymax = f.ucl),position = position_dodge(width = 3))+
+                    theme_bw() +
+                    stat_smooth(method = "glm") +
+                    ylab("Per capita recruitment")+
+                    scale_color_manual("Site", values = c("darkblue","skyblue","gold","brown")) +
+                    xlab("Summer maximum temperatures") +
                     facet_wrap(~ fenced,
                                labeller = labeller(fenced = c("n" = "Open",
                                                    "y" = "Fenced")))
@@ -629,6 +647,15 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.f
   facet_wrap(~fenced, labeller = labeller(fenced = c("n" = "Open Plots", "y" = "Fenced Plots")),
              nrow = 2, scales = "free_y")
   
+
+```
+
+
+Figure 4c and 4d: for the Pradelrec annalyses   
+```{r}
+
+ccPRecruitment + pRecruitment
+
 
 ```
 
