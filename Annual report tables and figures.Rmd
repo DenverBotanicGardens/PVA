@@ -24,7 +24,7 @@ library(popbio)
 library(Rage)
 library(devtools)
 library(sciplot)
-library(plotrix)
+# library(plotrix)
 library(scales)
 # library(plyr)
 library(digest)
@@ -3934,13 +3934,19 @@ dev.off()
 Process takes a while   
 Can go back to folder and delete old provisional data to replace with more current   
 ```{r, eval = FALSE}
+# 
+
 # Set wd for prism
-prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
+# prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/PRISM_asmiclimate")
 # prism_set_dl_dir("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/PRISM_data")
+prism_set_dl_dir("Q:/Research/All_Projects_by_Species/PRISM_data")
+prism_get_dl_dir()
 
 #Precipitation total, rain and snow
 get_prism_monthlys(type="ppt", mon = 1:12, resolution = "4km", keepZip = FALSE, years =  currentyr) 
 get_prism_monthlys(type="ppt", mon = 1:12, resolution = "4km", keepZip = FALSE, years = (currentyr-1):currentyr) 
+
+get_prism_monthlys(type="ppt", mon = 1:12, resolution = "4km", keepZip = FALSE, years = 1986:currentyr) 
 
 #Maximum temperature (average)
 get_prism_monthlys(type="tmax", mon = 1:12, resolution = "4km", keepZip = FALSE, years = currentyr) # (currentyr-1):
@@ -3971,13 +3977,13 @@ m.ppt <- lapply(prism_archive_subset("ppt", "monthly", years = 1986:currentyr, r
              date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
 })
 
-m.tmax <- lapply(prism_archive_subset("tmax","monthly",years = 1986:currentyr), function(x){
+m.tmax <- lapply(prism_archive_subset("tmax","monthly",years = 1986:currentyr, resolution = "4km"), function(x){
   x_rast <- pd_to_file(x)
   rastertemps <- raster(x_rast)
   data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
              date = x, Plot = asmiLL$asmilatlong.Tag__, site = asmiLL$asmilatlong.Tag_Commen)
 })
-m.tmin <- lapply(prism_archive_subset("tmin","monthly",years = 1986:currentyr), function(x){
+m.tmin <- lapply(prism_archive_subset("tmin","monthly",years = 1986:currentyr, resolution = "4km"), function(x){
   x_rast <- pd_to_file(x)
   rastertemps <- raster(x_rast)
   data.frame(data = raster::extract(rastertemps, asmiLL[,c("coords.x1","coords.x2")]),
@@ -3998,12 +4004,12 @@ asmi.climate2 <- asmi.climate %>%
 
 
 asmi.climate.monthly <- asmi.climate2 %>%
-  mutate(Year = as.numeric(substr(date,  (nchar(date)+1)-10,nchar(date)-6)),
-         Month = as.numeric(substr(date, (nchar(date)+1)-6, nchar(date)-4)),
+  mutate(Year = as.numeric(substr(date,  (nchar(date)+1)-6,nchar(date)-2)),
+         Month = as.numeric(substr(date, (nchar(date)+1)-2, nchar(date))),
          # Make previous 12 months match year (previous to May survey)
          Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
   #extract the climate variable name from the prism long name
-  separate(date, sep = "_", into = c(NA,"Variable",NA,NA,NA,NA)) %>%
+  separate(date, sep = "_", into = c(NA,"Variable",NA,NA,NA)) %>%
   # mutate(season = "winter") %>%
   mutate(season = case_when(Month %in% c(1,2,3,12) ~ "winter",
                             Month>3 & Month<8 ~ "springSummer",
