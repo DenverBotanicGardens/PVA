@@ -20,6 +20,7 @@ On Onedrive "C:\Users\DePrengm\OneDrive - Denver Botanic Gardens\P drive\hackath
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(sf)
 # library(psych)
 library(popbio)
 library(Rage)
@@ -208,10 +209,10 @@ Put the new data in folder currentyr_asmi and name it RawData_currentyr
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 
-##To change if someone other than Michelle is running code
-userpath <- "C:/Users/DePrengm/"
+##To change if someone other than Michelle/Anna is running code
+userpath <- "C:/Users/anna.gaw/"
 
-rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
+rawdatapath <- paste(userpath, "DENVER BOTANIC GARDENS/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 
 asmi.raw <- read.csv(rawdatapath, na.strings = "na")
 
@@ -220,7 +221,7 @@ asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 89 & asmi.raw$year > 2019),]
 
 
 # For the path and start of the name of each file
-savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
+savepath <- paste(userpath, "DENVER BOTANIC GARDENS/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
 
 ## How many plant seen this year?
 nrow(asmi.raw[asmi.raw$year == currentyr & asmi.raw$length > 0,])
@@ -517,7 +518,7 @@ asmi.annual.2 <- asmi.climate %>%
   pivot_longer(ppt:tmax, names_to = "Variable", values_to = "Value") %>%
   mutate(Value = c(Value))
   
-save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+save(asmi.season.wide, file = paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
 ```
 
 
@@ -525,7 +526,7 @@ save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Co
 ```{r, eval = FALSE}
 ## I think wants wide instead of long as in asmi.annual
 # asmi.c <- asmi.climate
-asmi.c <- asmi.annual %>%
+asmi.c <- asmi.annual.2 %>%
   pivot_wider(names_from = Variable, values_from = Value) %>%
   dplyr::mutate(across(ppt:tmin, scale, .names = "{.col}_scaled")) %>%
   mutate(Year = Prev12)
@@ -609,6 +610,7 @@ asmi.annual.2 %>%
 
 # Environmental Data
 ```{r, eval= FALSE}
+names(asmi.c)[names(asmi.c) == "Creek.x"] <- "Creek"
 
 # 1986 to currentyr
 asmi.c %>% 
@@ -618,7 +620,7 @@ asmi.c %>%
 
 asmi.c %>%
   pivot_longer(cols = ppt_scaled:tmin_scaled, names_to = "variable", values_to = "value") %>%
-ggplot(  aes(Prev12, value, color = site, group = site))+
+ggplot(  aes(Prev12, value, color = Site, group = Site))+
   geom_point()+
   stat_smooth()+
   facet_grid(Creek~variable)
@@ -1636,12 +1638,12 @@ asmi.all <- asmi.all %>%
 
 table(asmi.all$fence, asmi.all$year)
 
-save(asmi.all, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.all", currentyr,".Rdata", sep=""))
+save(asmi.all, file = paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.all", currentyr,".Rdata", sep=""))
 
 ```
 
 
-### Make 'seedlings' that are reprodutive 'reproductive' before binding stage - fate  
+### Make 'seedlings' that are reproductive 'reproductive' before binding stage - fate  
 Merge year to year, year.x is year t, year.y is year t+1   
 remove dead from stages, just fate    
 At this point, just get asmi.all1 to work, if can deal with addition of plots, then can put the two together    
@@ -1698,7 +1700,7 @@ asmi.all2[asmi.all2$fate == "seedling" & asmi.all2$stage == "seedling",] # tag 3
 
 asmi.all2[asmi.all2$stage == "dormant" & asmi.all2$fate == "dead",]
 
-save(asmi.all2, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
+save(asmi.all2, file = paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
 
 ```
 
@@ -1846,7 +1848,7 @@ ggsave(paste(savepath, "FigBootLambda.jpg", sep=""), bootplot,
 
 lambdaHDI %>%
   left_join(SitePlot) %>%
-  save(file = "C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/bootlambda.Rdata")
+  save(file = paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/GitPVAdatasets/bootlambda", currentyr, ".Rdata", sep=""))
 
 
 SBCbootplot <- lambdaHDI %>%
