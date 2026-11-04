@@ -15,7 +15,7 @@ To combine recruitment with multistage transitions and survival for a MPM at hig
 
 
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
-userpath <- "C:/Users/DePrengm/"
+userpath <- "C:/Users/anna.gaw/" #changed to Anna
 savepath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_AnnualReports/", currentyr, "_Astragalus-microcymbus_AnnualReport/", collapse = '', sep = '')
 
 
@@ -26,7 +26,7 @@ library(boot)
 library(ggplot2)
 library(lme4)
 
-userpath <- "C:/Users/DePrengm/"
+userpath <- "C:/Users/anna.gaw/"
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 asmi.raw <- read.csv(rawdatapath, na.strings = "na")
 # need to remove all plot 89, site 1 in 2020 and beyond
@@ -37,7 +37,7 @@ asmi.raw <- asmi.raw[!(asmi.raw$AsMi_plot_id == 52 & asmi.raw$year == 2024),]
 
 
 # In a Stage-Fate format. stage is year t, fate is year t+1; asmi.all2
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate",currentyr,".Rdata",
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate",currentyr,".Rdata",
            sep=""))
 
 asmi.raw %>%
@@ -51,15 +51,15 @@ asmi.raw <- asmi.raw %>%
 Climate
 ```{r, eval = FALSE}
 
-load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+load( paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
 
 ```
 
 ```{r}
 
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
 
 ## From manual PRISM download
 asmi.season.wide
@@ -114,7 +114,7 @@ CJS_asmi_Cebolla %>%
   dplyr::select(ch) %>%
   bind_cols(dmPlot_Cebolla) %>%
   mutate(Plot98 = paste(Plot98, ";", sep = "")) %>%
-  write.table(file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+  write.table(file = paste(savepath, "Pradel/",
                            currentyr,
                            "CJS_asmi_markPradelCebolla.inp",sep=""),
               sep = " ", 
@@ -124,9 +124,9 @@ plotdfCebolla <- CJS_asmi_Cebolla %>%
   distinct(Site,Plot)
 
 ## Convert for MARK  
-asmi.inpCebolla <- convert.inp(paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
-                              currentyr,
-                              "CJS_asmi_markPradelCebolla.inp",sep=""), 
+asmi.inpCebolla <- convert.inp(paste(savepath, "Pradel/",
+                           currentyr,
+                           "CJS_asmi_markPradelCebolla.inp",sep=""), 
                         group.df = plotdfCebolla,
                         covariates = NULL,
                         use.comments = FALSE)
@@ -430,7 +430,7 @@ CJS_asmi_Southbeaver %>%
   dplyr::select(ch) %>%
   bind_cols(dmPlot_SouthBeaver) %>%
   mutate(Plot799 = paste(Plot799, ";", sep = "")) %>%
-  write.table(file = paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+  write.table(file = paste(savepath, "Pradel/",
                            currentyr,
                            "CJS_asmi_markPradelSouthBeaver.inp",sep=""),
               sep = " ", 
@@ -441,13 +441,12 @@ plotdfSouthBeaver <- CJS_asmi_Southbeaver %>%
   arrange(Plot) 
 
 ## Convert for MARK  
-asmi.inpSouthBeaver <- convert.inp(paste("C:/Users/deprengm/OneDrive - Denver Botanic Gardens/P drive/hackathon/GitPVA/datasets/",
+asmi.inpSouthBeaver <- convert.inp(paste(savepath, "Pradel/",
                               currentyr,
                               "CJS_asmi_markPradelSouthBeaver.inp",sep=""), 
                         group.df = plotdfSouthBeaver,
                         covariates = NULL,
                         use.comments = FALSE)
-
 
 asmiprocSouthBeaver <- process.data(asmi.inpSouthBeaver, model = "Pradrec",
                          groups = "Plot",
@@ -651,7 +650,7 @@ ggplot(   aes(as.numeric(as.character(time)), log(Lambda.estimate), color = as.f
 ```
 
 
-Figure 4a and 4b: for the Pradelrec annalyses   
+Figure 4a and 4b: for the Pradelrec analyses   
 ```{r}
 
 ggsave(paste(savepath, "Fig4PradelPerCapRec.jpg", sep = ""),
