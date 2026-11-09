@@ -18,10 +18,10 @@ library(popbio)
 ```{r}
 currentyr <- as.numeric(format(as.Date(Sys.Date(),format="%Y-%m-%d"), "%Y"))
 
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
 
-##To change if someone other than Michelle is running code
-userpath <- "C:/Users/DePrengm/"
+##To change if someone other than Michelle/Anna is running code
+userpath <- "C:/Users/anna.gaw/"
 
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
 
@@ -72,7 +72,7 @@ Multi-state model
 ```{r}
 # load("Q:/Research/All_Projects_by_Species/Astragalus SPECIES/Astragalus_microcymbus/2024_forDBG0077/asmi.all2.Rdata") 
 
-load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/stage-fate", currentyr,".Rdata", sep=""))
  
 asmi.season.wide <- asmi.season.wide %>%
   mutate(Plot = as.factor(Plot))
@@ -603,7 +603,7 @@ save(asmi.modelSouthBeaver, file = paste(savepath, "asmimodelSouthBeaver_v2.Rdat
 
 
 ```{r}
-load(paste(savepath, "asmimodelSouthBeaver.Rdata", sep = ""))
+load(paste(savepath, "asmimodelSouthBeaver_v2.Rdata", sep = ""))
 asmi.modelSouthBeaver
 
 ## Detection
@@ -716,7 +716,7 @@ MPMSouthBeaver <- Psi.strataSiteWinterSBC %>%
   mutate(MPMremain = (1-Psi.estimates) * S.estimates) %>%
   mutate(MPMtransition = Psi.estimates * S.estimates)
 
-MPMSite05open <- MPMSouthBeaver %>% filter(site == 5 & fenced == "n")
+MPMSite05open <- MPMSouthBeaver %>% filter(site.x == 5 & fenced == "n")
 SBCMPM05open <- matrix(c(MPMSite05open$MPMremain[MPMSite05open$stratum == "V"],        # V survive and remain
                             MPMSite05open$MPMtransition[MPMSite05open$stratum == "R"] + 
                               f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 5 &
@@ -727,7 +727,7 @@ SBCMPM05open <- matrix(c(MPMSite05open$MPMremain[MPMSite05open$stratum == "V"], 
                      byrow = TRUE)
 lambda(SBCMPM05open)
 
-MPMSite05fenced <- MPMSouthBeaver %>% filter(site == 5 & fenced == "y")
+MPMSite05fenced <- MPMSouthBeaver %>% filter(site.x == 5 & fenced == "y")
 SBCMPM05fenced <- matrix(c(MPMSite05fenced$MPMremain[MPMSite05fenced$stratum == "V"],     # V survive and remain
                             MPMSite05fenced$MPMtransition[MPMSite05fenced$stratum == "R"] + 
                               f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 5 &
@@ -739,7 +739,7 @@ SBCMPM05fenced <- matrix(c(MPMSite05fenced$MPMremain[MPMSite05fenced$stratum == 
 lambda(SBCMPM05fenced)
 
 
-MPMSite15 <- MPMSouthBeaver %>% filter(site == 15)
+MPMSite15 <- MPMSouthBeaver %>% filter(site.x == 15)
 SBCMPM15 <- matrix(c(MPMSite15$MPMremain[MPMSite15$stratum == "V"],     # V survive and remain
                             MPMSite15$MPMtransition[MPMSite15$stratum == "R"] + 
                               f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 15], # R retrogress and per capita recruitment
@@ -750,7 +750,7 @@ SBCMPM15 <- matrix(c(MPMSite15$MPMremain[MPMSite15$stratum == "V"],     # V surv
 lambda(SBCMPM15)
 
 ## Why are there two values? One for 1995 and on for 2006? Because plot 300 was added late? Plot 300 was added in 2004
-MPMSite19open <- MPMSouthBeaver %>% filter(site == 19 & fenced == "n")
+MPMSite19open <- MPMSouthBeaver %>% filter(site.x == 19 & fenced == "n")
 SBCMPM19open <- matrix(c(MPMSite19open$MPMremain[MPMSite19open$stratum == "V"],        # V survive and remain
                             MPMSite19open$MPMtransition[MPMSite19open$stratum == "R"] + 
                               f.mpmSBCsite$f.estimates[f.mpmSBCsite$site == 19 &
@@ -761,12 +761,12 @@ SBCMPM19open <- matrix(c(MPMSite19open$MPMremain[MPMSite19open$stratum == "V"], 
                      byrow = TRUE)
 lambda(SBCMPM19open)
 
-MPMSite19fenced <- MPMSouthBeaver %>% filter(site == 19 & fenced == "y")
+MPMSite19fenced <- MPMSouthBeaver %>% filter(site.x == 19 & fenced == "y")
 
 
-MPMSite26open <- MPMSouthBeaver %>% filter(site == 26 & fenced == "n")
+MPMSite26open <- MPMSouthBeaver %>% filter(site.x == 26 & fenced == "n")
 
-MPMSite26fenced <- MPMSouthBeaver %>% filter(site == 26 & fenced == "y")
+MPMSite26fenced <- MPMSouthBeaver %>% filter(site.x == 26 & fenced == "y")
 
 ```
 
