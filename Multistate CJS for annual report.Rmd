@@ -363,7 +363,7 @@ MPMCebolla <- Psi.strataSite %>%
 MPMSiteMid <- MPMCebolla %>% filter(group == "1") 
 CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"],     # V survive and remain
                             MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "R"] + 
-                              f.mpm$f.estimates, #[f.mpm$Plot == 1],    # R retrogress and per capita recruitment
+                              f.mpm$f.estimates[1], #[f.mpm$Plot == 1],    # R retrogress and per capita recruitment
                             MPMSiteMid$MPMtransition[MPMSiteMid$stratum == "V"], # V survive and to R  
                             MPMSiteMid$MPMremain[MPMSiteMid$stratum == "R"]),    # R survive and remain
                      nrow = 2,
@@ -372,7 +372,7 @@ CebollaMPMMid <- matrix(c(  MPMSiteMid$MPMremain[MPMSiteMid$stratum == "V"],    
 MPMSiteNorth<- MPMCebolla %>% filter(group == "16") 
 CebollaMPMNorth <- matrix(c(  MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "V"], 
                               MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "R"] + 
-                                f.mpm$f.estimates,  # [f.mpm$Plot == 16],
+                                f.mpm$f.estimates[2],  # [f.mpm$Plot == 16],
                               MPMSiteNorth$MPMtransition[MPMSiteNorth$stratum == "V"], 
                               MPMSiteNorth$MPMremain[MPMSiteNorth$stratum == "R"]),
                      nrow = 2,
