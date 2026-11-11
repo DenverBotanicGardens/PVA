@@ -25,6 +25,7 @@ library(RMark)
 library(boot)
 library(ggplot2)
 library(lme4)
+library(patchwork)
 
 userpath <- "C:/Users/anna.gaw/"
 rawdatapath <- paste(userpath, "Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/", currentyr, "_Astragalus-microcymbus_RawData.csv", collapse = '', sep = '')
