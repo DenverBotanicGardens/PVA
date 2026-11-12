@@ -347,10 +347,10 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
 asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 # only if made it for current year, then load here and skip the climate chunks that follow
-# load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
 
 ## Missing 2025!!
 asmi.season.wide %>%
@@ -517,6 +517,9 @@ asmi.annual.2 <- asmi.climate %>%
   mutate(Value = c(Value))
   
 save(asmi.season.wide, file = paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide2", currentyr,".Rdata", sep=""))
+
+asmi.season.wide %>%
+  filter(Prev12 == 2025)
 ```
 
 
