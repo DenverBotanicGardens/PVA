@@ -59,6 +59,8 @@ library(HDInterval)
 library(popdemo)
 library(RMark)
 
+library(survminer)
+
 ```
 
 
@@ -349,10 +351,10 @@ asmi.ll <- spTransform(SpatialPoints(cbind(asmilatlong$Easting,asmilatlong$North
 asmiLL <- data.frame(raster::coordinates(asmi.ll),asmilatlong$Tag__,asmilatlong$Tag_Commen)
 
 # only if made it for current year, then load here and skip the climate chunks that follow
-# load( paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
-# load(paste("C:/Users/DePrengm/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
+load( paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.climate", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.annual", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season", currentyr,".Rdata", sep=""))
+load(paste("C:/Users/anna.gaw/Denver Botanic Gardens/Conservation - General/AllProjectsBySpecies/Astragalus-microcymbus/Astragalus-microcymbus_Data/asmi.season.wide", currentyr,".Rdata", sep=""))
 
 ## Missing 2025!!
 asmi.season.wide %>%
@@ -526,7 +528,7 @@ save(asmi.season.wide, file = paste(userpath, "Denver Botanic Gardens/Conservati
 ```{r, eval = FALSE}
 ## I think wants wide instead of long as in asmi.annual
 # asmi.c <- asmi.climate
-asmi.c <- asmi.annual.2 %>%
+asmi.c <- asmi.annual %>%
   pivot_wider(names_from = Variable, values_from = Value) %>%
   dplyr::mutate(across(ppt:tmin, scale, .names = "{.col}_scaled")) %>%
   mutate(Year = Prev12)
@@ -764,7 +766,7 @@ historicc
 ```
 
 
-Table 1:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
+Table 2:Demographic data of Astragalus microcymbus within the South Beaver Creek and Cebolla Creek drainages near Gunnison, Colorado. (a) Average number of individuals with above ground growth (AGG) followed by total individuals (AGG and dormant) per plot. (b) Percent of reproductive individuals followed by average reproductive individuals per plot. Site 1 is Cebolla Creek Mid and site 2 is Cebolla Creek north. Standard errors are shown in parentheses.
 ```{r}
 #AGG
 #length of group when the plant had a length greater than zero
@@ -1471,9 +1473,9 @@ ggplot(  aes(tmax_springSummer_bin,log(Total.Fruit), color = site))+
   geom_point(position = position_dodge(width = 0.9))+
   facet_grid(~ppt_winter_bin, scales = "free", 
              labeller = labeller(ppt_winter_bin =
-                                   c("(-1.23,0.137]" = "low winter precipitation",
-                                      "(0.137,1.5]"  = "mid winter precipitation",
-                                      "(1.5,2.86]"  = "high winter precipitation")))+
+                                   c("(-1.83,-0.346]" = "low winter precipitation",
+                                      "(-0.346,1.13]"  = "mid winter precipitation",
+                                      "(1.13,2.62]"  = "high winter precipitation")))+
   xlab("low, mid, and high summer maximum temperature")+
   ylab("log(Total fruit production)")+
   scale_color_discrete("Site")+
@@ -2823,10 +2825,10 @@ p3SBC <-
 Cebolla
 ```{r}
 
-aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site < 3,], mean)
+aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site < 3,], FUN=mean)
 
 aggregate(Total.Fruit~Site+Year,data=ps.asmi.reduced[ps.asmi.reduced$Site<3,],
-          std.error)
+          FUN=se)
 
 
 p3CC <- 
