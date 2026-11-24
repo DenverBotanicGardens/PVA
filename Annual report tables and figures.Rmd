@@ -2089,9 +2089,9 @@ GrowthRateMeanSD <- function(all.pva = all.pva, dataset = asmi.all2){ #, PreFenc
 
   
   # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
-  # data.frame(mean(plotsout), sd(plotsout))
+data.frame(mean(plotsout), sd(plotsout))
 
-# GrowthRateMeanSD(all.pva, plots = openSBCplots)
+GrowthRateMeanSD(all.pva, plots = openSBCplots)
 
 ```
 
@@ -2103,7 +2103,7 @@ Table 5: Average growth rate ($\lambda$) and standard deviation ...
 # GrowthRateMeanSD(all.pva, SBCplots, PreFence = TRUE)
 Growthrates <- GrowthRateMeanSD(all.pva = all.pva, dataset = asmi.all2)
 
-Growthrates %>%
+Growthrates %>% #plot
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2118,7 +2118,7 @@ ggplot(  aes(fenced, log(Lambda)))+
   geom_hline(yintercept = 0, linetype = "dotted")
 
 ## Table 5: By fencing
-Growthrates %>%
+Growthrates %>% # sites by fencing
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2129,7 +2129,7 @@ Growthrates %>%
   mutate(expLambda = exp(geomean))
   
 ## Table 5: all
-Growthrates %>%
+Growthrates %>% #sites all
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2140,7 +2140,7 @@ Growthrates %>%
   mutate(expLambda = exp(geomean))
 
 ## Table 5: by creek
-Growthrates %>%
+Growthrates %>% #Cebolla
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2150,7 +2150,7 @@ Growthrates %>%
                    varLam = var(Lambda)) %>%
   mutate(expLambda = exp(geomean))
 
-Growthrates %>%
+Growthrates %>% # South Beaver
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2160,7 +2160,7 @@ Growthrates %>%
                    varLam = var(Lambda)) %>%
   mutate(expLambda = exp(geomean))
 
-Growthrates %>%
+Growthrates %>% #south beaver creek combined sites by fencing type
   mutate(Lambda = log(Lambda)) %>%
   filter(!is.na(Lambda)) %>%
   filter(!is.infinite(Lambda)) %>%
@@ -2327,7 +2327,7 @@ grViz("digraph integrated_pop {
       [5]: round(A[,3],2) # dormant to
       ")
 
-## Export to save as impage 
+## Export to save as image 
 ```
 
 
@@ -2648,12 +2648,12 @@ ps.asmi.dormant <- do.call(rbind, lapply(split(ps.asmi.reduced, ps.asmi.reduced$
 p2SBC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "SouthBeaver",], 
        aes(Year, Total.Plants, shape = Fence, colour = Fence))+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,
                geom = "line")+
@@ -2684,12 +2684,12 @@ Cebolla AGG and Dormant = Total.Plants
 p2CC <- ggplot(ps.asmi.dormant[ps.asmi.dormant$Creek == "Cebolla",], 
        aes(Year, Total.Plants, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun = mean, position=position_dodge(width=0.05),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.05),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,
                geom = "line")+
@@ -2719,12 +2719,12 @@ AGG
 p1SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site > 3,], 
        aes(Year, Total.Alive, shape = Fence, colour = Fence))+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,
                geom = "line")+
@@ -2754,12 +2754,12 @@ AGG + Dormant   Total.Plants
 p1CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site < 3,], 
        aes(Year, Total.Alive, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
                geom = "line")+
@@ -2795,12 +2795,12 @@ p3SBC <-
   ggplot(  
        aes(Year, Total.Fruit, shape = Fence, colour = Fence))+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
@@ -2838,8 +2838,8 @@ p3CC <-
   ggplot( 
        aes(Year, Total.Fruit, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
                geom = "point")+
@@ -2870,12 +2870,12 @@ X..Flowered - Percent Reproductive
 p4SBC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Creek == "SouthBeaver",], 
        aes(Year, X..Flowered, shape = Fence, colour = Fence))+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.5),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,position=position_dodge(width=0.5),
                geom = "line")+
@@ -2902,12 +2902,12 @@ Cebolla
 p4CC <- ggplot(ps.asmi.reduced[ps.asmi.reduced$Site<3,], 
        aes(Year, X..Flowered, shape = as.factor(Site), colour = as.factor(Site)))+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "errorbar")+
   stat_summary(fun = mean, position=position_dodge(width=0.15),
-               fun.min = function(x) mean(x) - std.error(x),
-               fun.max = function(x) mean(x) + std.error(x),
+               fun.min = function(x) mean(x) - se(x),
+               fun.max = function(x) mean(x) + se(x),
                geom = "point")+
   stat_summary(fun = mean,position=position_dodge(width=0.15),
                geom = "line")+
