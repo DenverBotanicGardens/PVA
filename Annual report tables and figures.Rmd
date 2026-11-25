@@ -645,7 +645,7 @@ asmi.c %>%
   group_by(Creek, variable) %>%
   dplyr::summarise(mean1986_current = mean(value), sd1986_current = sd(value)) %>%
   as.data.frame()
-
+#1984 to current year
 asmi.c %>%
   pivot_longer(cols = ppt:tmin, names_to = "variable", values_to = "value") %>%
   filter(Year > 1994) %>%
@@ -663,27 +663,27 @@ asmi.c %>%
 ```{r}
 length(1995:currentyr)
 
-## Cebolla Creek 2014 - current year
-# CCc <- asmi.c %>%
-#   filter(Creek == "Cebolla" & Prev12 > 2013) %>%
-#   dplyr::summarise(Creek = "CC14",
-#                    meanPPT = mean(ppt), sdPPT = sd(ppt),
-#                    meanTmax = mean(tmax), sdTmax = sd(tmax),
-#                    meanTmin = mean(tmin), sdTmin = sd(tmin))
+# Cebolla Creek 2014 - current year
+ CCc <- asmi.c %>%
+   filter(Creek == "Cebolla" & Prev12 > 2013) %>%
+   dplyr::summarise(Creek = "CC14",
+                    meanPPT = mean(ppt), sdPPT = sd(ppt),
+                    meanTmax = mean(tmax), sdTmax = sd(tmax),
+                    meanTmin = mean(tmin), sdTmin = sd(tmin))
 
 ## With PRISM by hand downloaded
-CCc <- asmi.climate %>%
-  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
-  dplyr::distinct(ppt, tmax, tmin, Prev12, Month, Plot, Site, Creek) %>%
-  group_by(Creek, Prev12, Site) %>%
-  dplyr::summarise(ppt = sum(ppt),
-         tmax = mean(tmax),
-         tmin = mean(tmin)) %>%
-  filter(Prev12 > 2013) %>%
-  group_by(Creek) %>% 
-  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
-                   meanTmax = mean(tmax), sdTmax = sd(tmax),
-                   meanTmin = mean(tmin), sdTmin = sd(tmin))
+#CCc <- asmi.climate %>%
+#  mutate(Prev12 = ifelse(Month > 7, Year+1, Year)) %>%
+#  dplyr::distinct(ppt, tmax, tmin, Prev12, Month, Plot, Site, Creek) %>%
+#  group_by(Creek, Prev12, Site) %>%
+#  dplyr::summarise(ppt = sum(ppt),
+#         tmax = mean(tmax),
+#         tmin = mean(tmin)) %>%
+#  filter(Prev12 > 2013) %>%
+#  group_by(Creek) %>% 
+#  dplyr::summarise(meanPPT = mean(ppt), sdPPT = sd(ppt),
+#                   meanTmax = mean(tmax), sdTmax = sd(tmax),
+#                   meanTmin = mean(tmin), sdTmin = sd(tmin))
 
 
 ## South Beaver Creek 1995 - current year
@@ -2089,9 +2089,9 @@ GrowthRateMeanSD <- function(all.pva = all.pva, dataset = asmi.all2){ #, PreFenc
 
   
   # Table 5: Growth rate (lambda) and standard deviations Fenced Pre-fencing
-data.frame(mean(plotsout), sd(plotsout))
+#data.frame(mean(plotsout), sd(plotsout))
 
-GrowthRateMeanSD(all.pva, plots = openSBCplots)
+#GrowthRateMeanSD(all.pva, plots = openSBCplots)
 
 ```
 
@@ -2202,7 +2202,8 @@ matF <- mean(do.call(c, lapply(all.pva.split, function(x) lapply(x, function(y) 
 log(lambda(matU + matF))
 lambda(matU + matF)
 colSums(sensitivity(matU + matF))
-el <- elasticity(matU + matF)
+sen <- sensitivity(matU + matF) #sensitivity matrix (for report)
+el <- elasticity(matU + matF) #elasticity matrix (for report)
 mx <- mpm_to_mx(matU, matF, lx_crit = 0.01)   # age from stage, age specific reproduction
 lx <- mpm_to_lx(matU, lx_crit = 0.01) ## age from stage, age-specific survivorship
 convShape <- shape_rep(mx)
@@ -2218,7 +2219,7 @@ CCmx <- mpm_to_mx(CCmatU, CCmatF, lx_crit = 0.01)   # age from stage, age specif
 CClx <- mpm_to_lx(CCmatU, lx_crit = 0.01) ## age from stage, age-specific survivorship
 convShape <- shape_rep(CCmx)
 convDegreeItero <- entropy_d(CClx, CCmx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
-gen_time(CCmatU, CCmatF, method = "R0")
+gen_time(CCmatU, CCmatF, method = "R0") #gen time for Cebolla (for report text)
 
 ## Beaver Creek
 log(lambda(BCmatU + BCmatF))
@@ -2229,7 +2230,7 @@ BCmx <- mpm_to_mx(BCmatU, BCmatF, lx_crit = 0.01)   # age from stage, age specif
 BClx <- mpm_to_lx(BCmatU, lx_crit = 0.01) ## age from stage, age-specific survivorship
 convShape <- shape_rep(BCmx)
 convDegreeItero <- entropy_d(BClx, BCmx) ## these are sensitive to length of vectors, and partial survivorship and fecundity - better to use shape_rep
-gen_time(BCmatU, BCmatF, method = "R0")
+gen_time(BCmatU, BCmatF, method = "R0") #gen time for Beaver creek (for report text)
 
 
 ## Vital rates are non-zero elements of A, elasticities
